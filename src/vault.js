@@ -2,7 +2,7 @@
 // packs, rewards - lives here and is only changed by this code. A Durable Object runs one request at a time,
 // so two requests can never spend the same coins or open the same pack twice.
 import { DurableObject } from 'cloudflare:workers';
-import { UT, LINES, KICKERS, MATCH, SELL, STARTER, TRADE, UPGRADE, WAGER, PASS, XF } from './ut_config.js';
+import { UT, LINES, KICKERS, MATCH, SELL, STARTER, TRADE, UPGRADE, WAGER, PASS, XF, CHALLENGES } from './ut_config.js';
 import { PLAYERS } from './ut_players.js';
 const TEAMS = new Set(Object.values(PLAYERS).map(p => p.team).filter(Boolean));
 import { CATALOG } from './ut_catalog.js';
@@ -64,7 +64,7 @@ export const sellValue = (tier, rarity) => Math.round((SELL.base[tier] || SELL.b
 
 export class Vault extends DurableObject {
   constructor(ctx, env) {
-    super(ctx, env); this.sql = ctx.storage.sql; this.hits = [];
+    super(ctx, env); this.env = env; this.sql = ctx.storage.sql; this.hits = [];
     this.sql.exec(`CREATE TABLE IF NOT EXISTS acct (id INTEGER PRIMARY KEY CHECK (id=1), user TEXT, salt TEXT, hash TEXT, coins INTEGER NOT NULL, fails INTEGER NOT NULL DEFAULT 0, lockUntil INTEGER NOT NULL DEFAULT 0, created INTEGER);
       CREATE TABLE IF NOT EXISTS cards (uid TEXT PRIMARY KEY, pid TEXT NOT NULL, rarity TEXT NOT NULL, got INTEGER NOT NULL, src TEXT);
       CREATE TABLE IF NOT EXISTS packs (id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT NOT NULL, got INTEGER NOT NULL);
@@ -81,6 +81,7 @@ export class Vault extends DurableObject {
       CREATE TABLE IF NOT EXISTS lines (slot TEXT PRIMARY KEY, level INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS lineup (slot TEXT PRIMARY KEY, uid TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS xfactor (uid TEXT PRIMARY KEY);
+      CREATE TABLE IF NOT EXISTS chal (per TEXT NOT NULL, id TEXT NOT NULL, n INTEGER NOT NULL DEFAULT 0, claimed INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (per, id));
       CREATE TABLE IF NOT EXISTS daily (day TEXT PRIMARY KEY, coins INTEGER NOT NULL DEFAULT 0, games INTEGER NOT NULL DEFAULT 0);`);
     try { this.sql.exec('ALTER TABLE paidmatch ADD COLUMN xp INTEGER NOT NULL DEFAULT 0'); } catch (e) {}      // accounts made before the season pass
   }
@@ -114,7 +115,7 @@ export class Vault extends DurableObject {
     const a = this.acct(), d = this.sql.exec('SELECT * FROM daily WHERE day=?', today()).toArray()[0] || { coins: 0, games: 0 };
     const packs = {}; this.sql.exec('SELECT kind, COUNT(*) c FROM packs GROUP BY kind').toArray().forEach(r => { packs[r.kind] = r.c; });
     return { user: a.user, coins: a.coins, cards: this.sql.exec('SELECT uid,pid,rarity,src FROM cards ORDER BY got, uid').toArray().map(c => ({ uid: c.uid, pid: c.pid, rarity: c.rarity, sb: this.soulbound(c.src) ? 1 : 0 })), packs,
-      lines: this.lineLevels(), lineup: this.lineupRows(), stats: this.statsRow(), jersey: this.metaGet('jersey'), pass: this.passState(), xf: this.xfState(),
+      lines: this.lineLevels(), lineup: this.lineupRows(), stats: this.statsRow(), jersey: this.metaGet('jersey'), pass: this.passState(), xf: this.xfState(), chal: this.chalState(),
       today: { coins: d.coins, games: d.games }, ledger: this.sql.exec('SELECT ts,delta,bal,why FROM ledger ORDER BY id DESC LIMIT 12').toArray(), cfg: this.publicCfg() };
   }
   kickerBuy(b) {
@@ -147,6 +148,7 @@ export class Vault extends DurableObject {
       this.sql.exec('UPDATE stats SET wins=wins+?, losses=losses+?, ties=ties+?, pf=pf+?, pa=pa+? WHERE id=1', won ? 1 : 0, !won && !tie ? 1 : 0, tie ? 1 : 0, pf, pa);
       const opp = String(b.opp || '').slice(0, 20), pk = 'pp:' + today() + ':' + opp, pn = parseInt(this.metaGet(pk) || '0', 10) || 0;
       if (opp) this.metaSet(pk, String(pn + 1));
+      if (!(opp && pn >= (UT.rewards.pairDailyPaid || 3))) this.chalGame(b, won, true);     // (not for a pair that has played too many times today)
       if (opp && pn >= (UT.rewards.pairDailyPaid || 3)) { why = 'you already played this opponent ' + pn + ' times today'; }
       else if (d.games >= UT.rewards.dailyGameCap || d.coins >= UT.rewards.dailyCoinCap) { why = 'daily limit reached'; }
       else {
@@ -178,7 +180,10 @@ export class Vault extends DurableObject {
     return j({ ok: true, sold: n, got, ...this.state() });
   }
   setJersey(b) {
-    const t = String(b.team || '').toUpperCase(); if (!TEAMS.has(t)) return j({ ok: false, err: 'unknown team' }, 400);
+    const raw = String(b.team || '');
+    if (raw === '') { this.metaSet('jersey', ''); return j({ ok: true, ...this.state() }); }     // back to AUTO
+    if (/^custom:#[0-9a-f]{6},#[0-9a-f]{6},#[0-9a-f]{6}$/i.test(raw)) { this.metaSet('jersey', raw.toLowerCase()); return j({ ok: true, ...this.state() }); }      // a custom jersey: body, number/trim, helmet
+    const t = raw.toUpperCase(); if (!TEAMS.has(t)) return j({ ok: false, err: 'unknown team' }, 400);
     this.metaSet('jersey', t); return j({ ok: true, ...this.state() });
   }
   // ---- trading (the Trade object drives these; they are never reachable from a browser) ----
@@ -188,6 +193,37 @@ export class Vault extends DurableObject {
     const salt = new Uint8Array(a.salt.match(/../g).map(h => parseInt(h, 16))), ok = same(await pbkdf2(String(b.pass || ''), salt), a.hash);
     if (!ok) { const f = a.fails + 1; this.sql.exec('UPDATE acct SET fails=?, lockUntil=? WHERE id=1', f >= UT.loginFailLimit ? 0 : f, f >= UT.loginFailLimit ? Date.now() + UT.loginLockMinutes * 60000 : 0); return j({ ok: false, err: 'wrong password' }, 401); }
     this.sql.exec('UPDATE acct SET fails=0, lockUntil=0 WHERE id=1'); return j({ ok: true });
+  }
+  // ---- challenges + leaderboard feed ----
+  weekKey(d = new Date()) { const t = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())), dow = (t.getUTCDay() + 6) % 7; t.setUTCDate(t.getUTCDate() - dow); return 'w' + t.toISOString().slice(0, 10); }   // the Monday of this week
+  chalPick(list, count, per) {            // the same few for everybody on a given day / week
+    const h = s => { let x = 2166136261; for (const ch of s) { x ^= ch.charCodeAt(0); x = Math.imul(x, 16777619); } return x >>> 0; };
+    return list.slice().sort((a, b) => h(per + a.id) - h(per + b.id)).slice(0, count);
+  }
+  chalSet() { const d = today(), w = this.weekKey(); return { dayKey: d, weekKey: w, day: this.chalPick(CHALLENGES.daily, CHALLENGES.dailyCount, d), week: this.chalPick(CHALLENGES.weekly, CHALLENGES.weeklyCount, w) }; }
+  chalState() {
+    const S = this.chalSet(), rows = {}; this.sql.exec('SELECT per,id,n,claimed FROM chal WHERE per IN (?,?)', S.dayKey, S.weekKey).toArray().forEach(r => { rows[r.per + '|' + r.id] = r; });
+    const fmt = (per, list) => list.map(c => { const r = rows[per + '|' + c.id] || { n: 0, claimed: 0 }; return { id: c.id, text: c.text, goal: c.goal, n: Math.min(r.n, c.goal), coins: c.coins, claimed: !!r.claimed, done: r.n >= c.goal }; });
+    const now = new Date(), midnight = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1), mon = Date.parse(S.weekKey.slice(1) + 'T00:00:00Z') + 7 * 86400000;
+    return { day: { key: S.dayKey, resetsIn: midnight - Date.now(), list: fmt(S.dayKey, S.day) }, week: { key: S.weekKey, resetsIn: mon - Date.now(), list: fmt(S.weekKey, S.week) } };
+  }
+  chalGame(b, won, vs) {                  // a finished, valid game: count it toward today's and this week's challenges
+    const cl = (x, m) => Math.max(0, Math.min(m, Math.floor(+x) || 0)), S = this.chalSet();
+    const ptd = cl(b.ptd, 60), rtd = cl(b.rtd, 60), ev = { ptd, rtd, td: ptd + rtd, py: cl(b.py, 1500), ry: cl(b.ry, 1500), rec: cl(b.rec, 200), fd: cl(b.fd, 200), win: won ? 1 : 0, game: 1, vs: vs ? 1 : 0, clean: won && cl(b.ic, 60) === 0 ? 1 : 0 };
+    for (const [per, list] of [[S.dayKey, S.day], [S.weekKey, S.week]]) for (const c of list) { const add = ev[c.stat] | 0; if (!add) continue;
+      this.sql.exec('INSERT INTO chal (per,id,n,claimed) VALUES (?,?,?,0) ON CONFLICT(per,id) DO UPDATE SET n=MIN(?, n+?) WHERE claimed=0', per, c.id, Math.min(c.goal, add), c.goal, add); }
+    this.sql.exec('DELETE FROM chal WHERE per < ?', new Date(Date.now() - 20 * 86400000).toISOString().slice(0, 10));
+    try { this.ctx.waitUntil(this.env.MM.get(this.env.MM.idFromName('lb')).fetch('https://m/lbadd', { method: 'POST', body: JSON.stringify({ user: this.acct().user, vs: !!vs, win: !!won, td: ptd + rtd, week: S.weekKey }) }).catch(() => {})); } catch (e) {}
+  }
+  chalClaim(b) {
+    const S = this.chalSet(), per = b.per === 'week' ? S.weekKey : S.dayKey, list = b.per === 'week' ? S.week : S.day, c = list.find(x => x.id === String(b.id)); if (!c) return j({ ok: false, err: 'that challenge is not active' }, 404);
+    let res = null;
+    this.ctx.storage.transactionSync(() => {
+      const r = this.sql.exec('SELECT n,claimed FROM chal WHERE per=? AND id=?', per, c.id).toArray()[0];
+      if (!r || r.n < c.goal) { res = { ok: false, err: 'not finished yet' }; return; } if (r.claimed) { res = { ok: false, err: 'already claimed' }; return; }
+      this.sql.exec('UPDATE chal SET claimed=1 WHERE per=? AND id=?', per, c.id); this.add(c.coins, 'challenge: ' + c.text.toLowerCase()); res = { ok: true, coins: c.coins };
+    });
+    return res.ok ? j({ ok: true, ...this.state(), reward: res.coins }) : j(res, 409);
   }
   gamesPlayed() { return parseInt(this.metaGet('gp') || '0', 10) || 0; }
   bumpGames() { this.metaSet('gp', String(this.gamesPlayed() + 1)); }
@@ -384,6 +420,7 @@ export class Vault extends DurableObject {
       if (act === 'open') return this.open(b);
       if (act === 'ping') return j({ ok: true });
       if (act === 'setjersey') return this.setJersey(b);
+      if (act === 'chalclaim') return this.chalClaim(b);
       if (act === 'cardup') return this.cardUp(b);
       if (act === 'passclaim') return this.passClaim(b);
       if (act === 'xfequip') return this.xfSet(b, true);
@@ -461,6 +498,7 @@ export class Vault extends DurableObject {
       if (g.used) { why = 'already claimed'; return; }
       this.sql.exec('UPDATE games SET used=1 WHERE gid=?', g.gid);       // a game can only ever pay once
       const secs = (Date.now() - g.start) / 1000; if (secs < (R.minSeconds[g.mode] ?? 120)) { why = 'game too short'; return; }
+      if (b.early !== true) this.chalGame(b, won, false);          // challenges count every finished game, even past the daily coin cap
       const d = this.sql.exec('SELECT * FROM daily WHERE day=?', today()).toArray()[0] || { coins: 0, games: 0 };
       if (d.games >= R.dailyGameCap || d.coins >= R.dailyCoinCap) { why = 'daily limit reached'; return; }
       paid = Math.min(coinsFor(R, b, won, false, b.early === true), R.dailyCoinCap - d.coins);

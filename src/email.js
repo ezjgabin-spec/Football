@@ -14,6 +14,10 @@ export async function sendMail(env, to, code) {
   if (env.EMAIL_DEV === '1') return { ok: true, dev: code };                                  // local testing only
   const subject = 'Your Ultimate Team code: ' + code, text = 'Your Ultimate Team sign-up code is ' + code + '. It works for 10 minutes. If you did not ask for it, ignore this email.';
   try {
+    if (env.EMAIL && typeof env.EMAIL.send === 'function' && env.MAIL_FROM) {                  // Cloudflare's own email (a send_email binding named EMAIL)
+      try { await env.EMAIL.send({ from: env.MAIL_FROM, to, subject, text }); return { ok: true }; }
+      catch (e) { return { ok: false, err: 'Cloudflare email refused it: ' + String((e && e.message) || e).slice(0, 140) }; }
+    }
     if (env.RESEND_API_KEY && env.MAIL_FROM) { const r = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + env.RESEND_API_KEY }, body: JSON.stringify({ from: env.MAIL_FROM, to: [to], subject, text }) }); return r.ok ? { ok: true } : { ok: false, err: 'the mail service refused it (' + r.status + ')' }; }
     if (env.BREVO_API_KEY && env.MAIL_FROM) { const r = await fetch('https://api.brevo.com/v3/smtp/email', { method: 'POST', headers: { 'content-type': 'application/json', 'api-key': env.BREVO_API_KEY }, body: JSON.stringify({ sender: { email: env.MAIL_FROM, name: 'Ultimate Team' }, to: [{ email: to }], subject, textContent: text }) }); return r.ok ? { ok: true } : { ok: false, err: 'the mail service refused it (' + r.status + ')' }; }
   } catch (e) { return { ok: false, err: 'could not reach the mail service' }; }

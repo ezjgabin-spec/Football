@@ -1,8 +1,3 @@
-EMAIL SIGN-UP CODES (the front door: email code, then name your team + password)
-OFF until you add these in Cloudflare: Workers & Pages -> your Worker (football) -> Settings -> Variables and secrets:
-
-  EMAIL_REQUIRED   1
-  MAIL_FROM        your sender address (verified with your mail provider)
-  BREVO_API_KEY    (Secret) from brevo.com    -- OR --    RESEND_API_KEY (Secret) from resend.com
-
-Remove EMAIL_REQUIRED to turn the email step off again. Never add EMAIL_DEV.
+EMAIL SIGN-UP CODES - optional, off by default. In Cloudflare: Worker -> Settings -> Variables and secrets add EMAIL_REQUIRED = 1 and MAIL_FROM = your sender.
+Send with Cloudflare email (put OPTIONAL/wrangler.cloudflare-email.jsonc in the repo as wrangler.jsonc) OR add BREVO_API_KEY / RESEND_API_KEY (Secret).
+Remove EMAIL_REQUIRED to turn it off. Never add EMAIL_DEV.

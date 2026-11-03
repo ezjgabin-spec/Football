@@ -104,7 +104,24 @@ export class Matchmaker extends DurableObject {
       CREATE TABLE IF NOT EXISTS ecode (h TEXT PRIMARY KEY, ch TEXT NOT NULL, exp INTEGER NOT NULL, tries INTEGER NOT NULL DEFAULT 0, sent INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS eacct (h TEXT PRIMARY KEY, user TEXT NOT NULL, ts INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS eticket (t TEXT PRIMARY KEY, h TEXT NOT NULL, exp INTEGER NOT NULL, used_by TEXT);
-      CREATE TABLE IF NOT EXISTS erate (k TEXT NOT NULL, ts INTEGER NOT NULL);`); }
+      CREATE TABLE IF NOT EXISTS erate (k TEXT NOT NULL, ts INTEGER NOT NULL);
+      CREATE TABLE IF NOT EXISTS lbs (user TEXT NOT NULL, per TEXT NOT NULL, k TEXT NOT NULL, v INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (user, per, k));`); }
+  // ---- leaderboards (this object used with the name 'lb'): online wins (verified by both players), and solo touchdowns (self-reported)
+  lb(b, act) {
+    const inc = (user, per, k, n) => { if (n > 0) this.sql.exec('INSERT INTO lbs (user,per,k,v) VALUES (?,?,?,?) ON CONFLICT(user,per,k) DO UPDATE SET v=v+?', user, per, k, n, n); };
+    if (act === 'lbadd') {
+      const u = String(b.user || '').slice(0, 20), w = String(b.week || ''); if (!u || !/^w\d{4}-\d\d-\d\d$/.test(w)) return j({ ok: false }, 400);
+      for (const per of [w, 'all']) { if (b.vs) { inc(u, per, 'og', 1); if (b.win) inc(u, per, 'ow', 1); } else { inc(u, per, 'sg', 1); if (b.win) inc(u, per, 'sw', 1); inc(u, per, 'std', Math.min(60, b.td | 0)); } }
+      this.sql.exec("DELETE FROM lbs WHERE per<>'all' AND per < ?", new Date(Date.now() - 45 * 86400000).toISOString().slice(0, 10).replace(/^/, 'w'));
+      return j({ ok: true });
+    }
+    const BOARDS = { ow_week: ['ow', 'week'], ow_all: ['ow', 'all'], std_week: ['std', 'week'] }, d = BOARDS[b.board]; if (!d) return j({ ok: false, err: 'no such board' }, 400);
+    const per = d[1] === 'all' ? 'all' : String(b.week || ''), me = String(b.user || '');
+    const top = this.sql.exec('SELECT user, v FROM lbs WHERE per=? AND k=? AND v>0 ORDER BY v DESC, user LIMIT 10', per, d[0]).toArray();
+    const mine = this.sql.exec('SELECT v FROM lbs WHERE per=? AND k=? AND user=?', per, d[0], me).toArray()[0];
+    const rank = mine && mine.v > 0 ? 1 + this.sql.exec('SELECT COUNT(*) c FROM lbs WHERE per=? AND k=? AND (v>? OR (v=? AND user<?))', per, d[0], mine.v, mine.v, me).toArray()[0].c : 0;
+    return j({ ok: true, board: b.board, top, me: { rank, v: mine ? mine.v : 0 } });
+  }
   // ---- email sign-up (this object is used with the name 'email', separate from the matchmaking queue 'mm')
   async email(b, act, now) {
     const PEP = this.env.EMAIL_PEPPER || 'ut-email-v1';
@@ -147,6 +164,7 @@ export class Matchmaker extends DurableObject {
   async fetch(req) {
     const b = await req.json(), act = new URL(req.url).pathname.split('/').pop(), now = Date.now();
     if (/^e(start|check|claim|release|bind)$/.test(act)) return this.email(b, act, now);
+    if (act === 'lbadd' || act === 'lbget') return this.lb(b, act);
     this.sql.exec('DELETE FROM q WHERE ts<?', now - MATCH.queueSeconds * 1000);
     this.sql.exec('DELETE FROM pair WHERE ts<?', now - 120000);
     if (act === 'mcancel') { this.sql.exec('DELETE FROM q WHERE user=?', b.user); return j({ ok: true }); }

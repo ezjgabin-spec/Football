@@ -1,6 +1,6 @@
 // /api/ut/<action>: forwards to the signed-in player's Vault. CORS is open because the game page lives on another address.
 const CORS = { 'access-control-allow-origin': '*', 'access-control-allow-methods': 'POST, OPTIONS', 'access-control-allow-headers': 'content-type', 'access-control-max-age': '86400', 'cache-control': 'no-store' };
-const ACTIONS = new Set(['emailinfo', 'emailstart', 'emailcheck', 'register', 'login', 'state', 'buy', 'open', 'gamestart', 'gamefinish', 'logout', 'lineup', 'upgrade', 'kickbuy', 'ping', 'sell', 'setjersey', 'cardup', 'passclaim', 'xfequip', 'xfunequip', 'passarm', 'tradelist', 'tradeopen', 'tradeget', 'tradeset', 'tradeaccept', 'tradecancel', 'mjoin', 'mreport', 'mstake', 'mwcancel', 'mforfeit', 'mqueue', 'mpoll', 'mcancel']);
+const ACTIONS = new Set(['lbget', 'chalclaim', 'emailinfo', 'emailstart', 'emailcheck', 'register', 'login', 'state', 'buy', 'open', 'gamestart', 'gamefinish', 'logout', 'lineup', 'upgrade', 'kickbuy', 'ping', 'sell', 'setjersey', 'cardup', 'passclaim', 'xfequip', 'xfunequip', 'passarm', 'tradelist', 'tradeopen', 'tradeget', 'tradeset', 'tradeaccept', 'tradecancel', 'mjoin', 'mreport', 'mstake', 'mwcancel', 'mforfeit', 'mqueue', 'mpoll', 'mcancel']);
 export async function utRoute(req, env) {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
   const act = new URL(req.url).pathname.split('/').pop();
@@ -16,6 +16,13 @@ export async function utRoute(req, env) {
   const user = String(b.user || '').toLowerCase();
   if (!/^[a-z0-9_]{3,16}$/.test(user)) return new Response('{"ok":false,"err":"names are 3-16 letters, numbers or _"}', { status: 400, headers: CORS });
   const stub = env.VAULT.get(env.VAULT.idFromName('ut:' + user));
+  if (act === 'lbget') {                                                           // leaderboards: sign in first, then read the board
+    const who = await stub.fetch('https://vault/ping', { method: 'POST', body: JSON.stringify({ user, token: b.token }) });
+    if (!who.ok) return new Response(who.body, { status: who.status, headers: Object.assign({ 'content-type': 'application/json' }, CORS) });
+    const wk = (() => { const n = new Date(), t = new Date(Date.UTC(n.getUTCFullYear(), n.getUTCMonth(), n.getUTCDate())); t.setUTCDate(t.getUTCDate() - ((t.getUTCDay() + 6) % 7)); return 'w' + t.toISOString().slice(0, 10); })();
+    const rr = await env.MM.get(env.MM.idFromName('lb')).fetch('https://m/lbget', { method: 'POST', body: JSON.stringify({ board: String(b.board || ''), user, week: wk }) });
+    return new Response(rr.body, { status: rr.status, headers: Object.assign({ 'content-type': 'application/json' }, CORS) });
+  }
   if (/^trade(open|get|set|accept|cancel)$/.test(act)) {                                // trading: prove who they are, then hand over to the Trade object
     const who = await stub.fetch('https://vault/ping', { method: 'POST', body: JSON.stringify({ user, token: b.token }) });
     if (!who.ok) return new Response(who.body, { status: who.status, headers: Object.assign({ 'content-type': 'application/json' }, CORS) });

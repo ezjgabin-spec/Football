@@ -140,3 +140,31 @@ export const XF = { tiers: ['S', 'A'], rarities: ['Rare', 'Epic', 'Legendary'], 
 export const FREE_PACKS = false;
 // the starter pack is the one exception: you only get it at signup
 if (FREE_PACKS) { for (const k in UT.packs) { UT.packs[k].price = 0; UT.packs[k].noBuy = !!UT.packs[k].starter; } KICKERS.shopPrice = 0; }
+
+// DAILY / WEEKLY CHALLENGES (PLACEHOLDER rewards). Three daily and two weekly ones are picked from these lists (the same for everybody, reset at midnight UTC / Monday).
+// stat: ptd rtd td (passing / rushing / all touchdowns), py ry (yards), rec (catches), fd (first downs), win, game (finished games), vs (online matches), clean (a win with no interception thrown)
+export const CHALLENGES = {
+  dailyCount: 3, weeklyCount: 2,
+  daily: [
+    { id: 'd_ptd2', stat: 'ptd', goal: 2, coins: 60, text: 'THROW 2 TOUCHDOWN PASSES' },
+    { id: 'd_rtd1', stat: 'rtd', goal: 1, coins: 60, text: 'SCORE A RUSHING TOUCHDOWN' },
+    { id: 'd_td4', stat: 'td', goal: 4, coins: 100, text: 'SCORE 4 TOUCHDOWNS' },
+    { id: 'd_py300', stat: 'py', goal: 300, coins: 70, text: 'THROW FOR 300 YARDS' },
+    { id: 'd_ry100', stat: 'ry', goal: 100, coins: 70, text: 'RUSH FOR 100 YARDS' },
+    { id: 'd_rec10', stat: 'rec', goal: 10, coins: 50, text: 'COMPLETE 10 CATCHES' },
+    { id: 'd_fd15', stat: 'fd', goal: 15, coins: 50, text: 'GET 15 FIRST DOWNS' },
+    { id: 'd_win1', stat: 'win', goal: 1, coins: 80, text: 'WIN A GAME' },
+    { id: 'd_win2', stat: 'win', goal: 2, coins: 150, text: 'WIN 2 GAMES' },
+    { id: 'd_games3', stat: 'game', goal: 3, coins: 90, text: 'FINISH 3 GAMES' },
+    { id: 'd_vs1', stat: 'vs', goal: 1, coins: 100, text: 'PLAY AN ONLINE MATCH' },
+    { id: 'd_clean', stat: 'clean', goal: 1, coins: 90, text: 'WIN WITHOUT THROWING AN INTERCEPTION' }
+  ],
+  weekly: [
+    { id: 'w_win5', stat: 'win', goal: 5, coins: 300, text: 'WIN 5 GAMES' },
+    { id: 'w_td15', stat: 'td', goal: 15, coins: 300, text: 'SCORE 15 TOUCHDOWNS' },
+    { id: 'w_py1500', stat: 'py', goal: 1500, coins: 250, text: 'THROW FOR 1,500 YARDS' },
+    { id: 'w_vs3', stat: 'vs', goal: 3, coins: 300, text: 'PLAY 3 ONLINE MATCHES' },
+    { id: 'w_games10', stat: 'game', goal: 10, coins: 250, text: 'FINISH 10 GAMES' },
+    { id: 'w_clean3', stat: 'clean', goal: 3, coins: 300, text: 'WIN 3 GAMES WITHOUT AN INTERCEPTION' }
+  ]
+};
