@@ -44,8 +44,8 @@ export const UT = {
   // coins for finished games (PLACEHOLDERS)
   rewards: {
     // coins per game = playBase + max(0, rushWeight*rushYards + passYards - opponentTotalYards), x winMult if you won, capped per game.
-    // rushWeight 1.5 (not 2): a pass play averages ~7 yards and a run ~4.5, so 1.5 makes a run-heavy and a pass-heavy game pay about the same.
-    playBase: 50, rushWeight: 1.5, yardRate: 0.1, winMult: 3.0, perGameCap: 800,
+    // rushWeight 2: every rushing yard counts double a passing yard.
+    playBase: 50, rushWeight: 2, yardRate: 0.1, winMult: 3.0, perGameCap: 800,
     // yardRate: yards are worth only 0.1 coin each (a rush yard 0.15). Finishing a game pays playBase (50) and every touchdown 20.
     // events add to / take from the performance score. The game can NEVER pay less than playBase (finishing a game always pays), win or lose.
     events: { ptd: 20, rtd: 20, rec: 1, fd: 1, ic: -10, tod: -5, tda: -5, rtda: -5 },
