@@ -109,7 +109,7 @@ export const TRADE = { maxCards: 15, expireMinutes: 60, minGames: 10, minAgeHour
 // cost of a step = tierBase[tier] x stepMult[step]. The steps get much harder AND the better the player's tier the more every step costs,
 // so making a D-tier kicker Legendary is cheap and making an S-tier QB Legendary is a long grind. (PLACEHOLDER numbers.)
 export const UPGRADE = {
-  tierBase: { S: 2500, A: 700, B: 250, C: 120, D: 60, E: 40, F: 40 },
+  tierBase: { S: 1000, A: 700, B: 250, C: 120, D: 60, E: 40, F: 40 },
   stepMult: [1, 2.5, 6, 15],                      // Common->Uncommon, ->Rare, ->Epic, ->Legendary
   order: ['Common', 'Uncommon', 'Rare', 'Epic', 'Legendary']
 };
