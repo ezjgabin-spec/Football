@@ -98,7 +98,7 @@ export class Vault extends DurableObject {
   async authed(tok) { if (typeof tok !== 'string' || tok.length !== 64) return false; const r = this.sql.exec('SELECT exp FROM sessions WHERE h=?', await sha(tok)).toArray()[0]; return !!r && r.exp > Date.now() && !!this.acct(); }
   publicCfg() {
     const packs = {}; for (const k in UT.packs) { const p = UT.packs[k]; packs[k] = { label: p.label, noBuy: !!p.noBuy, price: p.price, cards: p.cards, tierWeights: p.tierWeights, rarityWeights: p.rarityWeights || UT.rarityWeights }; }
-    return { packs, maxBuyAtOnce: UT.maxBuyAtOnce, rarityWeights: UT.rarityWeights, rewards: UT.rewards, sell: SELL, upgrade: UPGRADE, pass: PASS, kicker: { price: KICKERS.shopPrice, prefix: KICKERS.shopPrefix }, lines: { startLevel: LINES.startLevel, maxLevel: LINES.maxLevel, baseCost: LINES.baseCost, perLevel: LINES.perLevel } };
+    return { ver: 's106', packs, maxBuyAtOnce: UT.maxBuyAtOnce, rarityWeights: UT.rarityWeights, rewards: UT.rewards, sell: SELL, upgrade: UPGRADE, pass: PASS, kicker: { price: KICKERS.shopPrice, prefix: KICKERS.shopPrefix }, lines: { startLevel: LINES.startLevel, maxLevel: LINES.maxLevel, baseCost: LINES.baseCost, perLevel: LINES.perLevel } };
   }
   metaGet(k) { const r = this.sql.exec('SELECT v FROM meta WHERE k=?', k).toArray()[0]; return r ? r.v : ''; }
   metaSet(k, val) { this.sql.exec('INSERT INTO meta (k,v) VALUES (?,?) ON CONFLICT(k) DO UPDATE SET v=excluded.v', k, val); }
