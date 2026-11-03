@@ -369,7 +369,7 @@ export class Vault extends DurableObject {
         const uid = want[slot]; if (!uid) continue;
         const c = this.sql.exec('SELECT uid, pid FROM cards WHERE uid=?', String(uid)).toArray()[0];
         if (!c) throw new Error('not owned');
-        const p = CATALOG.find(x => x[0] === c.pid);
+        const p = CATALOG.find(x => x[0] === c.pid) || (c.pid === KICKERS.starter ? [c.pid, 'F', 'K'] : null);          // the starting kicker (Harrison Mevis) is not in the pack catalog but is a valid K
         if (!p || !LINES.lineup[slot].includes(p[2])) throw new Error('wrong position for ' + slot);
         if (Object.values(pick).includes(c.uid)) throw new Error('same card twice');
         pick[slot] = c.uid;
