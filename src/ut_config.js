@@ -51,8 +51,8 @@ export const UT = {
     events: { ptd: 20, rtd: 20, rec: 1, fd: 1, ic: -10, tod: -5, tda: -5, rtda: -5 },
     pairDailyPaid: 3,                                // the same two players are paid for at most 3 online matches a day (stops two accounts farming each other)
     minSeconds: { solo: 120, coop: 120, vs: 120 },   // a game shorter than this pays nothing
-    dailyCoinCap: 5000,                              // most coins that can be earned from games per day
-    dailyGameCap: 20                                 // most paid games per day
+    dailyCoinCap: 1e12,                              // no daily limit on coins (a huge number so it never triggers)
+    dailyGameCap: 1e12                               // no daily limit on paid games
   },
   sessionDays: 60,
   loginFailLimit: 8, loginLockMinutes: 10
