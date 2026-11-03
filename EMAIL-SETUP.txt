@@ -1,0 +1,8 @@
+EMAIL SIGN-UP CODES (the front door: email code, then name your team + password)
+OFF until you add these in Cloudflare: Workers & Pages -> your Worker (football) -> Settings -> Variables and secrets:
+
+  EMAIL_REQUIRED   1
+  MAIL_FROM        your sender address (verified with your mail provider)
+  BREVO_API_KEY    (Secret) from brevo.com    -- OR --    RESEND_API_KEY (Secret) from resend.com
+
+Remove EMAIL_REQUIRED to turn the email step off again. Never add EMAIL_DEV.

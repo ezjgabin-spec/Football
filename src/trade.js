@@ -41,6 +41,7 @@ export class Trade extends DurableObject {
     if (act === 'cancel') { await this.setStatus(t, 'cancelled', b.user + ' cancelled'); return j(this.view(this.row(), b.user)); }
     if (act === 'set') {
       const r = await iv(this.env, b.user, 'i_thas', { uids: Array.isArray(b.uids) ? b.uids.slice(0, TRADE.maxCards) : [] });
+      if (!r.ok) return j({ ...this.view(t, b.user), ok: false, err: r.err || 'you cannot trade yet' }, 403);
       this.sql.exec('UPDATE tr SET o' + me + '=?, acca=0, accb=0, ver=ver+1, note=? WHERE id=1', JSON.stringify(r.cards || []), '');   // any change wipes BOTH accepts
       return j(this.view(this.row(), b.user));
     }
@@ -58,6 +59,8 @@ export class Trade extends DurableObject {
   async execute(t, user) {
     const ua = JSON.parse(t.oa).map(c => c.uid), ub = JSON.parse(t.ob).map(c => c.uid);
     const reopen = async (why) => { this.sql.exec("UPDATE tr SET acca=0, accb=0, ver=ver+1, note=? WHERE id=1", why); return j({ ...this.view(this.row(), user), ok: false, err: why }, 409); };
+    { const sum = o => JSON.parse(o).reduce((s, c) => s + (c.val || 0), 0), va = sum(t.oa), vb = sum(t.ob), hi = Math.max(va, vb), lo = Math.min(va, vb);     // a trade must be close to even
+      if (hi - lo > Math.max(TRADE.maxGapAbs, hi * TRADE.maxGapPct)) return await reopen('the two sides are too uneven (worth ' + va + ' vs ' + vb + ' coins) - trades must be within ' + Math.round(TRADE.maxGapPct * 100) + '%'); }
     const A = ua.length ? await iv(this.env, t.a, 'i_tlock', { tid: t.tid, uids: ua }) : { ok: true, cards: [] };
     if (!A.ok) return await reopen(t.a + ' no longer has every card in the offer');
     const B = ub.length ? await iv(this.env, t.b, 'i_tlock', { tid: t.tid, uids: ub }) : { ok: true, cards: [] };

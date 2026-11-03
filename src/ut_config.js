@@ -45,12 +45,14 @@ export const UT = {
   rewards: {
     // coins per game = playBase + max(0, rushWeight*rushYards + passYards - opponentTotalYards), x winMult if you won, capped per game.
     // rushWeight 1.5 (not 2): a pass play averages ~7 yards and a run ~4.5, so 1.5 makes a run-heavy and a pass-heavy game pay about the same.
-    playBase: 100, rushWeight: 1.5, winMult: 1.5, perGameCap: 1500,
+    playBase: 50, rushWeight: 1.5, yardRate: 0.1, winMult: 3.0, perGameCap: 800,
+    // yardRate: yards are worth only 0.1 coin each (a rush yard 0.15). Finishing a game pays playBase (50) and every touchdown 20.
     // events add to / take from the performance score. The game can NEVER pay less than playBase (finishing a game always pays), win or lose.
-    events: { ptd: 50, rtd: 75, rec: 5, fd: 5, ic: -30, tod: -20, tda: -15, rtda: -20 },
+    events: { ptd: 20, rtd: 20, rec: 1, fd: 1, ic: -10, tod: -5, tda: -5, rtda: -5 },
+    pairDailyPaid: 3,                                // the same two players are paid for at most 3 online matches a day (stops two accounts farming each other)
     minSeconds: { solo: 120, coop: 120, vs: 120 },   // a game shorter than this pays nothing
-    dailyCoinCap: 6000,                              // most coins that can be earned from games per day
-    dailyGameCap: 30                                 // most paid games per day
+    dailyCoinCap: 5000,                              // most coins that can be earned from games per day
+    dailyGameCap: 20                                 // most paid games per day
   },
   sessionDays: 60,
   loginFailLimit: 8, loginLockMinutes: 10
@@ -98,7 +100,10 @@ export const STARTER = {
   equip: { QB: ['QB'], RB: ['RB'], WR: ['WR1', 'WR2', 'WR3'], TE: ['TE'], LB: ['LB1', 'LB2'], CB: ['CB1', 'CB2'], SAF: ['S1', 'S2'], EDGE: ['EDGE1', 'EDGE2'] }
 };
 // TRADING
-export const TRADE = { maxCards: 15, expireMinutes: 60 };
+// TRADING ANTI-ABUSE: you must have FINISHED minGames paid games and the account must be minAgeHours old before you can trade; starter-pack
+// cards can never be traded; both sides of a trade must be worth about the same (sell values within maxGapPct or maxGapAbs coins); and an
+// account can open at most dailyOpen trades a day. This is what stops "make 10 accounts, funnel every star to one".
+export const TRADE = { maxCards: 15, expireMinutes: 60, minGames: 10, minAgeHours: 24, maxGapPct: 0.35, maxGapAbs: 300, dailyOpen: 8 };
 
 // UPGRADING A CARD'S RARITY (Common -> Uncommon -> Rare -> Epic -> Legendary). Each rarity adds flat rating points (see RARITY_BONUS in the rules file).
 // cost of a step = tierBase[tier] x stepMult[step]. The steps get much harder AND the better the player's tier the more every step costs,
@@ -110,7 +115,7 @@ export const UPGRADE = {
 };
 
 // WAGERS: both players put up the same coins, the winner takes both stakes, no play bonus. A tie refunds both. (PLACEHOLDER limits.)
-export const WAGER = { min: 50, max: 5000, presets: [100, 250, 500, 1000, 2500], holdHours: 3 };
+export const WAGER = { min: 50, max: 5000, presets: [100, 250, 500, 1000, 2500], holdHours: 3, minGames: 10, pairDaily: 2 };   // wagers need 10 finished games, and the same two players can wager only 2 times a day
 
 // SEASON PASS: 40 levels, a free track. XP comes from finishing a game and from touchdowns; every level costs more XP than the one before.
 // cost of level L -> L+1 = base + k * L^pow  (about 38,600 XP for the whole pass, roughly 175 typical games). Level 1 pays nothing, level 40 is the jackpot.

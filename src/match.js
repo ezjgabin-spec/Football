@@ -2,8 +2,10 @@
 // (never from the browser), and only pays out when both players report the same final score.
 import { DurableObject } from 'cloudflare:workers';
 import { MATCH, WAGER } from './ut_config.js';
+import { sha, normEmail, sendMail } from './email.js';
 
 const j = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { 'content-type': 'application/json' } });
+const DISPOSABLE_BLOCK = d => /(^|\.)(mailinator|guerrillamail|10minutemail|tempmail|temp-mail|yopmail|trashmail|sharklasers|getnada|dispostable|maildrop|throwawaymail|fakeinbox|mailnesia|mintemail|emailondeck)\./.test(d + '.');
 const vault = (env, user) => env.VAULT.get(env.VAULT.idFromName('ut:' + user));
 const ivault = async (env, user, act, body) => { const r = await vault(env, user).fetch('https://vault/' + act, { method: 'POST', body: JSON.stringify(Object.assign({ user }, body || {})) }); return r.json(); };
 
@@ -46,7 +48,7 @@ export class Match extends DurableObject {
     if (!me.stake) {
       if (!(amt >= WAGER.min && amt <= WAGER.max)) return j({ ok: false, err: 'wager must be ' + WAGER.min + '-' + WAGER.max }, 400);
       if (opp && opp.stake && opp.stake !== amt) return j({ ok: false, err: 'the wager is ' + opp.stake }, 409);
-      const r = await ivault(this.env, b.user, 'i_wlock', { mid: String(b.mid), amount: amt });
+      const r = await ivault(this.env, b.user, 'i_wlock', { mid: String(b.mid), amount: amt, opp: opp ? opp.user : '' });
       if (!r.ok) return j({ ok: false, err: r.err || 'could not hold the wager', short: !!r.short }, 402);
       this.sql.exec('UPDATE mp SET stake=? WHERE user=?', amt, b.user);
     }
@@ -84,7 +86,7 @@ export class Match extends DurableObject {
       for (const r of all) {
         const o = all.find(x => x.user !== r.user), mine = JSON.parse(r.st || '{}'), theirs = JSON.parse(o.st || '{}');
         // each player's score uses his OWN reported offense plus the OTHER player's offense as "yards / touchdowns allowed"
-        await ivault(this.env, r.user, 'i_pay', Object.assign({ mid: String(b.mid), pf: r.pf, pa: r.pa, wager: W.both, oy: (o.ry || 0) + (o.py || 0), tda: theirs.ptd || 0, rtda: theirs.rtd || 0 }, mine));
+        await ivault(this.env, r.user, 'i_pay', Object.assign({ mid: String(b.mid), opp: o.user, pf: r.pf, pa: r.pa, wager: W.both, oy: (o.ry || 0) + (o.py || 0), tda: theirs.ptd || 0, rtda: theirs.rtd || 0 }, mine));
         if (r.stake > 0) { const res = W.both ? (r.pf > r.pa ? 'win' : r.pf < r.pa ? 'lose' : 'refund') : 'refund'; const w = await ivault(this.env, r.user, 'i_wsettle', { mid: String(b.mid), result: res }); this.sql.exec("INSERT OR REPLACE INTO mm (k,v) VALUES (?,?)", 'wn:' + r.user, String(w.net || 0)); }
       }
     }
@@ -96,11 +98,55 @@ export class Match extends DurableObject {
 
 // Matchmaking: a tiny queue. The first player waits, the second is paired with them and both get the same room code.
 export class Matchmaker extends DurableObject {
-  constructor(ctx, env) { super(ctx, env); this.sql = ctx.storage.sql;
+  constructor(ctx, env) { super(ctx, env); this.env = env; this.sql = ctx.storage.sql;
     this.sql.exec(`CREATE TABLE IF NOT EXISTS q (user TEXT PRIMARY KEY, ts INTEGER NOT NULL);
-      CREATE TABLE IF NOT EXISTS pair (user TEXT PRIMARY KEY, code TEXT NOT NULL, role TEXT NOT NULL, opp TEXT NOT NULL, ts INTEGER NOT NULL);`); }
+      CREATE TABLE IF NOT EXISTS pair (user TEXT PRIMARY KEY, code TEXT NOT NULL, role TEXT NOT NULL, opp TEXT NOT NULL, ts INTEGER NOT NULL);
+      CREATE TABLE IF NOT EXISTS ecode (h TEXT PRIMARY KEY, ch TEXT NOT NULL, exp INTEGER NOT NULL, tries INTEGER NOT NULL DEFAULT 0, sent INTEGER NOT NULL);
+      CREATE TABLE IF NOT EXISTS eacct (h TEXT PRIMARY KEY, user TEXT NOT NULL, ts INTEGER NOT NULL);
+      CREATE TABLE IF NOT EXISTS eticket (t TEXT PRIMARY KEY, h TEXT NOT NULL, exp INTEGER NOT NULL, used_by TEXT);
+      CREATE TABLE IF NOT EXISTS erate (k TEXT NOT NULL, ts INTEGER NOT NULL);`); }
+  // ---- email sign-up (this object is used with the name 'email', separate from the matchmaking queue 'mm')
+  async email(b, act, now) {
+    const PEP = this.env.EMAIL_PEPPER || 'ut-email-v1';
+    this.sql.exec('DELETE FROM erate WHERE ts<?', now - 86400000); this.sql.exec('DELETE FROM ecode WHERE exp<?', now); this.sql.exec('DELETE FROM eticket WHERE exp<?', now);
+    if (act === 'estart' || act === 'echeck') {
+      const ne = normEmail(b.email); if (!ne) return j({ ok: false, err: 'enter a real email address' }, 400);
+      if (DISPOSABLE_BLOCK(ne.domain)) return j({ ok: false, err: 'use your real email, not a throwaway one' }, 400);
+      const h = await sha(ne.n + '|' + PEP);
+      if (this.sql.exec('SELECT 1 FROM eacct WHERE h=?', h).toArray().length) return j({ ok: false, err: 'that email already has an account' }, 409);
+      if (act === 'estart') {
+        const ip = String(b.ip || 'x'), cnt = (k, since) => this.sql.exec('SELECT COUNT(*) c FROM erate WHERE k=? AND ts>?', k, since).toArray()[0].c;
+        const old = this.sql.exec('SELECT sent FROM ecode WHERE h=?', h).toArray()[0]; if (old && now - old.sent < 30000) return j({ ok: false, err: 'wait 30 seconds before asking for another code' }, 429);
+        if (cnt('e:' + h, now - 3600000) >= 5) return j({ ok: false, err: 'too many codes for that email - try again in an hour' }, 429);
+        if (cnt('i:' + ip, now - 3600000) >= 15 || cnt('i:' + ip, now - 86400000) >= 60) return j({ ok: false, err: 'too many sign-up tries from this network - try again later' }, 429);
+        const code = String(100000 + (crypto.getRandomValues(new Uint32Array(1))[0] % 900000));
+        const m = await sendMail(this.env, String(b.email).trim(), code); if (!m.ok) return j({ ok: false, err: m.err || 'could not send the email' }, m.err && /not set up/.test(m.err) ? 503 : 502);
+        this.sql.exec('INSERT OR REPLACE INTO ecode (h,ch,exp,tries,sent) VALUES (?,?,?,0,?)', h, await sha(code + '|' + h), now + 600000, now);
+        this.sql.exec('INSERT INTO erate (k,ts) VALUES (?,?),(?,?)', 'e:' + h, now, 'i:' + ip, now);
+        return j(m.dev ? { ok: true, devCode: m.dev } : { ok: true });
+      }
+      const row = this.sql.exec('SELECT * FROM ecode WHERE h=?', h).toArray()[0]; if (!row) return j({ ok: false, err: 'that code expired - ask for a new one' }, 410);
+      if (row.tries >= 5) { this.sql.exec('DELETE FROM ecode WHERE h=?', h); return j({ ok: false, err: 'too many wrong tries - ask for a new code' }, 429); }
+      if (row.ch !== await sha(String(b.code || '').replace(/\D/g, '') + '|' + h)) { this.sql.exec('UPDATE ecode SET tries=tries+1 WHERE h=?', h); return j({ ok: false, err: 'wrong code' }, 400); }
+      this.sql.exec('DELETE FROM ecode WHERE h=?', h);
+      const t = [...crypto.getRandomValues(new Uint8Array(16))].map(x => x.toString(16).padStart(2, '0')).join('');
+      this.sql.exec('INSERT INTO eticket (t,h,exp,used_by) VALUES (?,?,?,NULL)', t, h, now + 1800000);
+      return j({ ok: true, ticket: t });
+    }
+    const t = String(b.ticket || ''), row = this.sql.exec('SELECT * FROM eticket WHERE t=?', t).toArray()[0];
+    if (act === 'eclaim') {
+      if (!row) return j({ ok: false, err: 'verify your email first (the code may have expired)' }, 403);
+      if (this.sql.exec('SELECT 1 FROM eacct WHERE h=?', row.h).toArray().length) return j({ ok: false, err: 'that email already has an account' }, 409);
+      if (row.used_by && row.used_by !== b.user) return j({ ok: false, err: 'that verification was already used' }, 409);
+      this.sql.exec('UPDATE eticket SET used_by=? WHERE t=?', b.user, t); return j({ ok: true });
+    }
+    if (act === 'erelease') { if (row && row.used_by === b.user) this.sql.exec('UPDATE eticket SET used_by=NULL WHERE t=?', t); return j({ ok: true }); }
+    if (act === 'ebind') { if (row && row.used_by === b.user) { this.sql.exec('INSERT OR REPLACE INTO eacct (h,user,ts) VALUES (?,?,?)', row.h, b.user, now); this.sql.exec('DELETE FROM eticket WHERE t=?', t); } return j({ ok: true }); }
+    return j({ ok: false, err: 'unknown' }, 404);
+  }
   async fetch(req) {
     const b = await req.json(), act = new URL(req.url).pathname.split('/').pop(), now = Date.now();
+    if (/^e(start|check|claim|release|bind)$/.test(act)) return this.email(b, act, now);
     this.sql.exec('DELETE FROM q WHERE ts<?', now - MATCH.queueSeconds * 1000);
     this.sql.exec('DELETE FROM pair WHERE ts<?', now - 120000);
     if (act === 'mcancel') { this.sql.exec('DELETE FROM q WHERE user=?', b.user); return j({ ok: true }); }
