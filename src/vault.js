@@ -2,7 +2,7 @@
 // packs, rewards - lives here and is only changed by this code. A Durable Object runs one request at a time,
 // so two requests can never spend the same coins or open the same pack twice.
 import { DurableObject } from 'cloudflare:workers';
-import { UT, LINES, KICKERS, MATCH, SELL, STARTER, TRADE, UPGRADE, WAGER, PASS, XF, CHALLENGES } from './ut_config.js';
+import { UT, LINES, KICKERS, MATCH, SELL, STARTER, TRADE, UPGRADE, WAGER, PASS, XF, CHALLENGES, SEASON } from './ut_config.js';
 import { PLAYERS } from './ut_players.js';
 const TEAMS = new Set(Object.values(PLAYERS).map(p => p.team).filter(Boolean));
 import { CATALOG } from './ut_catalog.js';
@@ -115,7 +115,7 @@ export class Vault extends DurableObject {
     const a = this.acct(), d = this.sql.exec('SELECT * FROM daily WHERE day=?', today()).toArray()[0] || { coins: 0, games: 0 };
     const packs = {}; this.sql.exec('SELECT kind, COUNT(*) c FROM packs GROUP BY kind').toArray().forEach(r => { packs[r.kind] = r.c; });
     return { user: a.user, coins: a.coins, cards: this.sql.exec('SELECT uid,pid,rarity,src FROM cards ORDER BY got, uid').toArray().map(c => ({ uid: c.uid, pid: c.pid, rarity: c.rarity, sb: this.soulbound(c.src) ? 1 : 0 })), packs,
-      lines: this.lineLevels(), lineup: this.lineupRows(), stats: this.statsRow(), jersey: this.metaGet('jersey'), pass: this.passState(), xf: this.xfState(), chal: this.chalState(),
+      lines: this.lineLevels(), lineup: this.lineupRows(), stats: this.statsRow(), jersey: this.metaGet('jersey'), pass: this.passState(), xf: this.xfState(), chal: this.chalState(), season: this.metaGet('season'), seasonClaimed: this.seasonClaimed(),
       today: { coins: d.coins, games: d.games }, ledger: this.sql.exec('SELECT ts,delta,bal,why FROM ledger ORDER BY id DESC LIMIT 12').toArray(), cfg: this.publicCfg() };
   }
   kickerBuy(b) {
@@ -193,6 +193,27 @@ export class Vault extends DurableObject {
     const salt = new Uint8Array(a.salt.match(/../g).map(h => parseInt(h, 16))), ok = same(await pbkdf2(String(b.pass || ''), salt), a.hash);
     if (!ok) { const f = a.fails + 1; this.sql.exec('UPDATE acct SET fails=?, lockUntil=? WHERE id=1', f >= UT.loginFailLimit ? 0 : f, f >= UT.loginFailLimit ? Date.now() + UT.loginLockMinutes * 60000 : 0); return j({ ok: false, err: 'wrong password' }, 401); }
     this.sql.exec('UPDATE acct SET fails=0, lockUntil=0 WHERE id=1'); return j({ ok: true });
+  }
+  // ---- season mode: the browser plays the league; the server stores it and pays the milestone rewards once ----
+  seasonClaimed() { try { return JSON.parse(this.metaGet('sclaim') || '[]'); } catch (e) { return []; } }
+  seasonSet(b) {
+    const raw = String(b.blob || ''); if (raw.length > 9000) return j({ ok: false, err: 'season data too big' }, 400);
+    let o; try { o = JSON.parse(raw); } catch (e) { return j({ ok: false, err: 'bad season data' }, 400); }
+    if (!o || !(o.div >= 1 && o.div <= 5) || !(o.no >= 1 && o.no < 100000)) return j({ ok: false, err: 'bad season data' }, 400);
+    const key = o.div + ':' + o.no; if (this.metaGet('skey') !== key) { this.metaSet('skey', key); this.metaSet('sgp', String(this.gamesPlayed())); this.metaSet('sclaim', '[]'); }   // a new season starts counting games from now
+    this.metaSet('season', raw); return j({ ok: true, ...this.state() });
+  }
+  seasonClaim(b) {
+    const kind = String(b.kind || ''), coins = SEASON.reward[kind]; if (!coins) return j({ ok: false, err: 'unknown reward' }, 400);
+    let res = null;
+    this.ctx.storage.transactionSync(() => {
+      const claimed = this.seasonClaimed(), key = this.metaGet('skey'); if (!key) { res = { ok: false, err: 'no season' }; return; }
+      if (claimed.includes(kind)) { res = { ok: false, err: 'already claimed' }; return; }
+      const played = this.gamesPlayed() - (parseInt(this.metaGet('sgp') || '0', 10) || 0);
+      if (played < SEASON.minGames[kind]) { res = { ok: false, err: 'finish more games this season first (' + played + '/' + SEASON.minGames[kind] + ')' }; return; }
+      claimed.push(kind); this.metaSet('sclaim', JSON.stringify(claimed)); this.add(coins, 'season ' + kind + ' reward'); res = { ok: true };
+    });
+    return res.ok ? j({ ok: true, ...this.state(), reward: coins }) : j(res, 409);
   }
   // ---- challenges + leaderboard feed ----
   weekKey(d = new Date()) { const t = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())), dow = (t.getUTCDay() + 6) % 7; t.setUTCDate(t.getUTCDate() - dow); return 'w' + t.toISOString().slice(0, 10); }   // the Monday of this week
@@ -421,6 +442,8 @@ export class Vault extends DurableObject {
       if (act === 'ping') return j({ ok: true });
       if (act === 'setjersey') return this.setJersey(b);
       if (act === 'chalclaim') return this.chalClaim(b);
+      if (act === 'seasonset') return this.seasonSet(b);
+      if (act === 'seasonclaim') return this.seasonClaim(b);
       if (act === 'cardup') return this.cardUp(b);
       if (act === 'passclaim') return this.passClaim(b);
       if (act === 'xfequip') return this.xfSet(b, true);

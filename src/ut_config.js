@@ -168,3 +168,6 @@ export const CHALLENGES = {
     { id: 'w_clean3', stat: 'clean', goal: 3, coins: 300, text: 'WIN 3 GAMES WITHOUT AN INTERCEPTION' }
   ]
 };
+
+// SEASON MODE (PLACEHOLDER rewards): paid once per season, and only if the account really finished enough games since the season started.
+export const SEASON = { reward: { playoff: 500, champ: 2500 }, minGames: { playoff: 7, champ: 10 } };
