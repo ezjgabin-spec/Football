@@ -211,9 +211,10 @@ export class Vault extends DurableObject {
       if (claimed.includes(kind)) { res = { ok: false, err: 'already claimed' }; return; }
       const played = this.gamesPlayed() - (parseInt(this.metaGet('sgp') || '0', 10) || 0);
       if (played < SEASON.minGames[kind]) { res = { ok: false, err: 'finish more games this season first (' + played + '/' + SEASON.minGames[kind] + ')' }; return; }
-      claimed.push(kind); this.metaSet('sclaim', JSON.stringify(claimed)); this.add(coins, 'season ' + kind + ' reward'); res = { ok: true };
+      for (const k of ['playoff', 'final', 'champ']) { if (!claimed.includes(k)) claimed.push(k); if (k === kind) break; }   // claiming the best result also closes the lower ones
+      this.metaSet('sclaim', JSON.stringify(claimed)); this.add(coins, 'season ' + kind + ' reward'); this.sql.exec('INSERT INTO packs (kind,got) VALUES (?,?)', SEASON.pack[kind], Date.now()); res = { ok: true };
     });
-    return res.ok ? j({ ok: true, ...this.state(), reward: coins }) : j(res, 409);
+    return res.ok ? j({ ok: true, ...this.state(), reward: coins, pack: SEASON.pack[kind] }) : j(res, 409);
   }
   // ---- challenges + leaderboard feed ----
   weekKey(d = new Date()) { const t = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())), dow = (t.getUTCDay() + 6) % 7; t.setUTCDate(t.getUTCDate() - dow); return 'w' + t.toISOString().slice(0, 10); }   // the Monday of this week

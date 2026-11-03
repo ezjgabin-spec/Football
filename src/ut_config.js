@@ -170,4 +170,4 @@ export const CHALLENGES = {
 };
 
 // SEASON MODE (PLACEHOLDER rewards): paid once per season, and only if the account really finished enough games since the season started.
-export const SEASON = { reward: { playoff: 500, champ: 2500 }, minGames: { playoff: 7, champ: 10 } };
+export const SEASON = { reward: { playoff: 1000, final: 1000, champ: 2000 }, pack: { playoff: 'standard', final: 'premium', champ: 'elite' }, minGames: { playoff: 8, final: 10, champ: 11 } };   // only the best result of a season pays; each reward is a pack plus coins
