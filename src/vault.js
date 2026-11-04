@@ -2,7 +2,7 @@
 // packs, rewards - lives here and is only changed by this code. A Durable Object runs one request at a time,
 // so two requests can never spend the same coins or open the same pack twice.
 import { DurableObject } from 'cloudflare:workers';
-import { UT, LINES, KICKERS, MATCH, SELL, STARTER, TRADE, UPGRADE, WAGER, PASS, XF, CHALLENGES, SEASON, DRAFT } from './ut_config.js';
+import { UT, LINES, KICKERS, MATCH, SELL, STARTER, TRADE, UPGRADE, WAGER, PASS, XF, CHALLENGES, SEASON, DRAFT, DEV } from './ut_config.js';
 import { PLAYERS } from './ut_players.js';
 const TEAMS = new Set(Object.values(PLAYERS).map(p => p.team).filter(Boolean));
 import { CATALOG } from './ut_catalog.js';
@@ -115,7 +115,7 @@ export class Vault extends DurableObject {
     const a = this.acct(), d = this.sql.exec('SELECT * FROM daily WHERE day=?', today()).toArray()[0] || { coins: 0, games: 0 };
     const packs = {}; this.sql.exec('SELECT kind, COUNT(*) c FROM packs GROUP BY kind').toArray().forEach(r => { packs[r.kind] = r.c; });
     return { user: a.user, coins: a.coins, cards: this.sql.exec('SELECT uid,pid,rarity,src FROM cards ORDER BY got, uid').toArray().map(c => ({ uid: c.uid, pid: c.pid, rarity: c.rarity, sb: this.soulbound(c.src) ? 1 : 0 })), packs,
-      lines: this.lineLevels(), lineup: this.lineupRows(), stats: this.statsRow(), jersey: this.metaGet('jersey'), pass: this.passState(), xf: this.xfState(), chal: this.chalState(), season: this.metaGet('season'), seasonClaimed: this.seasonClaimed(),
+      lines: this.lineLevels(), lineup: this.lineupRows(), stats: this.statsRow(), jersey: this.metaGet('jersey'), pass: this.passState(), xf: this.xfState(), chal: this.chalState(), season: this.metaGet('season'), seasonClaimed: this.seasonClaimed(), dev: this.metaGet('dev') === '1',
       today: { coins: d.coins, games: d.games }, ledger: this.sql.exec('SELECT ts,delta,bal,why FROM ledger ORDER BY id DESC LIMIT 12').toArray(), cfg: this.publicCfg() };
   }
   kickerBuy(b) {
@@ -202,6 +202,30 @@ export class Vault extends DurableObject {
     if (!o || !(o.div >= 1 && o.div <= 5) || !(o.no >= 1 && o.no < 100000)) return j({ ok: false, err: 'bad season data' }, 400);
     const key = o.div + ':' + o.no; if (this.metaGet('skey') !== key) { this.metaSet('skey', key); this.metaSet('sgp', String(this.gamesPlayed())); this.metaSet('sclaim', '[]'); }   // a new season starts counting games from now
     this.metaSet('season', raw); return j({ ok: true, ...this.state() });
+  }
+  // ---- verified devs: the code is checked here (never in the page); a dev can give packs to anyone, himself included
+  devUnlock(b) {
+    const want = String((this.env && this.env.DEV_CODE) || DEV.code || '').trim().toLowerCase(), got = String(b.code || '').trim().toLowerCase();
+    if (b.off) { this.metaSet('dev', '0'); return j({ ok: true, ...this.state() }); }
+    if (!want || got !== want) return j({ ok: false, err: 'that code does nothing' }, 403);
+    this.metaSet('dev', '1'); return j({ ok: true, ...this.state() });
+  }
+  async devGive(b) {
+    if (this.metaGet('dev') !== '1') return j({ ok: false, err: 'devs only' }, 403);
+    const pack = UT.packs[String(b.pack || '')]; if (!pack) return j({ ok: false, err: 'no such pack' }, 400);
+    const qty = Math.max(1, Math.min(DEV.maxPacksPerGive, parseInt(b.qty, 10) || 1)), to = String(b.to || '').trim().toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 16), me = this.acct().user;
+    if (!to) return j({ ok: false, err: 'who gets them?' }, 400);
+    if (to === me) { for (let i = 0; i < qty; i++) this.sql.exec('INSERT INTO packs (kind,got) VALUES (?,?)', b.pack, Date.now()); this.ledger(0, 'dev gift: ' + qty + ' ' + b.pack); return j({ ok: true, gave: qty, to, ...this.state() }); }
+    const r = await this.env.VAULT.get(this.env.VAULT.idFromName('ut:' + to)).fetch('https://v/i_devgrant', { method: 'POST', body: JSON.stringify({ pack: b.pack, qty, from: me }) }).then(x => x.json()).catch(() => null);
+    if (!r || !r.ok) return j({ ok: false, err: (r && r.err) || 'could not reach that player' }, 404);
+    this.ledger(0, 'dev gift to ' + to + ': ' + qty + ' ' + b.pack); return j({ ok: true, gave: qty, to, ...this.state() });
+  }
+  devGrant(b) {
+    if (!this.acct()) return j({ ok: false, err: 'no such player' }, 404);
+    const pack = UT.packs[String(b.pack || '')]; if (!pack) return j({ ok: false, err: 'no such pack' }, 400);
+    const qty = Math.max(1, Math.min(DEV.maxPacksPerGive, parseInt(b.qty, 10) || 1));
+    for (let i = 0; i < qty; i++) this.sql.exec('INSERT INTO packs (kind,got) VALUES (?,?)', b.pack, Date.now());
+    this.ledger(0, 'gift from dev ' + String(b.from || '').slice(0, 16) + ': ' + qty + ' ' + b.pack); return j({ ok: true });
   }
   draftGet() {                           // the 3 cards on offer for the season you just finished (rolled once by the server, fixed for that season)
     const key = this.metaGet('skey'); if (!key) return j({ ok: false, err: 'no season yet' }, 409);
@@ -447,6 +471,7 @@ export class Vault extends DurableObject {
     if (this.throttle()) return j({ ok: false, err: 'slow down' }, 429);
     try {
       if (act === 'i_exists') return j({ ok: !!this.acct() });
+      if (act === 'i_devgrant') return this.devGrant(b);
       if (act === 'i_verify') return await this.tradeVerify(b);
       if (act === 'i_thas') return this.tradeHas(b);
       if (act === 'i_topen') return this.tradeOpen();
@@ -468,6 +493,8 @@ export class Vault extends DurableObject {
       if (act === 'setjersey') return this.setJersey(b);
       if (act === 'chalclaim') return this.chalClaim(b);
       if (act === 'seasonset') return this.seasonSet(b);
+      if (act === 'devunlock') return this.devUnlock(b);
+      if (act === 'devgive') return await this.devGive(b);
       if (act === 'draftget') return this.draftGet();
       if (act === 'draftpick') return this.draftPick(b);
       if (act === 'seasonclaim') return this.seasonClaim(b);

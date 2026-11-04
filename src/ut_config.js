@@ -171,4 +171,6 @@ export const CHALLENGES = {
 
 // SEASON MODE (PLACEHOLDER rewards): paid once per season, and only if the account really finished enough games since the season started.
 export const DRAFT = { cards: 3, tierWeights: { S: 12, A: 33, B: 55 }, rarityWeights: { Common: 40, Uncommon: 28, Rare: 20, Epic: 9, Legendary: 3 } };   // the draft: after a finished season you pick 1 of 3 cards (one draft per season)
+// DEV STATUS: type this code in the DEV STATUS circle to become a verified dev (blue check + the power to give packs). Set DEV_CODE in the Cloudflare dashboard to change it without a redeploy.
+export const DEV = { code: 'leekknicks', maxPacksPerGive: 10 };
 export const SEASON = { reward: { playoff: 1000, final: 1000, champ: 2000 }, pack: { playoff: 'standard', final: 'premium', champ: 'elite' }, minGames: { playoff: 8, final: 10, champ: 11 } };   // only the best result of a season pays; each reward is a pack plus coins

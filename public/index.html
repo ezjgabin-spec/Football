@@ -19512,7 +19512,7 @@ function fbLobbyGo(d){
   else if (d.id==='dev') fbDevStatusOpen();
 }
 /* ---- DEV STATUS: stand in the circle at the back of the lobby and type the code. All it does: a blue check by your name + a DEV tag above it. */
-function fbDevOn(){ if (FB.devStatus === undefined) { try { FB.devStatus = localStorage.getItem('fb_devstatus_v1') === '1'; } catch(e){ FB.devStatus = false; } } return !!FB.devStatus; }
+function fbDevOn(){ if (typeof utSrv !== 'undefined' && utSrv.token) return utSrv.dev === true; if (FB.devStatus === undefined) { try { FB.devStatus = localStorage.getItem('fb_devstatus_v1') === '1'; } catch(e){ FB.devStatus = false; } } return !!FB.devStatus; }   // signed in: the server says who is a dev
 function fbDevSet(on){ FB.devStatus = !!on; try { localStorage.setItem('fb_devstatus_v1', on ? '1' : '0'); } catch(e){} }
 function fbCheck(g, cx, cy, r){ g.fillStyle = '#1d9bf0'; g.beginPath(); g.arc(cx,cy,r,0,6.3); g.fill(); g.strokeStyle = '#ffffff'; g.lineWidth = Math.max(0.5, r*0.32); g.beginPath(); g.moveTo(cx-r*0.5,cy+r*0.05); g.lineTo(cx-r*0.12,cy+r*0.45); g.lineTo(cx+r*0.55,cy-r*0.42); g.stroke(); }
 function fbDevName(){ return String((typeof utSrv !== 'undefined' && utSrv.user) || (typeof devName === 'function' ? devName() : 'PLAYER')).toUpperCase(); }
@@ -19521,13 +19521,28 @@ function fbDevTag(g, x, y, name){            // name plate with the blue check, 
   const tw = 3*3.9 + 13; uiPanel(g, x-tw/2, y-16, tw, 8.5, { r:4, fill:'rgba(8,28,64,.92)', line:'#1d9bf0' }); Tn('DEV', x-3, y-14.4, '#bfe3ff', 4.2, 'center'); fbCheck(g, x+tw/2-5.2, y-11.7, 2.8);
 }
 function fbDevStatusOpen(){
-  if (document.getElementById('fbDevBox')) return; const on = fbDevOn();
-  const b = document.createElement('div'); b.id = 'fbDevBox'; b.style.cssText = 'position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:2147483000;background:#0b1428;border:2px solid #1d9bf0;border-radius:12px;padding:18px 22px;color:#e8f3ff;font:14px monospace;text-align:center;min-width:270px;box-shadow:0 0 40px rgba(29,155,240,.5)';
-  b.innerHTML = '<div style="font-weight:700;letter-spacing:.14em;color:#8fd0ff;margin-bottom:10px">DEV STATUS</div>'+(on ? '<div style="margin-bottom:12px">DEV STATUS IS ON</div>' : '<input id="fbDevIn" type="text" autocomplete="off" spellcheck="false" placeholder="TYPE THE CODE" style="background:#05080f;color:#fff;border:1px solid #4a8dff;border-radius:6px;padding:8px 10px;width:210px;font:14px monospace;text-align:center">')+'<div id="fbDevMsg" style="min-height:18px;margin:8px 0;color:#ff8b7b"></div><button id="fbDevGo" style="margin-right:8px;padding:7px 14px;background:#1d9bf0;color:#fff;border:0;border-radius:6px;font:700 13px monospace;cursor:pointer">'+(on ? 'TURN OFF' : 'UNLOCK')+'</button><button id="fbDevX" style="padding:7px 14px;background:#25304a;color:#fff;border:0;border-radius:6px;font:700 13px monospace;cursor:pointer">CLOSE</button>';
-  document.body.appendChild(b); const inp = document.getElementById('fbDevIn'), msg = document.getElementById('fbDevMsg'), close = () => { try { b.remove(); } catch(e){} };
-  const go = () => { if (on) { fbDevSet(false); close(); fbMsg('DEV STATUS OFF', '#9fb0dc', 80); return; } const v = String(inp.value || '').trim().toLowerCase(); if (v === 'leekknicks') { fbDevSet(true); close(); fbMsg('DEV STATUS UNLOCKED', '#4da3ff', 110); try { fbSfx('td'); } catch(e){} } else { msg.textContent = 'THAT CODE DOES NOTHING'; inp.value = ''; } };
-  document.getElementById('fbDevGo').onclick = go; document.getElementById('fbDevX').onclick = close;
-  if (inp) { inp.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') go(); if (e.key === 'Escape') close(); }); inp.addEventListener('keyup', e => e.stopPropagation()); setTimeout(() => { try { inp.focus(); } catch(e){} }, 30); }
+  if (document.getElementById('fbDevBox')) return; const on = fbDevOn(), signed = !!(typeof utSrv !== 'undefined' && utSrv.token), cfg = (signed && utSrv.cfg && utSrv.cfg.packs) || {};
+  const packOpts = Object.keys(cfg).map(k => '<option value="'+k+'">'+String(cfg[k].label||k).replace(/</g,'')+'</option>').join('') || '<option value="standard">STANDARD PACK</option><option value="premium">PREMIUM PACK</option><option value="elite">ELITE PACK</option>';
+  const inp = 'style="background:#05080f;color:#fff;border:1px solid #4a8dff;border-radius:6px;padding:8px 10px;font:14px monospace"', btn = (id,txt,bg) => '<button id="'+id+'" style="margin:4px;padding:7px 14px;background:'+bg+';color:#fff;border:0;border-radius:6px;font:700 13px monospace;cursor:pointer">'+txt+'</button>';
+  const b = document.createElement('div'); b.id = 'fbDevBox'; b.style.cssText = 'position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:2147483000;background:#0b1428;border:2px solid #1d9bf0;border-radius:12px;padding:18px 22px;color:#e8f3ff;font:14px monospace;text-align:center;min-width:300px;max-width:92vw;box-shadow:0 0 40px rgba(29,155,240,.5)';
+  b.innerHTML = '<div style="font-weight:700;letter-spacing:.14em;color:#8fd0ff;margin-bottom:10px">DEV STATUS</div>'
+    + (!signed ? '<div style="margin-bottom:10px;color:#ffb74a">SIGN IN TO YOUR TEAM FIRST</div>'
+    : on ? '<div style="margin-bottom:12px">VERIFIED DEV <span style="color:#1d9bf0">&#10004;</span></div>'
+        + '<div style="text-align:left;font-size:12px;color:#8fd0ff;letter-spacing:.1em;margin-bottom:6px">GIVE PACKS</div>'
+        + '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-bottom:8px"><input id="fbDevTo" type="text" autocomplete="off" spellcheck="false" placeholder="TEAM NAME (blank = me)" '+inp+' style="width:190px"><select id="fbDevPk" '+inp+'>'+packOpts+'</select><input id="fbDevQ" type="number" min="1" max="10" value="1" '+inp+' style="width:60px"></div>'
+        + btn('fbDevGive','GIVE','#1d9bf0') + btn('fbDevMe','GIVE ME','#2a7a4a')
+    : '<input id="fbDevIn" type="text" autocomplete="off" spellcheck="false" placeholder="TYPE THE CODE" '+inp+' style="width:210px;text-align:center">')
+    + '<div id="fbDevMsg" style="min-height:18px;margin:8px 0;color:#ff8b7b"></div>'
+    + (signed && !on ? btn('fbDevGo','UNLOCK','#1d9bf0') : '') + (signed && on ? btn('fbDevOff','TURN OFF','#5a2a2a') : '') + btn('fbDevX','CLOSE','#25304a');
+  document.body.appendChild(b); const $ = id => document.getElementById(id), msg = $('fbDevMsg'), close = () => { try { b.remove(); } catch(e){} }, say = (t, ok) => { msg.style.color = ok ? '#7ddc8a' : '#ff8b7b'; msg.textContent = t; };
+  const stop = el => { if (!el) return; el.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Escape') close(); }); el.addEventListener('keyup', e => e.stopPropagation()); };
+  ['fbDevIn','fbDevTo','fbDevQ'].forEach(id => stop($(id)));
+  if ($('fbDevGo')) { const go = () => { const v = String($('fbDevIn').value || '').trim(); if (!v) return; say('CHECKING...', true); utApi('devunlock', { code:v }).then(d => { if (d && d.ok) { utApply(d); close(); fbMsg('DEV STATUS UNLOCKED', '#4da3ff', 110); try { fbSfx('td'); } catch(e){} } else { say((d && d.err) || 'cannot reach the server', false); $('fbDevIn').value = ''; } }); }; $('fbDevGo').onclick = go; $('fbDevIn').addEventListener('keydown', e => { if (e.key === 'Enter') go(); }); setTimeout(() => { try { $('fbDevIn').focus(); } catch(e){} }, 30); }
+  if ($('fbDevOff')) $('fbDevOff').onclick = () => utApi('devunlock', { off:1 }).then(d => { if (d && d.ok) { utApply(d); close(); fbMsg('DEV STATUS OFF', '#9fb0dc', 80); } });
+  const give = toMe => { const to = toMe ? (utSrv.user||'') : String($('fbDevTo').value || '').trim() || (utSrv.user||''), pack = $('fbDevPk').value, qty = Math.max(1, Math.min(10, parseInt($('fbDevQ').value, 10) || 1)); say('SENDING...', true);
+    utApi('devgive', { to, pack, qty }).then(d => { if (d && d.ok) { utApply(d); say('GAVE '+d.gave+' x '+pack.toUpperCase()+' TO '+String(d.to).toUpperCase(), true); } else say((d && d.err) || 'failed', false); }); };
+  if ($('fbDevGive')) $('fbDevGive').onclick = () => give(false); if ($('fbDevMe')) $('fbDevMe').onclick = () => give(true);
+  $('fbDevX').onclick = close;
 }
 function fbLobbyStep(dt){
   const av = FB.lobbyAv; fbRigs.forEach(p => { p.anim += 0.015; }); if (!av) return;
@@ -19571,7 +19586,7 @@ function fbLobbyWalkDraw(g){
     T(d.name, x+w/2, y+2.4, ok ? '#ffffff' : '#9aa3bd', 4.6, 'center'); if (sub) T(sub, x+w/2, y+10, ok ? d.col : '#7a82a0', 3.1, 'center'); g.globalAlpha = 1; });
   if (FB.lobbyDwell > 0 && FB.lobbyNear) { const d = FB_LPADS.find(q => q.id===FB.lobbyNear); if (d) { fbPanel(g,100,150,120,12,0.8); g.fillStyle = 'rgba(255,255,255,.18)'; g.fillRect(104,159,112,2); g.fillStyle = d.col; g.fillRect(104,159,112*clamp(FB.lobbyDwell/0.55,0,1),2); T('GOING TO  '+d.name,160,152.4,'#ffffff',4.2,'center'); } }
   fbPanel(g,56,164,208,12,0.6); T('WASD WALK     SHIFT RUN     STEP ON A GLOWING PAD',160,167,'#cfd8f4',4.4,'center');
-  T('BUILD v121',314,174,'#8fa0cc',4,'right'); { const us = uoStatus(); if (us) T(us, 6, 174, UO.state==='off' ? '#ff8b7b' : '#6f7ea8', 3, 'left'); }
+  T('BUILD v122',314,174,'#8fa0cc',4,'right'); { const us = uoStatus(); if (us) T(us, 6, 174, UO.state==='off' ? '#ff8b7b' : '#6f7ea8', 3, 'left'); }
 }
 /* ---------------------------------------------------------------- ULTIMATE TEAM: hub, collection, cards (packs come in the next stage) */
 const UT_KEY = 'blacktop_ut_v1';
@@ -19650,7 +19665,7 @@ async function utApi(a, body){
   } catch(e){ utSrv.offline = true; return { ok:false, err: e && e.name === 'AbortError' ? 'the server took too long - check your connection and try again' : 'cannot reach the server - is your network blocking it?' }; }
   finally { clearTimeout(tm); }
 }
-function utApply(d){ if (!d) return; if (d.chal) utSrv.chalAt = performance.now(); ['coins','cards','packs','cfg','today','ledger','lines','lineup','stats','jersey','pass','xf','chal','season','seasonClaimed'].forEach(k => { if (d[k]!==undefined) utSrv[k] = d[k]; }); if (d.user) utSrv.user = d.user; }
+function utApply(d){ if (!d) return; if (d.chal) utSrv.chalAt = performance.now(); ['coins','cards','packs','cfg','today','ledger','lines','lineup','stats','jersey','pass','xf','chal','season','seasonClaimed','dev'].forEach(k => { if (d[k]!==undefined) utSrv[k] = d[k]; }); if (d.user) utSrv.user = d.user; }
 function utSignedOut(){ utSrv.lines = {}; utSrv.lineup = {}; utSrv.token = null; utSrv.cards = []; utSrv.packs = {}; utSrv.coins = 0; try { localStorage.removeItem(UT_SESS); } catch(e){} }
 function utInit(){
   if (utSrv.inited) return; utSrv.inited = true;
@@ -21918,7 +21933,7 @@ function fbLobbyDraw(g){
   T('WHEN THE CPU HAS THE BALL YOU CAN PLAY DEFENSE (OR SKIP IT)',160,167,'#aeb9dc',4.6,'center');
   fbBtn(g,'lobbyback',6,5,76,12,'< BACK TO THE FIELD',{size:4.6});
   fbBtn(g,'party',6,19,76,10,PARTY.on ? 'PARTY  '+PARTY.code.toUpperCase() : 'PLAY WITH A FRIEND',{size:4.4,line:'#7ddc8a',tc:'#c9f7d0'});
-  T('BUILD v121',314,174,'#8fa0cc',4,'right');   // so you can tell which build is live
+  T('BUILD v122',314,174,'#8fa0cc',4,'right');   // so you can tell which build is live
   fbBtn(g,'tut',100,141,58,13,'TUTORIAL',{size:5,line:'#ffd24a',tc:'#ffe9a8'}); fbBtn(g,'howlobby',162,141,58,13,'HOW TO PLAY',{size:4.4,line:'#ffd24a',tc:'#ffe9a8'});
   fbBtn(g,'shop',6,141,90,13,'PLAY SHOP',{size:5.5,line:'#7ddc8a',tc:'#c9f7d0'});
   fbBtn(g,'stats',224,141,90,13,'MY STATS',{size:5.5,line:'#6fd0ff',tc:'#cfeeff'});
