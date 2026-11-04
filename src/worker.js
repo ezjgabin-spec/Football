@@ -32,6 +32,10 @@ export default {
     }
     if (url.pathname.startsWith('/api/ut/')) return utRoute(req, env);      // Ultimate Team: accounts, coins, packs
     if (url.pathname === '/api/hello') return Response.json({ blacktop: 1 }, { headers: { 'cache-control': 'no-store', 'access-control-allow-origin': '*' } });
+    if (url.pathname.startsWith('/anim/')) {                                  // the tackle animation library (gzipped GLB clips) for the game page on any origin
+      if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: { 'access-control-allow-origin': '*', 'access-control-allow-methods': 'GET', 'access-control-max-age': '86400' } });
+      const r = await env.ASSETS.fetch(req), h = new Headers(r.headers); h.set('access-control-allow-origin', '*'); h.set('cache-control', 'public, max-age=86400'); return new Response(r.body, { status: r.status, headers: h });
+    }
     return env.ASSETS.fetch(req);
   }
 };
