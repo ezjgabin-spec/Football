@@ -18363,6 +18363,7 @@ function fbLive(dt){
   // ---- tackles / scoring / bounds
   fbTackleStep(dt);
   try { uoStep(dt); } catch(e){}
+  try { fbFpStep(); } catch(e){}
   fbFalls();
   fbCamFocus();
 }
@@ -18469,6 +18470,7 @@ function fbDefStep(dt){
       if (!fbVs() && tg===s.ctl && tg.carry && (tg.role!=='QB' || tg.x > los) && k!=='DL' && k!=='OL') { const top = (tg.role==='RB' ? 9.8 : tg.role==='QB' ? 8.2 : 9.8) * fbRm(tg); v = Math.max(v, top*(1.02+0.025*FB.diff)*sl); }   // defenders are always a touch faster than you
       let ti = Math.min(1.8, fbDist(d,tg)/Math.max(3,v)), px = tg.x, pz = tg.z;      // cut off the angle: run to where he WILL be when I get there (not at where he is)
       for (let it = 0; it < 3; it++) { px = tg.x + (tg.vx||0)*ti; pz = tg.z + (tg.vz||0)*ti; ti = Math.min(1.8, Math.hypot(px-d.x, pz-d.z)/Math.max(3,v)); }
+      if (d.contain && !fbVs() && s.t < 2.2 && !(tg.x > d.x + 1.2)) { pz = d.contain > 0 ? Math.max(pz, tg.z + 0.9) : Math.min(pz, tg.z - 0.9); }   // contain: stay on the outside shoulder, make him cut back into the pile
       fbMove(d, px, pz, v, dt, d.rusher && k==='LB' ? 14 : 36); };
     if (s.turn) { const ch = s.carrier; fbBlockDef(d,dt); return; }
     // someone has the ball and it's a live carry -> pursue
@@ -18477,7 +18479,10 @@ function fbDefStep(dt){
       if (hd < 9) { if (hd > 0.6) fbMove(d, hx, hz, msp*sl, dt, 30); else fbVel(d,0,0,dt,30); fbFace(d, car.x, car.z); d.st = 'ready'; return; }
     }
     const carrierOut = car && (car.role!=='QB' || car.x > los-0.1 && car.carry) ;
+    if (d.rdPlay !== s.skillPlayId) { d.rdPlay = s.skillPlayId; d.rdT = (k==='DL' ? 0.05 : 0.2) + Math.random()*0.38 + (k==='CB' ? 0.12 : k==='S' ? 0.1 : 0); d.contain = 0; }          // each man reads the play for a beat of his own (nobody commits on the snap)
+    if (s.contPlay !== s.skillPlayId && s.t > 0.05) { s.contPlay = s.skillPlayId; const w = fbDef().filter(q => { const kk = fbKind(q.role); return kk==='LB' || kk==='S' || kk==='CB'; }).sort((a,b) => a.z-b.z); if (w.length > 3) { w[0].contain = -1; w[w.length-1].contain = 1; } }   // the outside man on each side has the edge
     if (car && car.carry && (run ? s.t > 0.4 + (k==='CB'?0.5:0) : true) && (car.role!=='QB' || car.x > los)) {
+      if (run && !s.turn && k!=='DL' && s.t < 0.4 + d.rdT && car.x < los + 3) { fbMove(d, d.x + 0.15, d.z + (car.z - d.z)*0.45, msp*0.5*sl, dt, 24); d.st = 'ready'; fbFace(d, car.x, car.z); return; }   // read step: slide with the ball, stay home
       pursue(car, 1); return;
     }
     if (car && car.role==='QB' && !car.carry && ball.mode==='held' && !s.thrown) {
@@ -18800,6 +18805,7 @@ function fbTackleStep(dt){
   }
 }
 function fbTackle(d, car, crowd, forcedPower, forcedFumble){
+  try { fbFpMark(car); } catch(e){}
   if (FB.s.tutMode && d===FB.s.dctl) FB.s.tutDefOk = true;
   const s = FB.s, cf = Math.cos(car.face), sf = Math.sin(car.face);
   car.down = true; car.carry = true; d.tackling = true;
@@ -19411,7 +19417,7 @@ function fbLobbyWalkDraw(g){
     T(d.name, x+w/2, y+2.4, ok ? '#ffffff' : '#9aa3bd', 4.6, 'center'); if (sub) T(sub, x+w/2, y+10, ok ? d.col : '#7a82a0', 3.1, 'center'); g.globalAlpha = 1; });
   if (FB.lobbyDwell > 0 && FB.lobbyNear) { const d = FB_LPADS.find(q => q.id===FB.lobbyNear); if (d) { fbPanel(g,100,150,120,12,0.8); g.fillStyle = 'rgba(255,255,255,.18)'; g.fillRect(104,159,112,2); g.fillStyle = d.col; g.fillRect(104,159,112*clamp(FB.lobbyDwell/0.55,0,1),2); T('GOING TO  '+d.name,160,152.4,'#ffffff',4.2,'center'); } }
   fbPanel(g,56,164,208,12,0.6); T('WASD WALK     SHIFT RUN     STEP ON A GLOWING PAD',160,167,'#cfd8f4',4.4,'center');
-  T('BUILD v116',314,174,'#8fa0cc',4,'right'); { const us = uoStatus(); if (us) T(us, 6, 174, UO.state==='off' ? '#ff8b7b' : '#6f7ea8', 3, 'left'); }
+  T('BUILD v117',314,174,'#8fa0cc',4,'right'); { const us = uoStatus(); if (us) T(us, 6, 174, UO.state==='off' ? '#ff8b7b' : '#6f7ea8', 3, 'left'); }
 }
 /* ---------------------------------------------------------------- ULTIMATE TEAM: hub, collection, cards (packs come in the next stage) */
 const UT_KEY = 'blacktop_ut_v1';
@@ -21757,7 +21763,7 @@ function fbLobbyDraw(g){
   T('WHEN THE CPU HAS THE BALL YOU CAN PLAY DEFENSE (OR SKIP IT)',160,167,'#aeb9dc',4.6,'center');
   fbBtn(g,'lobbyback',6,5,76,12,'< BACK TO THE FIELD',{size:4.6});
   fbBtn(g,'party',6,19,76,10,PARTY.on ? 'PARTY  '+PARTY.code.toUpperCase() : 'PLAY WITH A FRIEND',{size:4.4,line:'#7ddc8a',tc:'#c9f7d0'});
-  T('BUILD v116',314,174,'#8fa0cc',4,'right');   // so you can tell which build is live
+  T('BUILD v117',314,174,'#8fa0cc',4,'right');   // so you can tell which build is live
   fbBtn(g,'tut',100,141,58,13,'TUTORIAL',{size:5,line:'#ffd24a',tc:'#ffe9a8'}); fbBtn(g,'howlobby',162,141,58,13,'HOW TO PLAY',{size:4.4,line:'#ffd24a',tc:'#ffe9a8'});
   fbBtn(g,'shop',6,141,90,13,'PLAY SHOP',{size:5.5,line:'#7ddc8a',tc:'#c9f7d0'});
   fbBtn(g,'stats',224,141,90,13,'MY STATS',{size:5.5,line:'#6fd0ff',tc:'#cfeeff'});
@@ -28133,7 +28139,7 @@ function fbDiveTkTrigger(car,opponents){
     const dist=fbDist(d,car),user=fbUD(d)||(d===s.ctl&&s.turn&&(!s.defMode||fbnGuestOff()));
     if(user){const ahead=(d.x-car.x)*ux+(d.z-car.z)*uz;if(d.diveReqT>s.t&&dist<=(ahead>0.3&&csp>5?1.8:2.7)){d.diveReqT=0;fbDiveTkStart(d,car,true);fbRushFlash(d,'DIVE!',.35);return;}continue;}   // v46 (17): tap Space = lay out from up to 2.7 yd, any angle; hit = down on the spot, miss = 1 s on the turf
     if(csp<4.5)continue;const behind=(d.x-car.x)*ux+(d.z-car.z)*uz;
-    if(dist<1.2||dist>2.7||behind>-0.25)continue;
+    if(dist<1.2||dist>3.3||behind>-0.25)continue;
     const dsp=Math.hypot(d.vx||0,d.vz||0);if(dsp<2.5)continue;
     if(dsp<csp*1.04&&dist>1.5&&Math.random()<0.07){fbDiveTkStart(d,car,false);return;}     // CPU: out of reach, losing ground, so he lays out
   }
@@ -28145,6 +28151,7 @@ function fbTackleStep(dt){
   if(car.kneel||car.push||car.slid)return;   // giving himself up (slide), kneeling, or inside the push pile: nobody tackles him
   if(car.secureUntil>s.t&&car.side==='O'&&Math.hypot(car.vx||0,car.vz||0)>=0.5*fbTopSpeed(car,true))car.secureUntil=0;   // moving at half speed or better: the ball is secured, a hit is just a tackle
   if(car.possT>0){fbPossStep(car,dt);return;}const opponents=car.side==='O'?fbDef():fbOff();if(!car.wrapBy&&!car.brkBy&&!car.untackle)fbDiveTkTrigger(car,opponents);if(car.untackle){fbUntackleStep(car,opponents);return;}if(fbPunchStep(car,opponents))return;if(car.wrapBy){fbWrapStep(car,opponents,dt);return;}if(car.brkBy&&fbShedStep(car,opponents,dt))return;
+  if(!car.wrapBy&&!car.brkBy&&car.carry&&!car.slid&&!(car.diveT>0)&&!(car.possT>0)&&!s.turn){const cs0=Math.hypot(car.vx||0,car.vz||0);if(cs0>6.5){const ux0=car.vx/cs0,uz0=car.vz/cs0;for(const d of opponents){if(d.grabbed===s.skillPlayId||d.down||d.tackling||d.stun>0||d.tkCd>0||d.dtk||(d.eng&&!d.free)||(fbUD(d)))continue;const dist=fbDist(d,car);if(dist<=1.16||dist>2.1)continue;if((d.x-car.x)*ux0+(d.z-car.z)*uz0>-0.2)continue;if(Math.hypot(d.vx||0,d.vz||0)<cs0*0.7)continue;if(Math.random()<0.04){fbGrab(car,d);break;}}}}
   const contact=opponents.filter(d=>!d.down&&!d.tackling&&d.stun<=0&&!d.eng&&fbDist(d,car)<=(car.secureUntil>s.t?1.45:d.wrapReqT>s.t?1.2:1.16)&&!fbPathBlocked(d,car)).sort((a,b)=>fbDist(a,car)-fbDist(b,car));   // v46 (17): a held wrap reaches 1.2 yd
   for(const d of contact){if(d.tkCd>0)continue;const request=d.tackleRequestT>s.t,controlled=fbUD(d)||(d===s.ctl&&s.turn&&(!s.defMode||fbnGuestOff()));if(controlled&&!request&&fbDist(d,car)>.96)continue;
     const dx=car.x-d.x,dz=car.z-d.z,L=Math.hypot(dx,dz)||1,dsp=Math.hypot(d.vx,d.vz),facing=Math.max((Math.cos(d.face)*dx-Math.sin(d.face)*dz)/L,dsp>2?(d.vx*dx+d.vz*dz)/(dsp*L):-1);if(facing<-.6&&!request)continue;
@@ -28174,8 +28181,18 @@ function fbTkEval(car,d,fx,fz,request){                       // one defender in
   const dp=Math.pow(fbMassLb(d)/220,.55)*(.35+.65*fbRate(d,'tkl',.01)/99)*(.80+.20*fbRate(d,'str',.008)/99)*hl;
   return {d,L,nx,nz,ang,rear,side,Q,eff:dp*(.55+.45*Q)};
 }
+function fbDragN(car, inc){ const s=FB.s; if (car.dragPlay !== s.skillPlayId) { car.dragPlay = s.skillPlayId; car.dragN = 0; } car.dragN += inc|0; return car.dragN; }
+function fbFpMark(car){ const s=FB.s; if (car.fpPlay === s.skillPlayId) return; car.fpPlay = s.skillPlayId; car.fpX = car.x; car.fpSg = s.turn ? -1 : 1; }
+function fbFpStep(){          // forward progress: once contact starts he can be slowed and moved by the pile, but never dragged backwards more than a step
+  const s=FB.s, car=s&&s.carrier; if (!car || car.fpPlay !== s.skillPlayId) return; const adv = (car.x - car.fpX)*car.fpSg;
+  if (adv > 0) car.fpX = car.x; else if (adv < -0.35) { car.x = car.fpX - 0.35*car.fpSg; if ((car.vx||0)*car.fpSg < 0) car.vx = 0; if (car.slideX && car.slideX*car.fpSg < 0) car.slideX = 0; }
+}
+function fbGrab(car, d){      // a trailing man gets a hand on a faster runner: not a tackle, but it slows him so the next man can close
+  const s=FB.s; d.grabbed = s.skillPlayId; d.tkCd = 0.6; d.st = 'reach'; d.reachT = 0.3; fbDragN(car,1); fbFpMark(car);
+  const k = 0.84 - 0.05*Math.min(3, car.dragN||0); car.vx *= k; car.vz *= k; car.mStunUntil = s.t + 0.4; car.mSteer = 0.72; car.mAcc = 0.55; fbSfx('swat'); fbDust(car.x, car.z, 3, 0.5);
+}
 function fbBreakGo(car,E,all,sev,bt,xf){                        // the runner broke it: speed loss, stun, steering/acceleration penalties, the tackler stumbles
-  const s=FB.s,AI=1.10-.35*E.rear;let SL=clamp((.08+.40*sev-.12*bt/99)*AI,.04,.75);if(xf)SL=Math.max(.04,SL*.85);   // an X-Factor softens it, it never removes it
+  const s=FB.s,AI=1.10-.35*E.rear,dn=fbDragN(car,1);fbFpMark(car);let SL=clamp((.08+.40*sev-.12*bt/99)*AI+0.07*(dn-1),.04,.85);if(xf)SL=Math.max(.04,SL*.85);   // each man who has already hit him takes more off his speed   // an X-Factor softens it, it never removes it
   let stun=clamp(.08+.32*sev-.16*bt/99,.04,.5);if(xf)stun=Math.max(.04,stun*.6);
   const steer=clamp(.40+.45*bt/99+(xf?.1:0),.40,xf?.95:.85);
   const fx=Math.cos(car.face),fz=-Math.sin(car.face);
@@ -28188,7 +28205,8 @@ function fbBreakGo(car,E,all,sev,bt,xf){                        // the runner br
   try{uoBreak(car,E,sev);}catch(e){console.warn('uo break',e);}
   fbMsg('BROKEN TACKLE!','#ffd24a',40);fbSfx('hit');s.shake=1.5;fbDust(car.x,car.z,3,0.5);
 }
-function fbTackleBegin(car,d,P){                               // a tackle that sticks: the runner decelerates over FallTime with the defender attached, then goes down
+function fbTackleBegin(car,d,P){
+  fbFpMark(car);                               // a tackle that sticks: the runner decelerates over FallTime with the defender attached, then goes down
   car.wrapBy=d;fbGq().tk=d.role;car.tkImp=P.impV;car.tkUx=P.ux;car.tkUz=P.uz;car.tkFT=P.FT;car.tkT=0;car.tkFac=P.fac;car.tkPow=P.imp;car.tkNx=P.nx;car.tkNz=P.nz;car.tkJoin={};
   d.wrapping=true;d.st='tackle';d.tkType=P.cat;d.tkCd=.5;car.st='carry';d.fbTackleClip='defender';d.fbTackleUntil=performance.now()/1000+fbClipLen('defender',0.9);
   if(!(car.wrapSfxT>FB.s.t)){fbSfx('hit');car.wrapSfxT=FB.s.t+1.5;}
@@ -28202,7 +28220,7 @@ function fbMomentumTackle(car,d,auth){
   const near=opp.filter(o=>o===d||(!o.down&&!o.tackling&&!(o.eng&&!o.free)&&o.stun<=0&&fbDist(o,car)<=1.3)),crowd=near.length;
   const evals=near.map(o=>fbTkEval(car,o,ux,uz,o===d&&(d.tackleRequestT>s.t||wantWrap))),E=evals.find(e=>e.d===d),combined=Math.pow(evals.reduce((a,e)=>a+Math.pow(e.eff,1.5),0),1/1.5);   // only men really in contact count
   let bull=1;if(xfHas(car,'bulldozer')&&car.side==='O'&&!car.bullUsed&&!s.thrown&&fbIsRun(s.play)&&!s.turn){car.bullUsed=true;bull=1.25;fbMsg('BULLDOZER!','#ff9a3a',70);}   // X-FACTOR: +25% runner power on the first eligible tackle
-  const RP=fbRunnerPower(car)*bull,RR=RP*(.90+.20*clamp(impV/maxSp,0,1.2)),ratio=RR/Math.max(.01,combined),bt=fbRate(car,'brk',.01);
+  const RP=fbRunnerPower(car)*bull*Math.pow(0.82,fbDragN(car,0)),RR=RP*(.90+.20*clamp(impV/maxSp,0,1.2)),ratio=RR/Math.max(.01,combined),bt=fbRate(car,'brk',.01);
   if(car.truckT>0&&!car.wrapBy&&!sackSpot&&csp0>=3&&crowd<=2){   // TRUCK (F): runner mass/strength/speed against the defender's power; a braced defender gets a 25% edge
     car.truckT=0;const braced=fbBraced(d,car),tr=RR/Math.max(.01,combined*(braced?1.25:0.85));
     if(braced&&tr<.95){car.stiffT=0;s.shake=3;fbSfx('hit');fbMsg('RAN INTO A WALL','#ff6b6b',60);let uw=false;try{uw=uoTruck(car,d,'wall',ux,uz);}catch(e){}fbTackle(d,car,crowd,Math.max(imp,6));if(uw)try{uoAfterTackle(car);}catch(e){}return;}
