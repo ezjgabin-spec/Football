@@ -13150,7 +13150,9 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
     // CENTER = ball between both palms; OUTER = fingertips / one hand. Both are tied to reachable palms, never to a large body radius.
     const allowance=clamp(lag,0,.075)*.9,center=segmentPoint(a,b,hh),lc=segmentPoint(a,b,hh.left),rc=segmentPoint(a,b,hh.right),two=lc.d<B.two+allowance&&rc.d<B.two+allowance&&!hh.back&&Math.abs((b.x-p.x)*Math.sin(p.face||0)+(b.z-p.z)*Math.cos(p.face||0))<B.lateral,one=Math.min(lc.d,rc.d)<B.one+allowance,isCenter=center.d<B.center+allowance&&two&&!hh.back;
     if(!isCenter&&(!one||center.d>B.outer+allowance))return null;
-    return {role:p.role,side:p.side,center:isCenter,outer:!isCenter,hands:two?2:1,hand:lc.d<=rc.d?'Left':'Right',t:center.t,d:center.d,control:control(p,b),cat:p.ur?p.ur.cat:1,intK:p.ur?p.ur.int:1,covK:p.ur?p.ur.cov:1,player:p};}
+    const al=isCenter?1-.25*clamp(center.d/(B.center+allowance),0,1):.6*(1-clamp((center.d-B.center)/Math.max(.01,B.outer-B.center),0,1));   // 1 = dead between the palms, 0 = the last fingertip
+    const stab=p.stun>0?.35:p.diving?.55:p.jumpT>0?.7:p.catchLandingStumbleT>0?.6:1-.3*clamp(Math.abs(p.turn||0)/10,0,1);                       // how steady his body is when the ball arrives
+    return {role:p.role,side:p.side,center:isCenter,outer:!isCenter,hands:two?2:1,hand:lc.d<=rc.d?'Left':'Right',t:center.t,d:center.d,al,stab,control:control(p,b),cat:p.ur?p.ur.cat:1,intK:p.ur?p.ur.int:1,covK:p.ur?p.ur.cov:1,player:p};}
   // Contacts arrive already merged over one short contact window, so everyone in `contacts` touched it "at the same time".
   // No bobbles: a ball is caught, picked, or it is on the ground. A receiver who gets it with a defender on him still has to hold on through the hit (that roll comes after).
   function resolve(contacts,b,roll){const rnd=roll||(()=>.5),pick=side=>contacts.filter(c=>c.side===side).sort((x,y)=>(x.at||0)-(y.at||0)||x.d-y.d)[0],wr=pick('O'),cb=pick('D');if(!wr&&!cb)return {action:'none'};
@@ -13168,8 +13170,15 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
     if(cb){if(cb.hands<2)return {action:'incomplete',reason:'BATTED DOWN'};                        // one hand can only knock it down
       let odds=cb.center?clamp((cb.control-.38)/.22,0,1):.07+.14*clamp((cb.control-.6)/.3,0,1);if(crowd>=2)odds=Math.max(odds,cb.center?.65:.38);odds=clamp(odds*(cb.intK||1),0,1);   // in traffic the defenders get a real pick   // control = momentum with the ball; running into it kills the pick
       return rnd()<odds?{action:'intercept',by:cb.role}:{action:'incomplete',reason:'BATTED DOWN'};}
-    const hard=!!(b&&b.contested);const ck=wr.cat||1,dk=(b&&b.covK)||1;let odds=wr.center?1:(hard?clamp((.38+.42*wr.control)*ck/dk,.05,.92):clamp((.86+.1*wr.control)*(1+(ck-1)*.8),.6,.99))*(wr.hands===1?(hard?.5:.8):1);if(crowd>=2)odds=Math.min(odds,.2);   // contested: reduced odds, half for one hand; nobody near him: he catches it
-    return rnd()<odds?{action:'catch',by:wr.role,hand:wr.hand}:{action:'incomplete',reason:crowd>=2?'BROKEN UP IN TRAFFIC':'DROPPED'};}
+    // BALLSYNC: one receiver on the ball. Contact quality (where it met the hands, momentum with the ball, one or two hands, how steady he is) + his catching rating
+    // -> a clean catch, a single bobble (the ball pops loose and he gets ONE recovery), or a drop. A bobbled ball can never bobble again.
+    const hard=!!(b&&b.contested),ck=wr.cat||1,dk=(b&&b.covK)||1,q=quality(wr),skill=(ck-1)*2.2,press=hard?.45*clamp(dk,.5,1.6):0,bob=!!(b&&b.bobbled);
+    if(bob){let P=1/(1+Math.exp(-(.8+3.5*(q-.5)+skill-(hard?.8:0))));if(wr.hands===1)P*=.6;return rnd()<P?{action:'catch',by:wr.role,hand:wr.hand,bobbleCaught:true,q}:{action:'incomplete',reason:'BOBBLED - INCOMPLETE'};}
+    let P=1/(1+Math.exp(-(.2+4.2*(q-.5)+skill-press-(crowd>=2?2:0))));if(wr.hands===1)P*=.5;const r=rnd();
+    if(r<P)return {action:'catch',by:wr.role,hand:wr.hand,q};
+    if(q>=.3&&crowd<2){const share=clamp(.35+.4*(1-q),.3,.75);if((r-P)/Math.max(.001,1-P)<share)return {action:'bobble',by:wr.role,hand:wr.hand,q};}
+    return {action:'incomplete',reason:crowd>=2?'BROKEN UP IN TRAFFIC':'DROPPED',q};}
+  function quality(c){return clamp(.35*(c.al===undefined?(c.center?1:.3):c.al)+.25*(c.control===undefined?.8:c.control)+.20*(c.hands===2?1:.35)+.20*(c.stab===undefined?1:c.stab),0,1);}
   function retention(p,b){const speed=len(p.vx||0,p.vz||0);if(speed<.5)return .65;const ux=p.vx/speed,uz=p.vz/speed,ahead=(b.x-p.x)*ux+(b.z-p.z)*uz,ballSpeed=len(b.vx||0,b.vz||0)||1,alignment=(b.vx*ux+b.vz*uz)/ballSpeed;return clamp(.73+ahead*.26+alignment*.12,.32,1);}
   function dropOdds(power,secureAge){return clamp((.018+Math.pow(clamp(power,0,15)/15,1.7)*.64)*clamp(1-secureAge/.48,0,1),0,.72);}
   // The longer he has held it, the more complete the catch: 10% at 0.10s, 20% at 0.20s, 50% at 0.30s, then up to 100% at 0.75s.
@@ -13240,7 +13249,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
     return {make,line,kick,team,kindOf,REF,BASE,ROLE_SLOT,LINE_SLOTS,bonus,boosted,RARITY_BONUS,lineGuy,xfBoost,XF_NAMES,XF_SLOT,XF_MUL};
   })();
   root.UltimateFootballRatings=UFR;
-  root.UltimateFootballRules={securedBy,dropChance,box,jumpLift,tackle,clamp,segmentPoint,juke,hitPower,control,hands,handContact,resolve,retention,dropOdds,swim,seeded};
+  root.UltimateFootballRules={securedBy,dropChance,box,jumpLift,tackle,clamp,segmentPoint,juke,hitPower,control,hands,handContact,resolve,quality,retention,dropOdds,swim,seeded};
 })(globalThis);
 
 
@@ -17506,6 +17515,14 @@ function uoDeadStep(){                                       // the dead ball: a
   fbRigs.forEach(p=>{ const u=p.uo; if(!u||u.id==='L110'||!u.done||!/kneel|stand_recover/.test(u.ent.end_pose||'')) return; if(!uoStart('L110',[{p,role:'defender'}],{seed:(p.num|0)+1})) u.done=true; });
 }
 /* ---- MASS outcome -> library interaction. Each returns true when a clip pair took over the picture (MASS still owns the movement). */
+/* RECEIVING CLIPS: when the receiving library arrives, its manifest entries are picked here by kind (chest / high / low / shoulder, dive, jump, bobble, intercept).
+   Until then nothing matches and the built-in catch clip plays. */
+function uoRecvStart(r, ctx){
+  if (UO.state!=='ready' || !UO.man) return false; const L=UO.man.clips.filter(c=>/^(catch|recv|receiv|bobble|dive_catch|jump_catch|intercept)/i.test(c.interaction||'') && (c.role==='receiver'||c.role==='ballcarrier'||c.role==='defender') && !c.mirrored);
+  if (!L.length) return false; const want=ctx.intercept?'intercept':ctx.bobble?'bobble':ctx.dive?'dive':ctx.jump?'jump':(ctx.kind||'chest'), sp=Math.hypot(r.vx||0,r.vz||0);
+  let best=null; L.forEach(c=>{ const it=String(c.interaction||'')+' '+String(c.title||''); let cost=0; if(!new RegExp(want,'i').test(it)) cost+=3; if(c.speed_range_mps){ const v=sp*.9144; if(v<c.speed_range_mps[0]) cost+=2*(c.speed_range_mps[0]-v)/4; if(v>c.speed_range_mps[1]) cost+=2*(v-c.speed_range_mps[1])/4; } if(!best||cost<best.cost) best={c,cost}; });
+  if (!best || best.cost>=3) return false; return !!uoStart(best.c.id,[{p:r,role:best.c.role}],{seed:(Math.random()*1e6)|0,holdT:0});
+}
 const UO_GANGS = [['G64',[[16,6],[-16,6]]],['G65',[[8,-16],[0,17]]],['G66',[[16,6],[0,17]]],['G67',[[16,6],[19,18]]],['G72',[[16,6],[0,17]]],['G73',[[16,6],[-16,6]]],['G69',[[16,6],[-16,6],[0,17]]]];
 function uoGangPick(car, ds, phi){                      // the gang clip whose start offsets best match where the defenders really are (angle around the runner)
   const rel=ds.map(o=>{ const r=uoRel(car,o,phi); return Math.atan2(r.x,r.back); }), dA=(a,b)=>{ let d=Math.abs(a-b)%(2*Math.PI); return d>Math.PI?2*Math.PI-d:d; }; let best=null;
@@ -19450,7 +19467,7 @@ function fbLobbyWalkDraw(g){
     T(d.name, x+w/2, y+2.4, ok ? '#ffffff' : '#9aa3bd', 4.6, 'center'); if (sub) T(sub, x+w/2, y+10, ok ? d.col : '#7a82a0', 3.1, 'center'); g.globalAlpha = 1; });
   if (FB.lobbyDwell > 0 && FB.lobbyNear) { const d = FB_LPADS.find(q => q.id===FB.lobbyNear); if (d) { fbPanel(g,100,150,120,12,0.8); g.fillStyle = 'rgba(255,255,255,.18)'; g.fillRect(104,159,112,2); g.fillStyle = d.col; g.fillRect(104,159,112*clamp(FB.lobbyDwell/0.55,0,1),2); T('GOING TO  '+d.name,160,152.4,'#ffffff',4.2,'center'); } }
   fbPanel(g,56,164,208,12,0.6); T('WASD WALK     SHIFT RUN     STEP ON A GLOWING PAD',160,167,'#cfd8f4',4.4,'center');
-  T('BUILD v118',314,174,'#8fa0cc',4,'right'); { const us = uoStatus(); if (us) T(us, 6, 174, UO.state==='off' ? '#ff8b7b' : '#6f7ea8', 3, 'left'); }
+  T('BUILD v119',314,174,'#8fa0cc',4,'right'); { const us = uoStatus(); if (us) T(us, 6, 174, UO.state==='off' ? '#ff8b7b' : '#6f7ea8', 3, 'left'); }
 }
 /* ---------------------------------------------------------------- ULTIMATE TEAM: hub, collection, cards (packs come in the next stage) */
 const UT_KEY = 'blacktop_ut_v1';
@@ -21797,7 +21814,7 @@ function fbLobbyDraw(g){
   T('WHEN THE CPU HAS THE BALL YOU CAN PLAY DEFENSE (OR SKIP IT)',160,167,'#aeb9dc',4.6,'center');
   fbBtn(g,'lobbyback',6,5,76,12,'< BACK TO THE FIELD',{size:4.6});
   fbBtn(g,'party',6,19,76,10,PARTY.on ? 'PARTY  '+PARTY.code.toUpperCase() : 'PLAY WITH A FRIEND',{size:4.4,line:'#7ddc8a',tc:'#c9f7d0'});
-  T('BUILD v118',314,174,'#8fa0cc',4,'right');   // so you can tell which build is live
+  T('BUILD v119',314,174,'#8fa0cc',4,'right');   // so you can tell which build is live
   fbBtn(g,'tut',100,141,58,13,'TUTORIAL',{size:5,line:'#ffd24a',tc:'#ffe9a8'}); fbBtn(g,'howlobby',162,141,58,13,'HOW TO PLAY',{size:4.4,line:'#ffd24a',tc:'#ffe9a8'});
   fbBtn(g,'shop',6,141,90,13,'PLAY SHOP',{size:5.5,line:'#7ddc8a',tc:'#c9f7d0'});
   fbBtn(g,'stats',224,141,90,13,'MY STATS',{size:5.5,line:'#6fd0ff',tc:'#cfeeff'});
@@ -28031,10 +28048,20 @@ function fbPassTip(b,by,why,dead){                      // a pass that gets brok
   s.ball={mode:'fly',x:b.x,y:Math.max(b.y,0.8),z:b.z,vx:(b.vx||0)*.25,vy:1.6,vz:(b.vz||0)*.25,t0:s.t,dropped:true,bn:0,D:1,vh:1};
   s.dropWhy=label==='BROKEN UP'?'BROKEN UP - INCOMPLETE':label;s.carrier=null;s.caught=false;fbMsg(s.dropWhy,'#ffd24a',50);fbSfx('swat');
 }
+/* BALLSYNC bobble: the ball pops out of his hands and flies on its own for a third of a second. His hands follow it (the catch IK tracks the live ball);
+   if they meet it again the recovery roll decides, a defender's hand on it is a breakup, and if it reaches the grass it is incomplete. One bobble per pass, ever. */
+function fbBobbleStart(p,b,dec){
+  const s=FB.s,q=dec.q===undefined?.5:dec.q,pvx=(p.vx||0)*FB_TS,pvz=(p.vz||0)*FB_TS;
+  b.bobbled=true;b.bob=p.role;b.bobT=s.t;b.tipCount=(b.tipCount|0)+1;b.lastContactKey=null;b.cWin=null;b.cOpen=undefined;
+  b.vx=b.vx*.1+pvx*1.0+(Math.random()-.5)*.5;b.vz=b.vz*.1+pvz*1.0+(Math.random()-.5)*.5;b.vy=2.3+1.0*(1-q);b.y=Math.max(b.y,1.1);   // pops up, keeps pace with him: it comes back down into reach
+  p.vx*=.9;p.vz*=.9;p.reachT=.35;p.bobAt=s.t;p.mStunUntil=s.t+.3;p.mSteer=.85;p.mAcc=.6;p.st='reach';
+  fbMsg('BOBBLED!','#ffd24a',40);fbSfx('swat');
+}
 function fbMomentumCatch(r,b,intercept){
-  const s=FB.s,wasDive=!!r.diving,wasJump=r.jumpT>0,keep=FBS.retention(r,b),receiver=r.side==='O';r.vx*=keep;r.vz*=keep;r.catchClock=0;r.catchJumped=wasJump;r.catchX0=r.x;r.catchZ0=r.z;r.secureWindow=intercept?0.4:1.0;r.secureSince=s.t;r.secureUntil=s.t+r.secureWindow;r.disruptions={};r.punched={};r.catchDuration=receiver?.14:.26;r.catchT=r.catchDuration;r.catchKind=wasDive?'low':wasJump?'high':'chest';r.fbCatchStopAt=performance.now()/1000+(wasDive?.6:receiver?.11:.22);r.carry=true;r.st='carry';r.route=null;r.auto=false;s.eng.slice().forEach(e=>fbReleaseBlock(e,false));s.carrier=r;s.ball={mode:'held',h:r};s.caught=true;s.turn=!!intercept;s.tgtShow=s.aimShow=false;{const gq=fbGq();if(intercept)gq.int=r.role;else gq.cat=r.role;}
+  const s=FB.s,wasDive=!!r.diving,wasJump=r.jumpT>0,receiver=r.side==='O';let keep=FBS.retention(r,b);{const fx=Math.cos(r.face||0),fz=-Math.sin(r.face||0),dx=b.x-r.x,dz=b.z-r.z,L=Math.hypot(dx,dz)||1,fr=(dx*fx+dz*fz)/L;if(fr<-.45)keep*=.78;else if(b.y>2.2)keep*=.9;if(b.bobbled)keep*=.85;}r.vx*=keep;r.vz*=keep;r.catchClock=0;r.catchJumped=wasJump;r.catchX0=r.x;r.catchZ0=r.z;r.secureWindow=intercept?0.4:1.0;r.secureSince=s.t;r.secureUntil=s.t+r.secureWindow;r.disruptions={};r.punched={};r.catchDuration=receiver?.14:.26;r.catchT=r.catchDuration;r.catchKind=wasDive?'low':wasJump?'high':'chest';r.fbCatchStopAt=performance.now()/1000+(wasDive?.6:receiver?.11:.22);r.carry=true;r.st='carry';r.route=null;r.auto=false;s.eng.slice().forEach(e=>fbReleaseBlock(e,false));s.carrier=r;s.ball={mode:'held',h:r};s.caught=true;s.turn=!!intercept;s.tgtShow=s.aimShow=false;{const gq=fbGq();if(intercept)gq.int=r.role;else gq.cat=r.role;}
   if(intercept){s.intX=r.x;if(s.defMode)s.dctl=r;else if(FBN.on&&FBN.mode==='vs')s.gdc=r;const chase=fbOff().filter(p=>!p.down).sort((a,b2)=>fbDist(a,r)-fbDist(b2,r))[0];if(chase)s.ctl=chase;fbMsg('INTERCEPTION - SECURE THE BALL','#ff6b6b',60);}
-  else{s.ctl=r;s.catchX=r.x;s.xfCat={role:r.role,depth:r.x-s.los};s.tutCaught=true;s.tutCatchT=s.t;s.tutDepth=r.x-s.los;if(s.thist&&s.thist.length)s.thist[s.thist.length-1].ok=true;fbMsg(wasDive?'DIVING CATCH':keep>.9?'CAUGHT IN STRIDE':'CATCH','#7ddc8a',50);}
+  else{s.ctl=r;s.catchX=r.x;s.xfCat={role:r.role,depth:r.x-s.los};s.tutCaught=true;s.tutCatchT=s.t;s.tutDepth=r.x-s.los;if(s.thist&&s.thist.length)s.thist[s.thist.length-1].ok=true;fbMsg(b&&b.bobbled?'BOBBLED - AND HE HANGS ON':wasDive?'DIVING CATCH':keep>.9?'CAUGHT IN STRIDE':'CATCH','#7ddc8a',50);}
+  try{uoRecvStart(r,{kind:r.catchKind,dive:wasDive,jump:wasJump,bobble:!!(b&&b.bobbled),intercept});}catch(e){}
   if(wasJump)r.jumpLandingPending=true;if(wasDive){r.diving=false;r.catchDiveT=0;r.vx=r.vz=0;r.possT=.28;r.fallTo=.85;r.fallT=0;r.fbHitUntil=0;}
   else if(!intercept&&fbPossHeld(r)){fbPossStart(r);r.secureUntil=0;r.catchClock=undefined;}   // SPACE held: he catches it and goes straight down, no hit to survive
   fbSfx('catch');
@@ -28056,6 +28083,7 @@ function fbApplyContactDecision(decision,b){
   const p=decision.by&&fbBy(decision.by),cs=b.lastContacts||[],pt={x:b.x,y:b.y,z:b.z};
   if(decision.action==='catch'&&p){if(decision.contested)cs.filter(c=>c.role!==decision.by).forEach(c=>fbHandFx(fbBy(c.role),pt,c));fbCatch(p,b);return true;}
   if(decision.action==='intercept'&&p){fbIntercept(p,b);return true;}
+  if(decision.action==='bobble'&&p){fbHandFx(p,pt,cs.find(c=>c.role===p.role));fbBobbleStart(p,b,decision);return true;}
   if(decision.action==='incomplete'){if(/BROKEN/.test(decision.reason||'')){const dc=cs.find(c=>c.side==='D'&&c.center)||cs.find(c=>c.side==='D');if(dc)fbGq().pbu=dc.role;}cs.forEach(c=>fbHandFx(fbBy(c.role),pt,c));fbPassTip(b,null,decision.reason,true);return true;}
   if(decision.action==='tip'){cs.forEach(c=>fbHandFx(fbBy(c.role),pt,c));FB.s.ball=b;fbPassTip(b,p,decision.why||'TIPPED - BALL IS LIVE',false);return true;}
   return false;
@@ -28066,6 +28094,7 @@ function fbCheckDecision(r,contacts,b){
   const oc=contacts.some(c=>c.side==='O'&&c.center),dc=contacts.some(c=>c.side==='D'&&c.center),c=contacts.find(x=>x.role===r.by);let ok=true;
   if(r.action==='intercept')ok=!!c&&c.side==='D'&&c.center&&c.hands>=2&&c.control>=.45&&!oc;
   else if(r.action==='catch')ok=!!c&&c.side==='O'&&!(dc&&!oc)&&!(dc&&oc);
+  else if(r.action==='bobble')ok=!!c&&c.side==='O'&&!dc&&!(b&&b.bobbled);
   else if(r.action==='tip'&&c&&c.side==='O')ok=false;
   return ok?r:FBS.resolve(contacts,b,Math.random);
 }
@@ -28075,7 +28104,7 @@ function fbCatchCheck(b){
   if(FBN.on&&FBN.role==='guest')return false;if(s.authorityPending)return false;
   const W=b.cWin||(b.cWin={}),now=b.clock||0;
   fbCatchContacts(b,b.previous).forEach(c=>{const m=W[c.role];if(!m){c.at=now;W[c.role]=c;if(b.cOpen===undefined)b.cOpen=now;}
-    else{if(c.center&&!m.center){m.center=true;m.outer=false;}if(c.hands>m.hands){m.hands=c.hands;m.hand=c.hand;}m.control=Math.max(m.control,c.control);m.d=Math.min(m.d,c.d);}});   // outer-then-center counts as center
+    else{if(c.center&&!m.center){m.center=true;m.outer=false;}if(c.hands>m.hands){m.hands=c.hands;m.hand=c.hand;}m.control=Math.max(m.control,c.control);m.d=Math.min(m.d,c.d);if(c.al!==undefined)m.al=Math.max(m.al||0,c.al);if(c.stab!==undefined)m.stab=Math.min(m.stab===undefined?1:m.stab,c.stab);}});   // outer-then-center counts as center
   const list=Object.values(W);if(!list.length)return false;
   const both=list.some(c=>c.side==='O')&&list.some(c=>c.side==='D');
   if(!both&&now-b.cOpen<FB_CATCH_WINDOW)return false;
@@ -28115,7 +28144,7 @@ function fbBallStep(dt){
   const s=FB.s,b=s.ball;if(!b||b.mode!=='fly'||s.authorityPending&&s.authorityPending.end)return;const sub=5,h=dt/sub;
   for(let i=0;i<sub;i++){b.clock=(b.clock||0)+h;b.previous={x:b.x,y:b.y,z:b.z};b.x+=b.vx*h;b.y+=b.vy*h;b.z+=b.vz*h;b.vy-=FB_G*(b.tipped?FB_TIP_G:1)*h;
     if(devAcArmed()){if(b.vy<0&&b.y<=1.7){devAutoCatch(b);return;}continue;}   // dev auto-catch: no out of bounds, no defenders, no ground until he has it
-    if(b.y<=.12){if(s.authorityPending){s.authorityPending.end='INCOMPLETE';b.y=.12;return;}s.ball={mode:'ground',x:b.x,z:b.z,ry:0};fbIncomplete(b.dropped?(s.dropWhy||'INCOMPLETE'):'INCOMPLETE');return;}
+    if(b.y<=.12){if(s.authorityPending){s.authorityPending.end='INCOMPLETE';b.y=.12;return;}s.ball={mode:'ground',x:b.x,z:b.z,ry:0};fbIncomplete(b.dropped?(s.dropWhy||'INCOMPLETE'):b.bobbled?'BOBBLED - INCOMPLETE':'INCOMPLETE');return;}
     if(s.t-(b.t0||0)>.1&&fbCatchCheck(b))return;
     if(Math.abs(b.z)>FB_Z||b.x<0||b.x>120){if(s.authorityPending){s.authorityPending.end='OUT OF BOUNDS';return;}s.ball={mode:'ground',x:b.x,z:b.z};fbIncomplete('OUT OF BOUNDS');return;}
   }
@@ -28314,7 +28343,7 @@ function fbSkillTimers(dt){
 }
 function fbAuthorityRequest(b,contacts){
   if(!FBN.on||FBN.role!=='host'||!FBN.authorityReady||!FBN.room)return false;const s=FB.s,id=++s.contactSequence;s.authorityPending={id,ball:b,sample:{...b},contacts,sent:performance.now()};
-  fbAuthoritySendFrame();FBN.room.emit('fb-authority',{k:'contact',id,ho:!s.defMode,rl:contacts.map(c=>c.role),at:Object.fromEntries(contacts.map(c=>[c.role,c.at||0])),ign:Object.keys(b.contactIgnore||{}).filter(r=>b.contactIgnore[r]>s.t),pass:b.passId||0,t:s.t,ball:{x:b.x,y:b.y,z:b.z,vx:b.vx,vy:b.vy,vz:b.vz,previous:b.previous},players:fbRigs.map(p=>({role:p.role,side:p.side,x:p.x,z:p.z,vx:p.vx,vz:p.vz,face:p.face,down:p.down,stun:p.stun,engaged:!!p.eng&&!p.free,jumpT:p.jumpT,diving:p.diving}))}).catch(()=>{});return true;
+  fbAuthoritySendFrame();FBN.room.emit('fb-authority',{k:'contact',id,ho:!s.defMode,rl:contacts.map(c=>c.role),at:Object.fromEntries(contacts.map(c=>[c.role,c.at||0])),ign:Object.keys(b.contactIgnore||{}).filter(r=>b.contactIgnore[r]>s.t),pass:b.passId||0,t:s.t,ball:{x:b.x,y:b.y,z:b.z,vx:b.vx,vy:b.vy,vz:b.vz,previous:b.previous,bobbled:!!b.bobbled},players:fbRigs.map(p=>({role:p.role,side:p.side,x:p.x,z:p.z,vx:p.vx,vz:p.vz,face:p.face,down:p.down,stun:p.stun,engaged:!!p.eng&&!p.free,jumpT:p.jumpT,diving:p.diving}))}).catch(()=>{});return true;
 }
 function fbAuthorityOn(m){
   const d=m.data||{},s=FB.s;if(d.k==='ready'){FBN.authorityReady=true;return;}if(d.k==='actionResult'&&FBN.role==='host'){const pending=FBN.actionPending&&FBN.actionPending.get(d.id);if(pending){FBN.actionPending.delete(d.id);if(pending.play===s.skillPlayId)pending.apply(d.result);}return;}
