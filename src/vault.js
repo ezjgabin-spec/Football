@@ -426,7 +426,11 @@ export class Vault extends DurableObject {
     if (!enough) return j({ ok: false, err: 'not enough coins' }, 402);
     return j({ ok: true, cost, rarity: next, ...this.state() });
   }
-  lineLevels() { const o = {}; Object.keys(LINES.slots).forEach(k => { o[k] = LINES.startLevel; }); this.sql.exec('SELECT slot, level FROM lines').toArray().forEach(r => { if (r.slot in o) o[r.slot] = r.level; }); return o; }
+  lineLevels() {                                                                         // one level per GROUP: the whole O-line (OL) shares a level, the whole D-line (DL) shares a level
+    const raw = {}; this.sql.exec('SELECT slot, level FROM lines').toArray().forEach(r => { raw[r.slot] = r.level; });
+    const grp = {}; Object.keys(LINES.slots).forEach(k => { const g = LINES.slots[k]; grp[g] = Math.max(grp[g] || LINES.startLevel, raw[k] || LINES.startLevel); });
+    const o = {}; Object.keys(LINES.slots).forEach(k => { o[k] = grp[LINES.slots[k]]; }); return o;
+  }
   lineupRows() { const o = {}; this.sql.exec('SELECT slot, uid FROM lineup').toArray().forEach(r => { o[r.slot] = r.uid; }); return o; }
   setLineup(b) {
     const want = b.lineup && typeof b.lineup === 'object' ? b.lineup : null;
@@ -451,14 +455,15 @@ export class Vault extends DurableObject {
   }
   upgradeLine(b) {
     const slot = String(b.slot || ''); if (!(slot in LINES.slots)) return j({ ok: false, err: 'unknown line slot' }, 400);
+    const g = LINES.slots[slot], mates = Object.keys(LINES.slots).filter(k => LINES.slots[k] === g);
     let res = null;
     this.ctx.storage.transactionSync(() => {
       const lv = this.lineLevels()[slot];
       if (lv >= LINES.maxLevel) { res = { ok: false, err: 'already max level' }; return; }
       const cost = LINES.baseCost * lv;
       if (this.acct().coins < cost) { res = { ok: false, err: 'not enough coins' }; return; }
-      this.add(-cost, 'upgraded ' + slot + ' to ' + (lv + 1));
-      this.sql.exec('INSERT INTO lines (slot, level) VALUES (?,?) ON CONFLICT(slot) DO UPDATE SET level=excluded.level', slot, lv + 1);
+      this.add(-cost, 'upgraded ' + (g === 'OL' ? 'O-LINE' : g === 'DL' ? 'D-LINE' : g) + ' to ' + (lv + 1));
+      mates.forEach(k => this.sql.exec('INSERT INTO lines (slot, level) VALUES (?,?) ON CONFLICT(slot) DO UPDATE SET level=excluded.level', k, lv + 1));
     });
     if (res) return j(res, res.err === 'not enough coins' ? 402 : 409);
     return j({ ok: true, ...this.state() });
