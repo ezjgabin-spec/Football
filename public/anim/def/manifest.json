@@ -1,0 +1,9985 @@
+{
+ "name": "Ultimate Online defensive movement library (Defensive Intelligence 3.0)",
+ "version": 1,
+ "fps": 60,
+ "rig": {
+  "file": "football_player.fbx",
+  "bones": 65,
+  "bone_prefix": "mixamorig:",
+  "axes": "Y up, character faces +Z, +X = character left",
+  "height_rig_units": 45.2,
+  "rig_units_per_metre": 24.699
+ },
+ "conventions": {
+  "root_motion": "In place: only Hips Y moves. The game owns position and facing; turning clips give root_turn_deg / root_turn_keys (+ = left) that the game applies to the root over root_turn_window_s.",
+  "speed": "implied_ground_speed = how fast the planted foot travels under the body (m/s). Scale playback so it matches the real velocity to avoid foot sliding: rate = game_speed / implied speed.",
+  "foot_contacts": "foot_contacts_s lists every grounded interval per foot, measured on the exported animation.",
+  "additive": "06_additive_tracking clips hold only upper-body tracks; frame 0 is the neutral reference. three.js: THREE.AnimationUtils.makeClipAdditive(clip, 0) then play with blendMode = THREE.AdditiveAnimationBlendMode over the locomotion."
+ },
+ "state_map": {
+  "DEF_STANCE": {
+   "CB": [
+    "CB01_PRESS_STANCE",
+    "CB02_OFF_STANCE"
+   ],
+   "LB": [
+    "LB01_STANCE"
+   ],
+   "S": [
+    "S01_DEEP_STANCE"
+   ]
+  },
+  "DEF_BACKPEDAL": {
+   "CB": [
+    "CB03_BACKPEDAL"
+   ],
+   "S": [
+    "CB03_BACKPEDAL",
+    "S02_DEEP_BACKPEDAL"
+   ]
+  },
+  "DEF_BACKPEDAL_FAST": {
+   "CB": [
+    "CB04_BACKPEDAL_FAST"
+   ],
+   "S": [
+    "CB04_BACKPEDAL_FAST"
+   ]
+  },
+  "DEF_HIP_FLIP_LEFT": {
+   "CB": [
+    "CB05_HIP_FLIP_LEFT"
+   ],
+   "S": [
+    "CB05_HIP_FLIP_LEFT",
+    "S05_QUARTER_TURN_LEFT"
+   ]
+  },
+  "DEF_HIP_FLIP_RIGHT": {
+   "CB": [
+    "CB06_HIP_FLIP_RIGHT"
+   ],
+   "S": [
+    "CB06_HIP_FLIP_RIGHT",
+    "S05_QUARTER_TURN_RIGHT"
+   ]
+  },
+  "DEF_BREAK_LEFT": {
+   "CB": [
+    "CB07_BREAK_LEFT",
+    "CB09_SLANT_REACT_LEFT",
+    "CB10_COMEBACK_REACT_LEFT",
+    "S10_ANGLE_CORRECT_LEFT",
+    "SH_BREAK_LEFT"
+   ],
+   "LB": [
+    "LB08_CUTBACK_RIGHT_TO_LEFT",
+    "S10_ANGLE_CORRECT_LEFT",
+    "SH_BREAK_LEFT"
+   ],
+   "S": [
+    "LB08_CUTBACK_RIGHT_TO_LEFT",
+    "S10_ANGLE_CORRECT_LEFT",
+    "SH_BREAK_LEFT"
+   ]
+  },
+  "DEF_BREAK_RIGHT": {
+   "CB": [
+    "CB08_BREAK_RIGHT",
+    "CB09_SLANT_REACT_RIGHT",
+    "CB10_COMEBACK_REACT_RIGHT",
+    "S10_ANGLE_CORRECT_RIGHT",
+    "SH_BREAK_RIGHT"
+   ],
+   "LB": [
+    "LB08_CUTBACK_LEFT_TO_RIGHT",
+    "S10_ANGLE_CORRECT_RIGHT",
+    "SH_BREAK_RIGHT"
+   ],
+   "S": [
+    "LB08_CUTBACK_LEFT_TO_RIGHT",
+    "S10_ANGLE_CORRECT_RIGHT",
+    "SH_BREAK_RIGHT"
+   ]
+  },
+  "DEF_OVERCOMMIT_RECOVER": {
+   "CB": [
+    "CB11_OVERCOMMIT_RECOVER_LEFT",
+    "CB11_OVERCOMMIT_RECOVER_RIGHT",
+    "SH_OVERCOMMIT_RECOVER",
+    "SH_OVERCOMMIT_RECOVER_RIGHT"
+   ],
+   "S": [
+    "CB11_OVERCOMMIT_RECOVER_LEFT",
+    "CB11_OVERCOMMIT_RECOVER_RIGHT",
+    "S08_PLAY_ACTION_RECOVER",
+    "S08_PLAY_ACTION_RECOVER_RIGHT",
+    "SH_OVERCOMMIT_RECOVER",
+    "SH_OVERCOMMIT_RECOVER_RIGHT"
+   ],
+   "LB": [
+    "S08_PLAY_ACTION_RECOVER",
+    "S08_PLAY_ACTION_RECOVER_RIGHT",
+    "SH_OVERCOMMIT_RECOVER",
+    "SH_OVERCOMMIT_RECOVER_RIGHT"
+   ]
+  },
+  "DEF_MAN_MIRROR": {
+   "CB": [
+    "CB12_MAN_MIRROR"
+   ],
+   "LB": [
+    "CB12_MAN_MIRROR",
+    "LB11_MAN_TE_RB",
+    "LB11_MAN_TE_RB_RIGHT"
+   ]
+  },
+  "DEF_PURSUIT": {
+   "CB": [
+    "CB13_DEEP_SPRINT",
+    "SH_PURSUIT"
+   ],
+   "S": [
+    "CB13_DEEP_SPRINT",
+    "S09_DOWNHILL_PURSUIT",
+    "SH_PURSUIT"
+   ],
+   "LB": [
+    "LB15_DOWNHILL_PURSUIT",
+    "LB15_DOWNHILL_PURSUIT_FROM_LEFT",
+    "SH_PURSUIT"
+   ]
+  },
+  "DEF_BALL_TRACK": {
+   "CB": [
+    "CB14_BALL_TRACK_LEFT",
+    "CB14_BALL_TRACK_RIGHT",
+    "S11_DEEP_BALL_TRACK",
+    "S11_DEEP_BALL_TRACK_RIGHT"
+   ],
+   "S": [
+    "CB14_BALL_TRACK_LEFT",
+    "CB14_BALL_TRACK_RIGHT",
+    "S11_DEEP_BALL_TRACK",
+    "S11_DEEP_BALL_TRACK_RIGHT"
+   ]
+  },
+  "DEF_SHUFFLE_LEFT": {
+   "CB": [
+    "CB18_ZONE_SHUFFLE_LEFT"
+   ],
+   "S": [
+    "CB18_ZONE_SHUFFLE_LEFT",
+    "S03_DEEP_SHUFFLE_LEFT"
+   ],
+   "LB": [
+    "LB03_SHUFFLE_LEFT",
+    "LB06_SCRAPE_LEFT"
+   ]
+  },
+  "DEF_SHUFFLE_RIGHT": {
+   "CB": [
+    "CB18_ZONE_SHUFFLE_RIGHT"
+   ],
+   "S": [
+    "CB18_ZONE_SHUFFLE_RIGHT",
+    "S04_DEEP_SHUFFLE_RIGHT"
+   ],
+   "LB": [
+    "LB04_SHUFFLE_RIGHT",
+    "LB06_SCRAPE_RIGHT"
+   ]
+  },
+  "DEF_DOWNHILL_BREAK": {
+   "CB": [
+    "CB19_DOWNHILL_BREAK"
+   ],
+   "S": [
+    "CB19_DOWNHILL_BREAK",
+    "S07_RUN_RECOGNITION"
+   ],
+   "LB": [
+    "LB07_GAP_ATTACK"
+   ]
+  },
+  "DEF_PRE_TACKLE": {
+   "CB": [
+    "CB20_CATCH_TO_TACKLE",
+    "S13_OPEN_FIELD_PRE_TACKLE"
+   ],
+   "LB": [
+    "LB16_PRE_TACKLE",
+    "S13_OPEN_FIELD_PRE_TACKLE"
+   ],
+   "S": [
+    "S13_OPEN_FIELD_PRE_TACKLE"
+   ]
+  },
+  "DEF_READ": {
+   "LB": [
+    "LB02_READ"
+   ],
+   "S": [
+    "S06_DEEP_MIDDLE_TRACK"
+   ]
+  },
+  "DEF_RUN_FIT": {
+   "LB": [
+    "LB05_RUN_FIT"
+   ]
+  },
+  "DEF_ZONE_DROP": {
+   "LB": [
+    "LB09_HOOK_DROP",
+    "LB10_FLAT_DROP_LEFT",
+    "LB10_FLAT_DROP_RIGHT"
+   ]
+  },
+  "DEF_ACCEL": {
+   "LB": [
+    "LB12_BLITZ",
+    "LB13_DELAYED_BLITZ",
+    "SH_ACCEL"
+   ],
+   "CB": [
+    "SH_ACCEL"
+   ],
+   "S": [
+    "SH_ACCEL"
+   ]
+  },
+  "DEF_BLOCK_AVOID": {
+   "LB": [
+    "LB14_BLOCK_AVOID_LEFT",
+    "LB14_BLOCK_AVOID_RIGHT"
+   ],
+   "S": [
+    "LB14_BLOCK_AVOID_LEFT",
+    "LB14_BLOCK_AVOID_RIGHT"
+   ]
+  },
+  "DEF_PASS_CONTEST_ENTRY": {
+   "S": [
+    "S12_HIGH_POINT_ENTRY",
+    "SH_PASS_CONTEST_ENTRY"
+   ],
+   "CB": [
+    "S12_HIGH_POINT_ENTRY",
+    "SH_PASS_CONTEST_ENTRY"
+   ],
+   "LB": [
+    "SH_PASS_CONTEST_ENTRY"
+   ]
+  },
+  "DEF_INTERCEPTION_RETURN": {
+   "S": [
+    "S14_INT_RETURN",
+    "S14_INT_RETURN_LEFT_TURN"
+   ],
+   "CB": [
+    "S14_INT_RETURN",
+    "S14_INT_RETURN_LEFT_TURN"
+   ],
+   "LB": [
+    "S14_INT_RETURN",
+    "S14_INT_RETURN_LEFT_TURN"
+   ]
+  },
+  "DEF_DECEL": {
+   "LB": [
+    "SH_DECEL"
+   ],
+   "CB": [
+    "SH_DECEL"
+   ],
+   "S": [
+    "SH_DECEL"
+   ]
+  },
+  "DEF_PRESS_CONTACT": {
+   "WR": [
+    "CB15_PRESS_CONTACT_WR"
+   ],
+   "CB": [
+    "CB15_PRESS_CONTACT_CB"
+   ]
+  },
+  "DEF_PRESS_LOST": {
+   "WR": [
+    "CB16_PRESS_LOST_WR",
+    "CB16_PRESS_LOST_WR_mirror"
+   ],
+   "CB": [
+    "CB16_PRESS_LOST_CB",
+    "CB16_PRESS_LOST_CB_mirror"
+   ]
+  },
+  "DEF_PRESS_WIN": {
+   "WR": [
+    "CB17_PRESS_WIN_WR",
+    "CB17_PRESS_WIN_WR_mirror"
+   ],
+   "CB": [
+    "CB17_PRESS_WIN_CB",
+    "CB17_PRESS_WIN_CB_mirror"
+   ]
+  }
+ },
+ "clip_count": 91,
+ "clips": [
+  {
+   "id": "CB01_PRESS_STANCE",
+   "file": "clips/02_cornerbacks/CB01_PRESS_STANCE.glb",
+   "title": "Press-coverage stance",
+   "group": "02_cornerbacks",
+   "role": "CB",
+   "position_compatibility": [
+    "CB"
+   ],
+   "state_id": "DEF_STANCE",
+   "layer": null,
+   "duration_s": 1.0,
+   "fps": 60,
+   "frames": 61,
+   "start_pose": "cb_press_stance",
+   "end_pose": "cb_press_stance",
+   "direction": "in_place",
+   "preferred_speed_range": [
+    0.0,
+    0.0
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 0.0,
+     "dir_root": [
+      -0.0,
+      -0.0
+     ]
+    },
+    "end": {
+     "mps": 0.0,
+     "dir_root": [
+      -0.0,
+      -0.0
+     ]
+    },
+    "whole": {
+     "mps": 0.0,
+     "dir_root": [
+      -0.0,
+      -0.0
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "read_start": 0.0,
+    "transition_ready": 0.0,
+    "animation_complete": 1.0
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      1.0
+     ]
+    ],
+    "right": [
+     [
+      0.0,
+      1.0
+     ]
+    ]
+   },
+   "mirror_file": null,
+   "compatible_next_states": [
+    "DEF_READ",
+    "DEF_SHUFFLE_LEFT",
+    "DEF_SHUFFLE_RIGHT",
+    "DEF_BACKPEDAL",
+    "DEF_RUN_FIT",
+    "DEF_ACCEL",
+    "DEF_ZONE_DROP",
+    "DEF_DOWNHILL_BREAK",
+    "DEF_HIP_FLIP_LEFT",
+    "DEF_HIP_FLIP_RIGHT"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": true,
+   "root_turn_deg": null,
+   "root_turn_window_s": null,
+   "root_turn_keys": null,
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "CB02_OFF_STANCE",
+   "file": "clips/02_cornerbacks/CB02_OFF_STANCE.glb",
+   "title": "Off-coverage stance",
+   "group": "02_cornerbacks",
+   "role": "CB",
+   "position_compatibility": [
+    "CB"
+   ],
+   "state_id": "DEF_STANCE",
+   "layer": null,
+   "duration_s": 1.0,
+   "fps": 60,
+   "frames": 61,
+   "start_pose": "cb_off_stance",
+   "end_pose": "cb_off_stance",
+   "direction": "in_place",
+   "preferred_speed_range": [
+    0.0,
+    0.0
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 0.0,
+     "dir_root": [
+      -0.0,
+      -0.0
+     ]
+    },
+    "end": {
+     "mps": 0.0,
+     "dir_root": [
+      -0.0,
+      -0.0
+     ]
+    },
+    "whole": {
+     "mps": 0.0,
+     "dir_root": [
+      -0.0,
+      -0.0
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "read_start": 0.0,
+    "transition_ready": 0.0,
+    "animation_complete": 1.0
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      1.0
+     ]
+    ],
+    "right": [
+     [
+      0.0,
+      1.0
+     ]
+    ]
+   },
+   "mirror_file": null,
+   "compatible_next_states": [
+    "DEF_READ",
+    "DEF_SHUFFLE_LEFT",
+    "DEF_SHUFFLE_RIGHT",
+    "DEF_BACKPEDAL",
+    "DEF_RUN_FIT",
+    "DEF_ACCEL",
+    "DEF_ZONE_DROP",
+    "DEF_DOWNHILL_BREAK",
+    "DEF_HIP_FLIP_LEFT",
+    "DEF_HIP_FLIP_RIGHT"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": true,
+   "root_turn_deg": null,
+   "root_turn_window_s": null,
+   "root_turn_keys": null,
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "CB03_BACKPEDAL",
+   "file": "clips/02_cornerbacks/CB03_BACKPEDAL.glb",
+   "title": "Controlled backpedal",
+   "group": "02_cornerbacks",
+   "role": "CB",
+   "position_compatibility": [
+    "CB",
+    "S"
+   ],
+   "state_id": "DEF_BACKPEDAL",
+   "layer": null,
+   "duration_s": 1.0,
+   "fps": 60,
+   "frames": 61,
+   "start_pose": "backpedal",
+   "end_pose": "backpedal",
+   "direction": "backward",
+   "preferred_speed_range": [
+    1.6,
+    2.1
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 1.84,
+     "dir_root": [
+      -0.0,
+      -0.757
+     ]
+    },
+    "end": {
+     "mps": 1.84,
+     "dir_root": [
+      -0.0,
+      -0.757
+     ]
+    },
+    "whole": {
+     "mps": 1.84,
+     "dir_root": [
+      -0.0,
+      -0.757
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.5,
+    "foot_plant_right": 0.25,
+    "transition_ready": 0.0,
+    "animation_complete": 1.0
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      0.15
+     ],
+     [
+      0.5,
+      0.65
+     ],
+     [
+      1.0,
+      1.0
+     ]
+    ],
+    "right": [
+     [
+      0.25,
+      0.4
+     ],
+     [
+      0.75,
+      0.9
+     ]
+    ]
+   },
+   "mirror_file": null,
+   "compatible_next_states": [
+    "DEF_BACKPEDAL",
+    "DEF_BACKPEDAL_FAST",
+    "DEF_HIP_FLIP_LEFT",
+    "DEF_HIP_FLIP_RIGHT",
+    "DEF_BREAK_LEFT",
+    "DEF_BREAK_RIGHT",
+    "DEF_DOWNHILL_BREAK",
+    "DEF_MAN_MIRROR",
+    "DEF_OVERCOMMIT_RECOVER",
+    "DEF_DECEL"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": true,
+   "root_turn_deg": null,
+   "root_turn_window_s": null,
+   "root_turn_keys": null,
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "CB04_BACKPEDAL_FAST",
+   "file": "clips/02_cornerbacks/CB04_BACKPEDAL_FAST.glb",
+   "title": "Fast backpedal",
+   "group": "02_cornerbacks",
+   "role": "CB",
+   "position_compatibility": [
+    "CB",
+    "S"
+   ],
+   "state_id": "DEF_BACKPEDAL_FAST",
+   "layer": null,
+   "duration_s": 0.8,
+   "fps": 60,
+   "frames": 49,
+   "start_pose": "backpedal_fast",
+   "end_pose": "backpedal_fast",
+   "direction": "backward",
+   "preferred_speed_range": [
+    3.0,
+    4.1
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 3.58,
+     "dir_root": [
+      -0.0,
+      -1.475
+     ]
+    },
+    "end": {
+     "mps": 3.58,
+     "dir_root": [
+      -0.0,
+      -1.475
+     ]
+    },
+    "whole": {
+     "mps": 3.58,
+     "dir_root": [
+      -0.0,
+      -1.475
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.4,
+    "foot_plant_right": 0.2,
+    "transition_ready": 0.0,
+    "animation_complete": 0.8
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      0.1167
+     ],
+     [
+      0.4,
+      0.5167
+     ],
+     [
+      0.8,
+      0.8
+     ]
+    ],
+    "right": [
+     [
+      0.2,
+      0.3167
+     ],
+     [
+      0.6,
+      0.7167
+     ]
+    ]
+   },
+   "mirror_file": null,
+   "compatible_next_states": [
+    "DEF_BACKPEDAL",
+    "DEF_BACKPEDAL_FAST",
+    "DEF_HIP_FLIP_LEFT",
+    "DEF_HIP_FLIP_RIGHT",
+    "DEF_BREAK_LEFT",
+    "DEF_BREAK_RIGHT",
+    "DEF_DOWNHILL_BREAK",
+    "DEF_MAN_MIRROR",
+    "DEF_OVERCOMMIT_RECOVER",
+    "DEF_DECEL"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": true,
+   "root_turn_deg": null,
+   "root_turn_window_s": null,
+   "root_turn_keys": null,
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "CB05_HIP_FLIP_LEFT",
+   "file": "clips/02_cornerbacks/CB05_HIP_FLIP_LEFT.glb",
+   "title": "Left hip flip (backpedal to sprint)",
+   "group": "02_cornerbacks",
+   "role": "CB",
+   "position_compatibility": [
+    "CB",
+    "S"
+   ],
+   "state_id": "DEF_HIP_FLIP_LEFT",
+   "layer": null,
+   "duration_s": 0.8333,
+   "fps": 60,
+   "frames": 51,
+   "start_pose": "backpedal",
+   "end_pose": "sprint",
+   "direction": "left",
+   "preferred_speed_range": [
+    1.5,
+    6.4
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 1.75,
+     "dir_root": [
+      0.01,
+      -0.721
+     ]
+    },
+    "end": {
+     "mps": 5.55,
+     "dir_root": [
+      0.004,
+      2.283
+     ]
+    },
+    "whole": {
+     "mps": 1.47,
+     "dir_root": [
+      -0.134,
+      0.591
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.5167,
+    "foot_plant_right": 0.2167,
+    "hip_turn_start": 0.2333,
+    "hip_turn_complete": 0.4333,
+    "direction_change": 0.3333,
+    "acceleration_start": 0.4333,
+    "transition_ready": 0.5667,
+    "animation_complete": 0.8333
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      0.1667
+     ],
+     [
+      0.5167,
+      0.6333
+     ]
+    ],
+    "right": [
+     [
+      0.2167,
+      0.4667
+     ],
+     [
+      0.7333,
+      0.8333
+     ]
+    ]
+   },
+   "mirror_file": "clips/02_cornerbacks/CB06_HIP_FLIP_RIGHT.glb",
+   "compatible_next_states": [
+    "DEF_PURSUIT",
+    "DEF_BALL_TRACK",
+    "DEF_DECEL",
+    "DEF_BREAK_LEFT",
+    "DEF_BREAK_RIGHT",
+    "DEF_OVERCOMMIT_RECOVER",
+    "DEF_PASS_CONTEST_ENTRY",
+    "DEF_PRE_TACKLE",
+    "DEF_BLOCK_AVOID"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": false,
+   "root_turn_deg": 135,
+   "root_turn_window_s": [
+    0.2333,
+    0.4333
+   ],
+   "root_turn_keys": [
+    [
+     0.0,
+     0
+    ],
+    [
+     0.2333,
+     0
+    ],
+    [
+     0.4333,
+     135
+    ]
+   ],
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "CB06_HIP_FLIP_RIGHT",
+   "file": "clips/02_cornerbacks/CB06_HIP_FLIP_RIGHT.glb",
+   "title": "Left hip flip (backpedal to sprint)",
+   "group": "02_cornerbacks",
+   "role": "CB",
+   "position_compatibility": [
+    "CB",
+    "S"
+   ],
+   "state_id": "DEF_HIP_FLIP_RIGHT",
+   "layer": null,
+   "duration_s": 0.8333,
+   "fps": 60,
+   "frames": 51,
+   "start_pose": "backpedal",
+   "end_pose": "sprint",
+   "direction": "right",
+   "preferred_speed_range": [
+    1.5,
+    6.3
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 1.75,
+     "dir_root": [
+      -0.01,
+      -0.721
+     ]
+    },
+    "end": {
+     "mps": 5.51,
+     "dir_root": [
+      -0.0,
+      2.269
+     ]
+    },
+    "whole": {
+     "mps": 1.36,
+     "dir_root": [
+      0.139,
+      0.543
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.2167,
+    "foot_plant_right": 0.5167,
+    "hip_turn_start": 0.2333,
+    "hip_turn_complete": 0.4333,
+    "direction_change": 0.3333,
+    "acceleration_start": 0.4333,
+    "transition_ready": 0.5667,
+    "animation_complete": 0.8333
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.2167,
+      0.4667
+     ],
+     [
+      0.7333,
+      0.8333
+     ]
+    ],
+    "right": [
+     [
+      0.0,
+      0.1667
+     ],
+     [
+      0.5167,
+      0.6167
+     ]
+    ]
+   },
+   "mirror_file": "clips/02_cornerbacks/CB05_HIP_FLIP_LEFT.glb",
+   "compatible_next_states": [
+    "DEF_PURSUIT",
+    "DEF_BALL_TRACK",
+    "DEF_DECEL",
+    "DEF_BREAK_LEFT",
+    "DEF_BREAK_RIGHT",
+    "DEF_OVERCOMMIT_RECOVER",
+    "DEF_PASS_CONTEST_ENTRY",
+    "DEF_PRE_TACKLE",
+    "DEF_BLOCK_AVOID"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": false,
+   "root_turn_deg": -135,
+   "root_turn_window_s": [
+    0.2333,
+    0.4333
+   ],
+   "root_turn_keys": [
+    [
+     0.0,
+     0
+    ],
+    [
+     0.2333,
+     0
+    ],
+    [
+     0.4333,
+     -135
+    ]
+   ],
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "CB07_BREAK_LEFT",
+   "file": "clips/02_cornerbacks/CB07_BREAK_LEFT.glb",
+   "title": "Sharp route-break reaction left",
+   "group": "02_cornerbacks",
+   "role": "CB",
+   "position_compatibility": [
+    "CB"
+   ],
+   "state_id": "DEF_BREAK_LEFT",
+   "layer": null,
+   "duration_s": 0.8,
+   "fps": 60,
+   "frames": 49,
+   "start_pose": "backpedal",
+   "end_pose": "sprint",
+   "direction": "left",
+   "preferred_speed_range": [
+    1.9,
+    6.3
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 2.2,
+     "dir_root": [
+      0.024,
+      -0.904
+     ]
+    },
+    "end": {
+     "mps": 5.49,
+     "dir_root": [
+      0.001,
+      2.26
+     ]
+    },
+    "whole": {
+     "mps": 1.32,
+     "dir_root": [
+      -0.06,
+      0.539
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.4667,
+    "foot_plant_right": 0.2167,
+    "read_start": 0.1,
+    "hip_turn_start": 0.2667,
+    "hip_turn_complete": 0.4333,
+    "direction_change": 0.35,
+    "acceleration_start": 0.4333,
+    "transition_ready": 0.5667,
+    "animation_complete": 0.8
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      0.15
+     ],
+     [
+      0.4667,
+      0.6
+     ]
+    ],
+    "right": [
+     [
+      0.2167,
+      0.4667
+     ],
+     [
+      0.7,
+      0.8
+     ]
+    ]
+   },
+   "mirror_file": "clips/02_cornerbacks/CB08_BREAK_RIGHT.glb",
+   "compatible_next_states": [
+    "DEF_PURSUIT",
+    "DEF_BALL_TRACK",
+    "DEF_DECEL",
+    "DEF_BREAK_LEFT",
+    "DEF_BREAK_RIGHT",
+    "DEF_OVERCOMMIT_RECOVER",
+    "DEF_PASS_CONTEST_ENTRY",
+    "DEF_PRE_TACKLE",
+    "DEF_BLOCK_AVOID"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": false,
+   "root_turn_deg": 65,
+   "root_turn_window_s": [
+    0.2667,
+    0.4333
+   ],
+   "root_turn_keys": [
+    [
+     0.0,
+     0
+    ],
+    [
+     0.2667,
+     0
+    ],
+    [
+     0.4333,
+     65
+    ]
+   ],
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "CB08_BREAK_RIGHT",
+   "file": "clips/02_cornerbacks/CB08_BREAK_RIGHT.glb",
+   "title": "Sharp route-break reaction left",
+   "group": "02_cornerbacks",
+   "role": "CB",
+   "position_compatibility": [
+    "CB"
+   ],
+   "state_id": "DEF_BREAK_RIGHT",
+   "layer": null,
+   "duration_s": 0.8,
+   "fps": 60,
+   "frames": 49,
+   "start_pose": "backpedal",
+   "end_pose": "sprint",
+   "direction": "right",
+   "preferred_speed_range": [
+    1.9,
+    6.2
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 2.2,
+     "dir_root": [
+      -0.024,
+      -0.904
+     ]
+    },
+    "end": {
+     "mps": 5.43,
+     "dir_root": [
+      0.002,
+      2.234
+     ]
+    },
+    "whole": {
+     "mps": 1.3,
+     "dir_root": [
+      0.061,
+      0.533
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.2167,
+    "foot_plant_right": 0.4667,
+    "read_start": 0.1,
+    "hip_turn_start": 0.2667,
+    "hip_turn_complete": 0.4333,
+    "direction_change": 0.35,
+    "acceleration_start": 0.4333,
+    "transition_ready": 0.5667,
+    "animation_complete": 0.8
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.2167,
+      0.4667
+     ],
+     [
+      0.7,
+      0.8
+     ]
+    ],
+    "right": [
+     [
+      0.0,
+      0.15
+     ],
+     [
+      0.4667,
+      0.6
+     ]
+    ]
+   },
+   "mirror_file": "clips/02_cornerbacks/CB07_BREAK_LEFT.glb",
+   "compatible_next_states": [
+    "DEF_PURSUIT",
+    "DEF_BALL_TRACK",
+    "DEF_DECEL",
+    "DEF_BREAK_LEFT",
+    "DEF_BREAK_RIGHT",
+    "DEF_OVERCOMMIT_RECOVER",
+    "DEF_PASS_CONTEST_ENTRY",
+    "DEF_PRE_TACKLE",
+    "DEF_BLOCK_AVOID"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": false,
+   "root_turn_deg": -65,
+   "root_turn_window_s": [
+    0.2667,
+    0.4333
+   ],
+   "root_turn_keys": [
+    [
+     0.0,
+     0
+    ],
+    [
+     0.2667,
+     0
+    ],
+    [
+     0.4333,
+     -65
+    ]
+   ],
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "CB09_SLANT_REACT_LEFT",
+   "file": "clips/02_cornerbacks/CB09_SLANT_REACT_LEFT.glb",
+   "title": "Fast slant reaction (inside cut)",
+   "group": "02_cornerbacks",
+   "role": "CB",
+   "position_compatibility": [
+    "CB"
+   ],
+   "state_id": "DEF_BREAK_LEFT",
+   "layer": null,
+   "duration_s": 0.6667,
+   "fps": 60,
+   "frames": 41,
+   "start_pose": "backpedal",
+   "end_pose": "sprint",
+   "direction": "left",
+   "preferred_speed_range": [
+    0.6,
+    6.8
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 0.67,
+     "dir_root": [
+      -0.223,
+      -0.162
+     ]
+    },
+    "end": {
+     "mps": 5.87,
+     "dir_root": [
+      0.003,
+      2.418
+     ]
+    },
+    "whole": {
+     "mps": 1.71,
+     "dir_root": [
+      -0.02,
+      0.702
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.4667,
+    "foot_plant_right": 0.15,
+    "read_start": 0.0667,
+    "hip_turn_start": 0.1667,
+    "hip_turn_complete": 0.2833,
+    "direction_change": 0.2167,
+    "acceleration_start": 0.2833,
+    "transition_ready": 0.4,
+    "animation_complete": 0.6667
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      0.15
+     ],
+     [
+      0.4667,
+      0.5667
+     ]
+    ],
+    "right": [
+     [
+      0.15,
+      0.3667
+     ]
+    ]
+   },
+   "mirror_file": "clips/02_cornerbacks/CB09_SLANT_REACT_RIGHT.glb",
+   "compatible_next_states": [
+    "DEF_PURSUIT",
+    "DEF_BALL_TRACK",
+    "DEF_DECEL",
+    "DEF_BREAK_LEFT",
+    "DEF_BREAK_RIGHT",
+    "DEF_OVERCOMMIT_RECOVER",
+    "DEF_PASS_CONTEST_ENTRY",
+    "DEF_PRE_TACKLE",
+    "DEF_BLOCK_AVOID"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": false,
+   "root_turn_deg": 70,
+   "root_turn_window_s": [
+    0.1667,
+    0.2833
+   ],
+   "root_turn_keys": [
+    [
+     0.0,
+     0
+    ],
+    [
+     0.1667,
+     0
+    ],
+    [
+     0.2833,
+     70
+    ]
+   ],
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "CB09_SLANT_REACT_RIGHT",
+   "file": "clips/02_cornerbacks/CB09_SLANT_REACT_RIGHT.glb",
+   "title": "Fast slant reaction (inside cut)",
+   "group": "02_cornerbacks",
+   "role": "CB",
+   "position_compatibility": [
+    "CB"
+   ],
+   "state_id": "DEF_BREAK_RIGHT",
+   "layer": null,
+   "duration_s": 0.6667,
+   "fps": 60,
+   "frames": 41,
+   "start_pose": "backpedal",
+   "end_pose": "sprint",
+   "direction": "right",
+   "preferred_speed_range": [
+    0.6,
+    6.8
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 0.67,
+     "dir_root": [
+      0.223,
+      -0.162
+     ]
+    },
+    "end": {
+     "mps": 5.93,
+     "dir_root": [
+      -0.001,
+      2.44
+     ]
+    },
+    "whole": {
+     "mps": 1.56,
+     "dir_root": [
+      0.022,
+      0.643
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.15,
+    "foot_plant_right": 0.4667,
+    "read_start": 0.0667,
+    "hip_turn_start": 0.1667,
+    "hip_turn_complete": 0.2833,
+    "direction_change": 0.2167,
+    "acceleration_start": 0.2833,
+    "transition_ready": 0.4,
+    "animation_complete": 0.6667
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.15,
+      0.3667
+     ]
+    ],
+    "right": [
+     [
+      0.0,
+      0.15
+     ],
+     [
+      0.4667,
+      0.55
+     ]
+    ]
+   },
+   "mirror_file": "clips/02_cornerbacks/CB09_SLANT_REACT_LEFT.glb",
+   "compatible_next_states": [
+    "DEF_PURSUIT",
+    "DEF_BALL_TRACK",
+    "DEF_DECEL",
+    "DEF_BREAK_LEFT",
+    "DEF_BREAK_RIGHT",
+    "DEF_OVERCOMMIT_RECOVER",
+    "DEF_PASS_CONTEST_ENTRY",
+    "DEF_PRE_TACKLE",
+    "DEF_BLOCK_AVOID"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": false,
+   "root_turn_deg": -70,
+   "root_turn_window_s": [
+    0.1667,
+    0.2833
+   ],
+   "root_turn_keys": [
+    [
+     0.0,
+     0
+    ],
+    [
+     0.1667,
+     0
+    ],
+    [
+     0.2833,
+     -70
+    ]
+   ],
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "CB10_COMEBACK_REACT_LEFT",
+   "file": "clips/02_cornerbacks/CB10_COMEBACK_REACT_LEFT.glb",
+   "title": "Comeback reaction (brake, plant, turn back toward the QB)",
+   "group": "02_cornerbacks",
+   "role": "CB",
+   "position_compatibility": [
+    "CB"
+   ],
+   "state_id": "DEF_BREAK_LEFT",
+   "layer": null,
+   "duration_s": 1.0667,
+   "fps": 60,
+   "frames": 65,
+   "start_pose": "sprint",
+   "end_pose": "sprint",
+   "direction": "left",
+   "preferred_speed_range": [
+    3.9,
+    7.0
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 6.13,
+     "dir_root": [
+      -0.005,
+      2.525
+     ]
+    },
+    "end": {
+     "mps": 4.6,
+     "dir_root": [
+      0.001,
+      1.893
+     ]
+    },
+    "whole": {
+     "mps": 2.6,
+     "dir_root": [
+      -0.02,
+      1.07
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.3833,
+    "foot_plant_right": 0.3833,
+    "read_start": 0.1667,
+    "hip_turn_start": 0.4,
+    "hip_turn_complete": 0.6333,
+    "direction_change": 0.5167,
+    "acceleration_start": 0.6333,
+    "transition_ready": 0.8333,
+    "animation_complete": 1.0667
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      0.1
+     ],
+     [
+      0.3833,
+      0.4167
+     ],
+     [
+      0.85,
+      0.9667
+     ]
+    ],
+    "right": [
+     [
+      0.2,
+      0.3333
+     ],
+     [
+      0.3833,
+      0.7833
+     ],
+     [
+      1.0667,
+      1.0667
+     ]
+    ]
+   },
+   "mirror_file": "clips/02_cornerbacks/CB10_COMEBACK_REACT_RIGHT.glb",
+   "compatible_next_states": [
+    "DEF_PURSUIT",
+    "DEF_BALL_TRACK",
+    "DEF_DECEL",
+    "DEF_BREAK_LEFT",
+    "DEF_BREAK_RIGHT",
+    "DEF_OVERCOMMIT_RECOVER",
+    "DEF_PASS_CONTEST_ENTRY",
+    "DEF_PRE_TACKLE",
+    "DEF_BLOCK_AVOID"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": false,
+   "root_turn_deg": 165,
+   "root_turn_window_s": [
+    0.4,
+    0.6333
+   ],
+   "root_turn_keys": [
+    [
+     0.0,
+     0
+    ],
+    [
+     0.4,
+     0
+    ],
+    [
+     0.6333,
+     165
+    ]
+   ],
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "CB10_COMEBACK_REACT_RIGHT",
+   "file": "clips/02_cornerbacks/CB10_COMEBACK_REACT_RIGHT.glb",
+   "title": "Comeback reaction (brake, plant, turn back toward the QB)",
+   "group": "02_cornerbacks",
+   "role": "CB",
+   "position_compatibility": [
+    "CB"
+   ],
+   "state_id": "DEF_BREAK_RIGHT",
+   "layer": null,
+   "duration_s": 1.0667,
+   "fps": 60,
+   "frames": 65,
+   "start_pose": "sprint",
+   "end_pose": "sprint",
+   "direction": "right",
+   "preferred_speed_range": [
+    3.9,
+    7.0
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 6.09,
+     "dir_root": [
+      0.001,
+      2.506
+     ]
+    },
+    "end": {
+     "mps": 4.54,
+     "dir_root": [
+      -0.006,
+      1.868
+     ]
+    },
+    "whole": {
+     "mps": 2.58,
+     "dir_root": [
+      0.019,
+      1.062
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.3833,
+    "foot_plant_right": 0.3833,
+    "read_start": 0.1667,
+    "hip_turn_start": 0.4,
+    "hip_turn_complete": 0.6333,
+    "direction_change": 0.5167,
+    "acceleration_start": 0.6333,
+    "transition_ready": 0.8333,
+    "animation_complete": 1.0667
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.2,
+      0.3333
+     ],
+     [
+      0.3833,
+      0.7833
+     ],
+     [
+      1.0667,
+      1.0667
+     ]
+    ],
+    "right": [
+     [
+      0.0,
+      0.1
+     ],
+     [
+      0.3833,
+      0.4167
+     ],
+     [
+      0.85,
+      0.9667
+     ]
+    ]
+   },
+   "mirror_file": "clips/02_cornerbacks/CB10_COMEBACK_REACT_LEFT.glb",
+   "compatible_next_states": [
+    "DEF_PURSUIT",
+    "DEF_BALL_TRACK",
+    "DEF_DECEL",
+    "DEF_BREAK_LEFT",
+    "DEF_BREAK_RIGHT",
+    "DEF_OVERCOMMIT_RECOVER",
+    "DEF_PASS_CONTEST_ENTRY",
+    "DEF_PRE_TACKLE",
+    "DEF_BLOCK_AVOID"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": false,
+   "root_turn_deg": -165,
+   "root_turn_window_s": [
+    0.4,
+    0.6333
+   ],
+   "root_turn_keys": [
+    [
+     0.0,
+     0
+    ],
+    [
+     0.4,
+     0
+    ],
+    [
+     0.6333,
+     -165
+    ]
+   ],
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "CB11_OVERCOMMIT_RECOVER_LEFT",
+   "file": "clips/02_cornerbacks/CB11_OVERCOMMIT_RECOVER_LEFT.glb",
+   "title": "Double-move overcommit: bites left, corrects, recovers right",
+   "group": "02_cornerbacks",
+   "role": "CB",
+   "position_compatibility": [
+    "CB",
+    "S"
+   ],
+   "state_id": "DEF_OVERCOMMIT_RECOVER",
+   "layer": null,
+   "duration_s": 1.1667,
+   "fps": 60,
+   "frames": 71,
+   "start_pose": "backpedal",
+   "end_pose": "sprint",
+   "direction": "bites_left_recovers_right",
+   "preferred_speed_range": [
+    1.1,
+    5.8
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 1.35,
+     "dir_root": [
+      -0.023,
+      -0.555
+     ]
+    },
+    "end": {
+     "mps": 5.02,
+     "dir_root": [
+      0.004,
+      2.068
+     ]
+    },
+    "whole": {
+     "mps": 1.15,
+     "dir_root": [
+      0.073,
+      0.468
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.5,
+    "foot_plant_right": 0.1833,
+    "read_start": 0.1,
+    "hip_turn_start": 0.2,
+    "hip_turn_complete": 0.7667,
+    "direction_change": 0.5333,
+    "acceleration_start": 0.7667,
+    "transition_ready": 0.9333,
+    "animation_complete": 1.1667
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      0.1667
+     ],
+     [
+      0.5,
+      0.8
+     ],
+     [
+      0.9833,
+      1.1
+     ]
+    ],
+    "right": [
+     [
+      0.1833,
+      0.45
+     ],
+     [
+      0.7833,
+      0.9167
+     ]
+    ]
+   },
+   "mirror_file": "clips/02_cornerbacks/CB11_OVERCOMMIT_RECOVER_RIGHT.glb",
+   "compatible_next_states": [
+    "DEF_PURSUIT",
+    "DEF_BALL_TRACK",
+    "DEF_DECEL",
+    "DEF_BREAK_LEFT",
+    "DEF_BREAK_RIGHT",
+    "DEF_OVERCOMMIT_RECOVER",
+    "DEF_PASS_CONTEST_ENTRY",
+    "DEF_PRE_TACKLE",
+    "DEF_BLOCK_AVOID"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": false,
+   "root_turn_deg": -105,
+   "root_turn_window_s": [
+    0.5333,
+    0.7667
+   ],
+   "root_turn_keys": [
+    [
+     0.0,
+     0
+    ],
+    [
+     0.2,
+     0
+    ],
+    [
+     0.3333,
+     45
+    ],
+    [
+     0.5333,
+     45
+    ],
+    [
+     0.7667,
+     -105
+    ]
+   ],
+   "carries_ball": false,
+   "notes": "Fooled read: commits 45 deg left (frames 12-20), corrective plant on the left foot at 32, turns 150 deg back over 14 frames, re-accelerates from 46. Costs ~0.4 s versus a clean break."
+  },
+  {
+   "id": "CB11_OVERCOMMIT_RECOVER_RIGHT",
+   "file": "clips/02_cornerbacks/CB11_OVERCOMMIT_RECOVER_RIGHT.glb",
+   "title": "Double-move overcommit: bites left, corrects, recovers right",
+   "group": "02_cornerbacks",
+   "role": "CB",
+   "position_compatibility": [
+    "CB",
+    "S"
+   ],
+   "state_id": "DEF_OVERCOMMIT_RECOVER",
+   "layer": null,
+   "duration_s": 1.1667,
+   "fps": 60,
+   "frames": 71,
+   "start_pose": "backpedal",
+   "end_pose": "sprint",
+   "direction": "bites_right_recovers_left",
+   "preferred_speed_range": [
+    1.1,
+    5.7
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 1.35,
+     "dir_root": [
+      0.023,
+      -0.555
+     ]
+    },
+    "end": {
+     "mps": 4.94,
+     "dir_root": [
+      -0.004,
+      2.035
+     ]
+    },
+    "whole": {
+     "mps": 1.08,
+     "dir_root": [
+      -0.074,
+      0.437
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.1833,
+    "foot_plant_right": 0.5,
+    "read_start": 0.1,
+    "hip_turn_start": 0.2,
+    "hip_turn_complete": 0.7667,
+    "direction_change": 0.5333,
+    "acceleration_start": 0.7667,
+    "transition_ready": 0.9333,
+    "animation_complete": 1.1667
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.1833,
+      0.45
+     ],
+     [
+      0.7833,
+      0.9167
+     ]
+    ],
+    "right": [
+     [
+      0.0,
+      0.1667
+     ],
+     [
+      0.5,
+      0.8
+     ],
+     [
+      0.9833,
+      1.0833
+     ]
+    ]
+   },
+   "mirror_file": "clips/02_cornerbacks/CB11_OVERCOMMIT_RECOVER_LEFT.glb",
+   "compatible_next_states": [
+    "DEF_PURSUIT",
+    "DEF_BALL_TRACK",
+    "DEF_DECEL",
+    "DEF_BREAK_LEFT",
+    "DEF_BREAK_RIGHT",
+    "DEF_OVERCOMMIT_RECOVER",
+    "DEF_PASS_CONTEST_ENTRY",
+    "DEF_PRE_TACKLE",
+    "DEF_BLOCK_AVOID"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": false,
+   "root_turn_deg": 105,
+   "root_turn_window_s": [
+    0.5333,
+    0.7667
+   ],
+   "root_turn_keys": [
+    [
+     0.0,
+     0
+    ],
+    [
+     0.2,
+     0
+    ],
+    [
+     0.3333,
+     -45
+    ],
+    [
+     0.5333,
+     -45
+    ],
+    [
+     0.7667,
+     105
+    ]
+   ],
+   "carries_ball": false,
+   "notes": "Fooled read: commits 45 deg left (frames 12-20), corrective plant on the left foot at 32, turns 150 deg back over 14 frames, re-accelerates from 46. Costs ~0.4 s versus a clean break."
+  },
+  {
+   "id": "CB12_MAN_MIRROR",
+   "file": "clips/02_cornerbacks/CB12_MAN_MIRROR.glb",
+   "title": "Man-coverage mirror (backpedal with lateral adjustments)",
+   "group": "02_cornerbacks",
+   "role": "CB",
+   "position_compatibility": [
+    "CB",
+    "LB"
+   ],
+   "state_id": "DEF_MAN_MIRROR",
+   "layer": null,
+   "duration_s": 1.0,
+   "fps": 60,
+   "frames": 61,
+   "start_pose": "backpedal",
+   "end_pose": "backpedal",
+   "direction": "backward",
+   "preferred_speed_range": [
+    2.0,
+    2.8
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 2.44,
+     "dir_root": [
+      0.012,
+      -1.004
+     ]
+    },
+    "end": {
+     "mps": 2.3,
+     "dir_root": [
+      -0.231,
+      -0.918
+     ]
+    },
+    "whole": {
+     "mps": 2.25,
+     "dir_root": [
+      -0.004,
+      -0.928
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.5,
+    "foot_plant_right": 0.25,
+    "transition_ready": 0.0,
+    "animation_complete": 1.0
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      0.1833
+     ],
+     [
+      0.5,
+      0.6833
+     ],
+     [
+      1.0,
+      1.0
+     ]
+    ],
+    "right": [
+     [
+      0.25,
+      0.4333
+     ],
+     [
+      0.75,
+      0.9333
+     ]
+    ]
+   },
+   "mirror_file": null,
+   "compatible_next_states": [
+    "DEF_BACKPEDAL",
+    "DEF_BACKPEDAL_FAST",
+    "DEF_HIP_FLIP_LEFT",
+    "DEF_HIP_FLIP_RIGHT",
+    "DEF_BREAK_LEFT",
+    "DEF_BREAK_RIGHT",
+    "DEF_DOWNHILL_BREAK",
+    "DEF_MAN_MIRROR",
+    "DEF_OVERCOMMIT_RECOVER",
+    "DEF_DECEL"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": true,
+   "root_turn_deg": null,
+   "root_turn_window_s": null,
+   "root_turn_keys": null,
+   "carries_ball": false,
+   "notes": "Small lateral adjustments only; the game steers the actual path. Loopable."
+  },
+  {
+   "id": "CB13_DEEP_SPRINT",
+   "file": "clips/02_cornerbacks/CB13_DEEP_SPRINT.glb",
+   "title": "Deep-coverage sprint",
+   "group": "02_cornerbacks",
+   "role": "CB",
+   "position_compatibility": [
+    "CB",
+    "S"
+   ],
+   "state_id": "DEF_PURSUIT",
+   "layer": null,
+   "duration_s": 0.8667,
+   "fps": 60,
+   "frames": 53,
+   "start_pose": "sprint",
+   "end_pose": "sprint",
+   "direction": "forward",
+   "preferred_speed_range": [
+    4.6,
+    6.3
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 5.46,
+     "dir_root": [
+      0.003,
+      2.248
+     ]
+    },
+    "end": {
+     "mps": 5.51,
+     "dir_root": [
+      0.002,
+      2.27
+     ]
+    },
+    "whole": {
+     "mps": 5.51,
+     "dir_root": [
+      0.0,
+      2.269
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.4333,
+    "foot_plant_right": 0.2167,
+    "transition_ready": 0.0,
+    "animation_complete": 0.8667
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      0.1167
+     ],
+     [
+      0.4333,
+      0.55
+     ],
+     [
+      0.8667,
+      0.8667
+     ]
+    ],
+    "right": [
+     [
+      0.2167,
+      0.3333
+     ],
+     [
+      0.65,
+      0.7667
+     ]
+    ]
+   },
+   "mirror_file": null,
+   "compatible_next_states": [
+    "DEF_PURSUIT",
+    "DEF_BALL_TRACK",
+    "DEF_DECEL",
+    "DEF_BREAK_LEFT",
+    "DEF_BREAK_RIGHT",
+    "DEF_OVERCOMMIT_RECOVER",
+    "DEF_PASS_CONTEST_ENTRY",
+    "DEF_PRE_TACKLE",
+    "DEF_BLOCK_AVOID"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": true,
+   "root_turn_deg": null,
+   "root_turn_window_s": null,
+   "root_turn_keys": null,
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "CB14_BALL_TRACK_LEFT",
+   "file": "clips/02_cornerbacks/CB14_BALL_TRACK_LEFT.glb",
+   "title": "Over-the-shoulder ball tracking (left shoulder)",
+   "group": "02_cornerbacks",
+   "role": "CB",
+   "position_compatibility": [
+    "CB",
+    "S"
+   ],
+   "state_id": "DEF_BALL_TRACK",
+   "layer": null,
+   "duration_s": 0.8667,
+   "fps": 60,
+   "frames": 53,
+   "start_pose": "sprint",
+   "end_pose": "sprint",
+   "direction": "left",
+   "preferred_speed_range": [
+    4.6,
+    6.3
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 5.47,
+     "dir_root": [
+      0.002,
+      2.252
+     ]
+    },
+    "end": {
+     "mps": 5.51,
+     "dir_root": [
+      0.001,
+      2.269
+     ]
+    },
+    "whole": {
+     "mps": 5.51,
+     "dir_root": [
+      -0.001,
+      2.269
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.4333,
+    "foot_plant_right": 0.2167,
+    "tracking_start": 0.0,
+    "transition_ready": 0.0,
+    "animation_complete": 0.8667
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      0.1167
+     ],
+     [
+      0.4333,
+      0.55
+     ],
+     [
+      0.8667,
+      0.8667
+     ]
+    ],
+    "right": [
+     [
+      0.2167,
+      0.3333
+     ],
+     [
+      0.65,
+      0.7667
+     ]
+    ]
+   },
+   "mirror_file": "clips/02_cornerbacks/CB14_BALL_TRACK_RIGHT.glb",
+   "compatible_next_states": [
+    "DEF_PURSUIT",
+    "DEF_BALL_TRACK",
+    "DEF_DECEL",
+    "DEF_BREAK_LEFT",
+    "DEF_BREAK_RIGHT",
+    "DEF_OVERCOMMIT_RECOVER",
+    "DEF_PASS_CONTEST_ENTRY",
+    "DEF_PRE_TACKLE",
+    "DEF_BLOCK_AVOID"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": true,
+   "root_turn_deg": null,
+   "root_turn_window_s": null,
+   "root_turn_keys": null,
+   "carries_ball": false,
+   "notes": "Hips stay on the running line; only spine/neck/head turn. The same look is also provided as an additive layer (ADD_*) for any run cycle."
+  },
+  {
+   "id": "CB14_BALL_TRACK_RIGHT",
+   "file": "clips/02_cornerbacks/CB14_BALL_TRACK_RIGHT.glb",
+   "title": "Over-the-shoulder ball tracking (left shoulder)",
+   "group": "02_cornerbacks",
+   "role": "CB",
+   "position_compatibility": [
+    "CB",
+    "S"
+   ],
+   "state_id": "DEF_BALL_TRACK",
+   "layer": null,
+   "duration_s": 0.8667,
+   "fps": 60,
+   "frames": 53,
+   "start_pose": "sprint",
+   "end_pose": "sprint",
+   "direction": "right",
+   "preferred_speed_range": [
+    4.7,
+    6.4
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 5.48,
+     "dir_root": [
+      -0.0,
+      2.257
+     ]
+    },
+    "end": {
+     "mps": 5.54,
+     "dir_root": [
+      -0.003,
+      2.281
+     ]
+    },
+    "whole": {
+     "mps": 5.54,
+     "dir_root": [
+      0.001,
+      2.279
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.2167,
+    "foot_plant_right": 0.4333,
+    "tracking_start": 0.0,
+    "transition_ready": 0.0,
+    "animation_complete": 0.8667
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.2167,
+      0.3167
+     ],
+     [
+      0.65,
+      0.75
+     ]
+    ],
+    "right": [
+     [
+      0.0,
+      0.1
+     ],
+     [
+      0.4333,
+      0.5333
+     ],
+     [
+      0.8667,
+      0.8667
+     ]
+    ]
+   },
+   "mirror_file": "clips/02_cornerbacks/CB14_BALL_TRACK_LEFT.glb",
+   "compatible_next_states": [
+    "DEF_PURSUIT",
+    "DEF_BALL_TRACK",
+    "DEF_DECEL",
+    "DEF_BREAK_LEFT",
+    "DEF_BREAK_RIGHT",
+    "DEF_OVERCOMMIT_RECOVER",
+    "DEF_PASS_CONTEST_ENTRY",
+    "DEF_PRE_TACKLE",
+    "DEF_BLOCK_AVOID"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": true,
+   "root_turn_deg": null,
+   "root_turn_window_s": null,
+   "root_turn_keys": null,
+   "carries_ball": false,
+   "notes": "Hips stay on the running line; only spine/neck/head turn. The same look is also provided as an additive layer (ADD_*) for any run cycle."
+  },
+  {
+   "id": "CB18_ZONE_SHUFFLE_LEFT",
+   "file": "clips/02_cornerbacks/CB18_ZONE_SHUFFLE_LEFT.glb",
+   "title": "Zone-coverage shuffle",
+   "group": "02_cornerbacks",
+   "role": "CB",
+   "position_compatibility": [
+    "CB",
+    "S"
+   ],
+   "state_id": "DEF_SHUFFLE_LEFT",
+   "layer": null,
+   "duration_s": 1.0667,
+   "fps": 60,
+   "frames": 65,
+   "start_pose": "cb_off_stance",
+   "end_pose": "cb_off_stance",
+   "direction": "left",
+   "preferred_speed_range": [
+    0.9,
+    1.2
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 1.06,
+     "dir_root": [
+      0.426,
+      0.102
+     ]
+    },
+    "end": {
+     "mps": 1.06,
+     "dir_root": [
+      0.426,
+      0.102
+     ]
+    },
+    "whole": {
+     "mps": 1.06,
+     "dir_root": [
+      0.426,
+      0.102
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.5333,
+    "foot_plant_right": 0.2667,
+    "transition_ready": 0.0,
+    "animation_complete": 1.0667
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      0.1667
+     ],
+     [
+      0.5333,
+      0.7
+     ],
+     [
+      1.0667,
+      1.0667
+     ]
+    ],
+    "right": [
+     [
+      0.2667,
+      0.4333
+     ],
+     [
+      0.8,
+      0.9667
+     ]
+    ]
+   },
+   "mirror_file": "clips/02_cornerbacks/CB18_ZONE_SHUFFLE_RIGHT.glb",
+   "compatible_next_states": [
+    "DEF_READ",
+    "DEF_SHUFFLE_LEFT",
+    "DEF_SHUFFLE_RIGHT",
+    "DEF_BACKPEDAL",
+    "DEF_RUN_FIT",
+    "DEF_ACCEL",
+    "DEF_ZONE_DROP",
+    "DEF_DOWNHILL_BREAK",
+    "DEF_HIP_FLIP_LEFT",
+    "DEF_HIP_FLIP_RIGHT"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": true,
+   "root_turn_deg": null,
+   "root_turn_window_s": null,
+   "root_turn_keys": null,
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "CB18_ZONE_SHUFFLE_RIGHT",
+   "file": "clips/02_cornerbacks/CB18_ZONE_SHUFFLE_RIGHT.glb",
+   "title": "Zone-coverage shuffle",
+   "group": "02_cornerbacks",
+   "role": "CB",
+   "position_compatibility": [
+    "CB",
+    "S"
+   ],
+   "state_id": "DEF_SHUFFLE_RIGHT",
+   "layer": null,
+   "duration_s": 1.0667,
+   "fps": 60,
+   "frames": 65,
+   "start_pose": "cb_off_stance",
+   "end_pose": "cb_off_stance",
+   "direction": "right",
+   "preferred_speed_range": [
+    0.9,
+    1.2
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 1.06,
+     "dir_root": [
+      -0.426,
+      0.102
+     ]
+    },
+    "end": {
+     "mps": 1.06,
+     "dir_root": [
+      -0.426,
+      0.102
+     ]
+    },
+    "whole": {
+     "mps": 1.06,
+     "dir_root": [
+      -0.426,
+      0.102
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.2667,
+    "foot_plant_right": 0.5333,
+    "transition_ready": 0.0,
+    "animation_complete": 1.0667
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.2667,
+      0.4333
+     ],
+     [
+      0.8,
+      0.9667
+     ]
+    ],
+    "right": [
+     [
+      0.0,
+      0.1667
+     ],
+     [
+      0.5333,
+      0.7
+     ],
+     [
+      1.0667,
+      1.0667
+     ]
+    ]
+   },
+   "mirror_file": "clips/02_cornerbacks/CB18_ZONE_SHUFFLE_LEFT.glb",
+   "compatible_next_states": [
+    "DEF_READ",
+    "DEF_SHUFFLE_LEFT",
+    "DEF_SHUFFLE_RIGHT",
+    "DEF_BACKPEDAL",
+    "DEF_RUN_FIT",
+    "DEF_ACCEL",
+    "DEF_ZONE_DROP",
+    "DEF_DOWNHILL_BREAK",
+    "DEF_HIP_FLIP_LEFT",
+    "DEF_HIP_FLIP_RIGHT"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": true,
+   "root_turn_deg": null,
+   "root_turn_window_s": null,
+   "root_turn_keys": null,
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "CB19_DOWNHILL_BREAK",
+   "file": "clips/02_cornerbacks/CB19_DOWNHILL_BREAK.glb",
+   "title": "Downhill break on the pass",
+   "group": "02_cornerbacks",
+   "role": "CB",
+   "position_compatibility": [
+    "CB",
+    "S"
+   ],
+   "state_id": "DEF_DOWNHILL_BREAK",
+   "layer": null,
+   "duration_s": 0.8333,
+   "fps": 60,
+   "frames": 51,
+   "start_pose": "backpedal",
+   "end_pose": "sprint",
+   "direction": "backward",
+   "preferred_speed_range": [
+    1.3,
+    6.4
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 1.5,
+     "dir_root": [
+      0.03,
+      -0.615
+     ]
+    },
+    "end": {
+     "mps": 5.55,
+     "dir_root": [
+      -0.0,
+      2.283
+     ]
+    },
+    "whole": {
+     "mps": 1.63,
+     "dir_root": [
+      -0.008,
+      0.67
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.2167,
+    "foot_plant_right": 0.2,
+    "read_start": 0.1333,
+    "direction_change": 0.2833,
+    "acceleration_start": 0.3167,
+    "transition_ready": 0.6,
+    "animation_complete": 0.8333
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      0.15
+     ],
+     [
+      0.2167,
+      0.3667
+     ],
+     [
+      0.4833,
+      0.6167
+     ]
+    ],
+    "right": [
+     [
+      0.2,
+      0.4
+     ],
+     [
+      0.7,
+      0.8167
+     ]
+    ]
+   },
+   "mirror_file": null,
+   "compatible_next_states": [
+    "DEF_PURSUIT",
+    "DEF_BALL_TRACK",
+    "DEF_DECEL",
+    "DEF_BREAK_LEFT",
+    "DEF_BREAK_RIGHT",
+    "DEF_OVERCOMMIT_RECOVER",
+    "DEF_PASS_CONTEST_ENTRY",
+    "DEF_PRE_TACKLE",
+    "DEF_BLOCK_AVOID",
+    "BALLSYNC:BS176",
+    "BALLSYNC:BS101-BS113 defender",
+    "BALLSYNC:BS128",
+    "BALLSYNC:BS134"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": false,
+   "root_turn_deg": null,
+   "root_turn_window_s": null,
+   "root_turn_keys": null,
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "CB20_CATCH_TO_TACKLE",
+   "file": "clips/02_cornerbacks/CB20_CATCH_TO_TACKLE.glb",
+   "title": "Catch-to-tackle transition (breakdown into MASS)",
+   "group": "02_cornerbacks",
+   "role": "CB",
+   "position_compatibility": [
+    "CB"
+   ],
+   "state_id": "DEF_PRE_TACKLE",
+   "layer": null,
+   "duration_s": 0.7333,
+   "fps": 60,
+   "frames": 45,
+   "start_pose": "sprint",
+   "end_pose": "pre_tackle",
+   "direction": "forward",
+   "preferred_speed_range": [
+    3.0,
+    6.8
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 5.93,
+     "dir_root": [
+      -0.004,
+      2.442
+     ]
+    },
+    "end": {
+     "mps": 3.52,
+     "dir_root": [
+      -0.0,
+      1.449
+     ]
+    },
+    "whole": {
+     "mps": 4.63,
+     "dir_root": [
+      -0.001,
+      1.907
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.3667,
+    "foot_plant_right": 0.2,
+    "read_start": 0.1,
+    "transition_ready": 0.5667,
+    "animation_complete": 0.7333
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      0.1167
+     ],
+     [
+      0.3667,
+      0.5
+     ]
+    ],
+    "right": [
+     [
+      0.2,
+      0.3
+     ],
+     [
+      0.5667,
+      0.7
+     ]
+    ]
+   },
+   "mirror_file": null,
+   "compatible_next_states": [
+    "MASS tackle pair (defender clip)",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:F22"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": false,
+   "root_turn_deg": null,
+   "root_turn_window_s": null,
+   "root_turn_keys": null,
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "LB01_STANCE",
+   "file": "clips/01_linebackers/LB01_STANCE.glb",
+   "title": "Athletic pre-snap stance",
+   "group": "01_linebackers",
+   "role": "LB",
+   "position_compatibility": [
+    "LB"
+   ],
+   "state_id": "DEF_STANCE",
+   "layer": null,
+   "duration_s": 1.0,
+   "fps": 60,
+   "frames": 61,
+   "start_pose": "lb_stance",
+   "end_pose": "lb_stance",
+   "direction": "in_place",
+   "preferred_speed_range": [
+    0.0,
+    0.0
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 0.0,
+     "dir_root": [
+      -0.0,
+      -0.0
+     ]
+    },
+    "end": {
+     "mps": 0.0,
+     "dir_root": [
+      -0.0,
+      -0.0
+     ]
+    },
+    "whole": {
+     "mps": 0.0,
+     "dir_root": [
+      -0.0,
+      -0.0
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "read_start": 0.0,
+    "transition_ready": 0.0,
+    "animation_complete": 1.0
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      1.0
+     ]
+    ],
+    "right": [
+     [
+      0.0,
+      1.0
+     ]
+    ]
+   },
+   "mirror_file": null,
+   "compatible_next_states": [
+    "DEF_READ",
+    "DEF_SHUFFLE_LEFT",
+    "DEF_SHUFFLE_RIGHT",
+    "DEF_BACKPEDAL",
+    "DEF_RUN_FIT",
+    "DEF_ACCEL",
+    "DEF_ZONE_DROP",
+    "DEF_DOWNHILL_BREAK",
+    "DEF_HIP_FLIP_LEFT",
+    "DEF_HIP_FLIP_RIGHT"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": true,
+   "root_turn_deg": null,
+   "root_turn_window_s": null,
+   "root_turn_keys": null,
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "LB02_READ",
+   "file": "clips/01_linebackers/LB02_READ.glb",
+   "title": "Reading the play (small adjustment steps)",
+   "group": "01_linebackers",
+   "role": "LB",
+   "position_compatibility": [
+    "LB"
+   ],
+   "state_id": "DEF_READ",
+   "layer": null,
+   "duration_s": 0.9,
+   "fps": 60,
+   "frames": 55,
+   "start_pose": "lb_stance",
+   "end_pose": "lb_stance",
+   "direction": "forward",
+   "preferred_speed_range": [
+    0.1,
+    0.4
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 0.33,
+     "dir_root": [
+      0.131,
+      0.032
+     ]
+    },
+    "end": {
+     "mps": 0.12,
+     "dir_root": [
+      -0.011,
+      0.046
+     ]
+    },
+    "whole": {
+     "mps": 0.13,
+     "dir_root": [
+      0.021,
+      0.051
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.4167,
+    "foot_plant_right": 0.2,
+    "read_start": 0.0,
+    "transition_ready": 0.1667,
+    "animation_complete": 0.9
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      0.1667
+     ],
+     [
+      0.4167,
+      0.6167
+     ],
+     [
+      0.7333,
+      0.9
+     ]
+    ],
+    "right": [
+     [
+      0.0,
+      0.0333
+     ],
+     [
+      0.2,
+      0.3833
+     ],
+     [
+      0.6333,
+      0.9
+     ]
+    ]
+   },
+   "mirror_file": null,
+   "compatible_next_states": [
+    "DEF_READ",
+    "DEF_SHUFFLE_LEFT",
+    "DEF_SHUFFLE_RIGHT",
+    "DEF_BACKPEDAL",
+    "DEF_RUN_FIT",
+    "DEF_ACCEL",
+    "DEF_ZONE_DROP",
+    "DEF_DOWNHILL_BREAK",
+    "DEF_HIP_FLIP_LEFT",
+    "DEF_HIP_FLIP_RIGHT"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": false,
+   "root_turn_deg": null,
+   "root_turn_window_s": null,
+   "root_turn_keys": null,
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "LB03_SHUFFLE_LEFT",
+   "file": "clips/01_linebackers/LB03_SHUFFLE_LEFT.glb",
+   "title": "Lateral shuffle left",
+   "group": "01_linebackers",
+   "role": "LB",
+   "position_compatibility": [
+    "LB"
+   ],
+   "state_id": "DEF_SHUFFLE_LEFT",
+   "layer": null,
+   "duration_s": 0.9333,
+   "fps": 60,
+   "frames": 57,
+   "start_pose": "lb_stance",
+   "end_pose": "lb_stance",
+   "direction": "left",
+   "preferred_speed_range": [
+    1.3,
+    1.7
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 1.49,
+     "dir_root": [
+      0.594,
+      0.143
+     ]
+    },
+    "end": {
+     "mps": 1.49,
+     "dir_root": [
+      0.594,
+      0.143
+     ]
+    },
+    "whole": {
+     "mps": 1.49,
+     "dir_root": [
+      0.594,
+      0.143
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.4667,
+    "foot_plant_right": 0.2333,
+    "transition_ready": 0.0,
+    "animation_complete": 0.9333
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      0.15
+     ],
+     [
+      0.4667,
+      0.6167
+     ],
+     [
+      0.9333,
+      0.9333
+     ]
+    ],
+    "right": [
+     [
+      0.2333,
+      0.3833
+     ],
+     [
+      0.7,
+      0.85
+     ]
+    ]
+   },
+   "mirror_file": "clips/01_linebackers/LB04_SHUFFLE_RIGHT.glb",
+   "compatible_next_states": [
+    "DEF_READ",
+    "DEF_SHUFFLE_LEFT",
+    "DEF_SHUFFLE_RIGHT",
+    "DEF_BACKPEDAL",
+    "DEF_RUN_FIT",
+    "DEF_ACCEL",
+    "DEF_ZONE_DROP",
+    "DEF_DOWNHILL_BREAK",
+    "DEF_HIP_FLIP_LEFT",
+    "DEF_HIP_FLIP_RIGHT"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": true,
+   "root_turn_deg": null,
+   "root_turn_window_s": null,
+   "root_turn_keys": null,
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "LB04_SHUFFLE_RIGHT",
+   "file": "clips/01_linebackers/LB04_SHUFFLE_RIGHT.glb",
+   "title": "Lateral shuffle left",
+   "group": "01_linebackers",
+   "role": "LB",
+   "position_compatibility": [
+    "LB"
+   ],
+   "state_id": "DEF_SHUFFLE_RIGHT",
+   "layer": null,
+   "duration_s": 0.9333,
+   "fps": 60,
+   "frames": 57,
+   "start_pose": "lb_stance",
+   "end_pose": "lb_stance",
+   "direction": "right",
+   "preferred_speed_range": [
+    1.3,
+    1.7
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 1.49,
+     "dir_root": [
+      -0.594,
+      0.143
+     ]
+    },
+    "end": {
+     "mps": 1.49,
+     "dir_root": [
+      -0.594,
+      0.143
+     ]
+    },
+    "whole": {
+     "mps": 1.49,
+     "dir_root": [
+      -0.594,
+      0.143
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.2333,
+    "foot_plant_right": 0.4667,
+    "transition_ready": 0.0,
+    "animation_complete": 0.9333
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.2333,
+      0.3833
+     ],
+     [
+      0.7,
+      0.85
+     ]
+    ],
+    "right": [
+     [
+      0.0,
+      0.15
+     ],
+     [
+      0.4667,
+      0.6167
+     ],
+     [
+      0.9333,
+      0.9333
+     ]
+    ]
+   },
+   "mirror_file": "clips/01_linebackers/LB03_SHUFFLE_LEFT.glb",
+   "compatible_next_states": [
+    "DEF_READ",
+    "DEF_SHUFFLE_LEFT",
+    "DEF_SHUFFLE_RIGHT",
+    "DEF_BACKPEDAL",
+    "DEF_RUN_FIT",
+    "DEF_ACCEL",
+    "DEF_ZONE_DROP",
+    "DEF_DOWNHILL_BREAK",
+    "DEF_HIP_FLIP_LEFT",
+    "DEF_HIP_FLIP_RIGHT"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": true,
+   "root_turn_deg": null,
+   "root_turn_window_s": null,
+   "root_turn_keys": null,
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "LB05_RUN_FIT",
+   "file": "clips/01_linebackers/LB05_RUN_FIT.glb",
+   "title": "Run-fit forward steps (short, low, controlled)",
+   "group": "01_linebackers",
+   "role": "LB",
+   "position_compatibility": [
+    "LB"
+   ],
+   "state_id": "DEF_RUN_FIT",
+   "layer": null,
+   "duration_s": 0.7333,
+   "fps": 60,
+   "frames": 45,
+   "start_pose": "lb_stance",
+   "end_pose": "run_fit",
+   "direction": "forward",
+   "preferred_speed_range": [
+    1.7,
+    2.5
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 2.2,
+     "dir_root": [
+      -0.0,
+      0.907
+     ]
+    },
+    "end": {
+     "mps": 2.04,
+     "dir_root": [
+      -0.0,
+      0.841
+     ]
+    },
+    "whole": {
+     "mps": 2.16,
+     "dir_root": [
+      -0.0,
+      0.888
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.3667,
+    "foot_plant_right": 0.1833,
+    "transition_ready": 0.0,
+    "animation_complete": 0.7333
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      0.15
+     ],
+     [
+      0.3667,
+      0.5167
+     ],
+     [
+      0.7333,
+      0.7333
+     ]
+    ],
+    "right": [
+     [
+      0.1833,
+      0.3333
+     ],
+     [
+      0.55,
+      0.7
+     ]
+    ]
+   },
+   "mirror_file": null,
+   "compatible_next_states": [
+    "DEF_ACCEL",
+    "DEF_PURSUIT",
+    "DEF_SHUFFLE_LEFT",
+    "DEF_SHUFFLE_RIGHT",
+    "DEF_PRE_TACKLE",
+    "DEF_BLOCK_AVOID",
+    "DEF_DOWNHILL_BREAK"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": true,
+   "root_turn_deg": null,
+   "root_turn_window_s": null,
+   "root_turn_keys": null,
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "LB06_SCRAPE_LEFT",
+   "file": "clips/01_linebackers/LB06_SCRAPE_LEFT.glb",
+   "title": "Lateral gap scrape",
+   "group": "01_linebackers",
+   "role": "LB",
+   "position_compatibility": [
+    "LB"
+   ],
+   "state_id": "DEF_SHUFFLE_LEFT",
+   "layer": null,
+   "duration_s": 0.8,
+   "fps": 60,
+   "frames": 49,
+   "start_pose": "lb_stance",
+   "end_pose": "scrape",
+   "direction": "left",
+   "preferred_speed_range": [
+    2.1,
+    2.9
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 2.52,
+     "dir_root": [
+      1.009,
+      0.242
+     ]
+    },
+    "end": {
+     "mps": 2.52,
+     "dir_root": [
+      1.009,
+      0.242
+     ]
+    },
+    "whole": {
+     "mps": 2.52,
+     "dir_root": [
+      1.009,
+      0.242
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.4,
+    "foot_plant_right": 0.2,
+    "transition_ready": 0.0,
+    "animation_complete": 0.8
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      0.1167
+     ],
+     [
+      0.4,
+      0.5167
+     ],
+     [
+      0.8,
+      0.8
+     ]
+    ],
+    "right": [
+     [
+      0.2,
+      0.3167
+     ],
+     [
+      0.6,
+      0.7167
+     ]
+    ]
+   },
+   "mirror_file": "clips/01_linebackers/LB06_SCRAPE_RIGHT.glb",
+   "compatible_next_states": [
+    "DEF_BREAK_LEFT",
+    "DEF_BREAK_RIGHT",
+    "DEF_PURSUIT",
+    "DEF_DOWNHILL_BREAK",
+    "DEF_SHUFFLE_LEFT",
+    "DEF_SHUFFLE_RIGHT"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": true,
+   "root_turn_deg": null,
+   "root_turn_window_s": null,
+   "root_turn_keys": null,
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "LB06_SCRAPE_RIGHT",
+   "file": "clips/01_linebackers/LB06_SCRAPE_RIGHT.glb",
+   "title": "Lateral gap scrape",
+   "group": "01_linebackers",
+   "role": "LB",
+   "position_compatibility": [
+    "LB"
+   ],
+   "state_id": "DEF_SHUFFLE_RIGHT",
+   "layer": null,
+   "duration_s": 0.8,
+   "fps": 60,
+   "frames": 49,
+   "start_pose": "lb_stance",
+   "end_pose": "scrape",
+   "direction": "right",
+   "preferred_speed_range": [
+    2.1,
+    2.9
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 2.52,
+     "dir_root": [
+      -1.009,
+      0.242
+     ]
+    },
+    "end": {
+     "mps": 2.52,
+     "dir_root": [
+      -1.009,
+      0.242
+     ]
+    },
+    "whole": {
+     "mps": 2.52,
+     "dir_root": [
+      -1.009,
+      0.242
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.2,
+    "foot_plant_right": 0.4,
+    "transition_ready": 0.0,
+    "animation_complete": 0.8
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.2,
+      0.3167
+     ],
+     [
+      0.6,
+      0.7167
+     ]
+    ],
+    "right": [
+     [
+      0.0,
+      0.1167
+     ],
+     [
+      0.4,
+      0.5167
+     ],
+     [
+      0.8,
+      0.8
+     ]
+    ]
+   },
+   "mirror_file": "clips/01_linebackers/LB06_SCRAPE_LEFT.glb",
+   "compatible_next_states": [
+    "DEF_BREAK_LEFT",
+    "DEF_BREAK_RIGHT",
+    "DEF_PURSUIT",
+    "DEF_DOWNHILL_BREAK",
+    "DEF_SHUFFLE_LEFT",
+    "DEF_SHUFFLE_RIGHT"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": true,
+   "root_turn_deg": null,
+   "root_turn_window_s": null,
+   "root_turn_keys": null,
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "LB07_GAP_ATTACK",
+   "file": "clips/01_linebackers/LB07_GAP_ATTACK.glb",
+   "title": "Gap attack (plant and accelerate through the lane)",
+   "group": "01_linebackers",
+   "role": "LB",
+   "position_compatibility": [
+    "LB"
+   ],
+   "state_id": "DEF_DOWNHILL_BREAK",
+   "layer": null,
+   "duration_s": 0.8,
+   "fps": 60,
+   "frames": 49,
+   "start_pose": "lb_stance",
+   "end_pose": "sprint",
+   "direction": "forward",
+   "preferred_speed_range": [
+    0.7,
+    6.5
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 0.86,
+     "dir_root": [
+      -0.0,
+      0.353
+     ]
+    },
+    "end": {
+     "mps": 5.61,
+     "dir_root": [
+      0.003,
+      2.31
+     ]
+    },
+    "whole": {
+     "mps": 2.84,
+     "dir_root": [
+      0.001,
+      1.171
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.5167,
+    "foot_plant_right": 0.1167,
+    "acceleration_start": 0.1333,
+    "transition_ready": 0.5,
+    "animation_complete": 0.8
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      0.2333
+     ],
+     [
+      0.5167,
+      0.6333
+     ]
+    ],
+    "right": [
+     [
+      0.0,
+      0.15
+     ],
+     [
+      0.3,
+      0.4333
+     ],
+     [
+      0.7333,
+      0.8
+     ]
+    ]
+   },
+   "mirror_file": null,
+   "compatible_next_states": [
+    "DEF_PURSUIT",
+    "DEF_BALL_TRACK",
+    "DEF_DECEL",
+    "DEF_BREAK_LEFT",
+    "DEF_BREAK_RIGHT",
+    "DEF_OVERCOMMIT_RECOVER",
+    "DEF_PASS_CONTEST_ENTRY",
+    "DEF_PRE_TACKLE",
+    "DEF_BLOCK_AVOID"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": false,
+   "root_turn_deg": null,
+   "root_turn_window_s": null,
+   "root_turn_keys": null,
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "LB08_CUTBACK_LEFT_TO_RIGHT",
+   "file": "clips/01_linebackers/LB08_CUTBACK_LEFT_TO_RIGHT.glb",
+   "title": "Cutback reaction (plant outside foot, reverse)",
+   "group": "01_linebackers",
+   "role": "LB",
+   "position_compatibility": [
+    "LB",
+    "S"
+   ],
+   "state_id": "DEF_BREAK_RIGHT",
+   "layer": null,
+   "duration_s": 0.9,
+   "fps": 60,
+   "frames": 55,
+   "start_pose": "scrape",
+   "end_pose": "sprint",
+   "direction": "right",
+   "preferred_speed_range": [
+    1.9,
+    6.1
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 2.23,
+     "dir_root": [
+      0.893,
+      0.214
+     ]
+    },
+    "end": {
+     "mps": 5.3,
+     "dir_root": [
+      0.001,
+      2.183
+     ]
+    },
+    "whole": {
+     "mps": 1.78,
+     "dir_root": [
+      0.323,
+      0.657
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.2833,
+    "foot_plant_right": 0.6833,
+    "read_start": 0.1667,
+    "hip_turn_start": 0.3,
+    "hip_turn_complete": 0.4667,
+    "direction_change": 0.3833,
+    "acceleration_start": 0.4667,
+    "transition_ready": 0.6667,
+    "animation_complete": 0.9
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      0.1333
+     ],
+     [
+      0.2833,
+      0.6
+     ],
+     [
+      0.9,
+      0.9
+     ]
+    ],
+    "right": [
+     [
+      0.2167,
+      0.3
+     ],
+     [
+      0.6833,
+      0.7833
+     ]
+    ]
+   },
+   "mirror_file": "clips/01_linebackers/LB08_CUTBACK_RIGHT_TO_LEFT.glb",
+   "compatible_next_states": [
+    "DEF_PURSUIT",
+    "DEF_BALL_TRACK",
+    "DEF_DECEL",
+    "DEF_BREAK_LEFT",
+    "DEF_BREAK_RIGHT",
+    "DEF_OVERCOMMIT_RECOVER",
+    "DEF_PASS_CONTEST_ENTRY",
+    "DEF_PRE_TACKLE",
+    "DEF_BLOCK_AVOID"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": false,
+   "root_turn_deg": -90,
+   "root_turn_window_s": [
+    0.3,
+    0.4667
+   ],
+   "root_turn_keys": [
+    [
+     0.0,
+     0
+    ],
+    [
+     0.3,
+     0
+    ],
+    [
+     0.4667,
+     -90
+    ]
+   ],
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "LB08_CUTBACK_RIGHT_TO_LEFT",
+   "file": "clips/01_linebackers/LB08_CUTBACK_RIGHT_TO_LEFT.glb",
+   "title": "Cutback reaction (plant outside foot, reverse)",
+   "group": "01_linebackers",
+   "role": "LB",
+   "position_compatibility": [
+    "LB",
+    "S"
+   ],
+   "state_id": "DEF_BREAK_LEFT",
+   "layer": null,
+   "duration_s": 0.9,
+   "fps": 60,
+   "frames": 55,
+   "start_pose": "scrape",
+   "end_pose": "sprint",
+   "direction": "left",
+   "preferred_speed_range": [
+    1.9,
+    6.0
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 2.23,
+     "dir_root": [
+      -0.893,
+      0.214
+     ]
+    },
+    "end": {
+     "mps": 5.22,
+     "dir_root": [
+      0.01,
+      2.149
+     ]
+    },
+    "whole": {
+     "mps": 1.77,
+     "dir_root": [
+      -0.321,
+      0.652
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.6833,
+    "foot_plant_right": 0.2833,
+    "read_start": 0.1667,
+    "hip_turn_start": 0.3,
+    "hip_turn_complete": 0.4667,
+    "direction_change": 0.3833,
+    "acceleration_start": 0.4667,
+    "transition_ready": 0.6667,
+    "animation_complete": 0.9
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.2167,
+      0.3
+     ],
+     [
+      0.6833,
+      0.7833
+     ]
+    ],
+    "right": [
+     [
+      0.0,
+      0.1333
+     ],
+     [
+      0.2833,
+      0.6
+     ],
+     [
+      0.9,
+      0.9
+     ]
+    ]
+   },
+   "mirror_file": "clips/01_linebackers/LB08_CUTBACK_LEFT_TO_RIGHT.glb",
+   "compatible_next_states": [
+    "DEF_PURSUIT",
+    "DEF_BALL_TRACK",
+    "DEF_DECEL",
+    "DEF_BREAK_LEFT",
+    "DEF_BREAK_RIGHT",
+    "DEF_OVERCOMMIT_RECOVER",
+    "DEF_PASS_CONTEST_ENTRY",
+    "DEF_PRE_TACKLE",
+    "DEF_BLOCK_AVOID"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": false,
+   "root_turn_deg": 90,
+   "root_turn_window_s": [
+    0.3,
+    0.4667
+   ],
+   "root_turn_keys": [
+    [
+     0.0,
+     0
+    ],
+    [
+     0.3,
+     0
+    ],
+    [
+     0.4667,
+     90
+    ]
+   ],
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "LB09_HOOK_DROP",
+   "file": "clips/01_linebackers/LB09_HOOK_DROP.glb",
+   "title": "Hook-zone drop",
+   "group": "01_linebackers",
+   "role": "LB",
+   "position_compatibility": [
+    "LB"
+   ],
+   "state_id": "DEF_ZONE_DROP",
+   "layer": null,
+   "duration_s": 0.8667,
+   "fps": 60,
+   "frames": 53,
+   "start_pose": "lb_stance",
+   "end_pose": "lb_stance",
+   "direction": "backward",
+   "preferred_speed_range": [
+    0.2,
+    1.5
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 1.32,
+     "dir_root": [
+      0.153,
+      -0.522
+     ]
+    },
+    "end": {
+     "mps": 0.22,
+     "dir_root": [
+      0.046,
+      -0.079
+     ]
+    },
+    "whole": {
+     "mps": 1.07,
+     "dir_root": [
+      0.054,
+      -0.436
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.4333,
+    "foot_plant_right": 0.2167,
+    "read_start": 0.0,
+    "acceleration_start": 0.1,
+    "transition_ready": 0.7,
+    "animation_complete": 0.8667
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      0.1333
+     ],
+     [
+      0.4333,
+      0.5667
+     ],
+     [
+      0.75,
+      0.8667
+     ]
+    ],
+    "right": [
+     [
+      0.0,
+      0.0167
+     ],
+     [
+      0.2167,
+      0.35
+     ],
+     [
+      0.6333,
+      0.8667
+     ]
+    ]
+   },
+   "mirror_file": null,
+   "compatible_next_states": [
+    "DEF_READ",
+    "DEF_SHUFFLE_LEFT",
+    "DEF_SHUFFLE_RIGHT",
+    "DEF_BACKPEDAL",
+    "DEF_RUN_FIT",
+    "DEF_ACCEL",
+    "DEF_ZONE_DROP",
+    "DEF_DOWNHILL_BREAK",
+    "DEF_HIP_FLIP_LEFT",
+    "DEF_HIP_FLIP_RIGHT"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": false,
+   "root_turn_deg": null,
+   "root_turn_window_s": null,
+   "root_turn_keys": null,
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "LB10_FLAT_DROP_LEFT",
+   "file": "clips/01_linebackers/LB10_FLAT_DROP_LEFT.glb",
+   "title": "Flat-zone drop (opens toward the sideline, drops diagonally)",
+   "group": "01_linebackers",
+   "role": "LB",
+   "position_compatibility": [
+    "LB"
+   ],
+   "state_id": "DEF_ZONE_DROP",
+   "layer": null,
+   "duration_s": 0.8667,
+   "fps": 60,
+   "frames": 53,
+   "start_pose": "lb_stance",
+   "end_pose": "zone_drop",
+   "direction": "left",
+   "preferred_speed_range": [
+    1.5,
+    2.8
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 1.73,
+     "dir_root": [
+      0.02,
+      0.713
+     ]
+    },
+    "end": {
+     "mps": 2.42,
+     "dir_root": [
+      0.749,
+      -0.656
+     ]
+    },
+    "whole": {
+     "mps": 1.68,
+     "dir_root": [
+      0.612,
+      -0.32
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.4333,
+    "foot_plant_right": 0.2833,
+    "read_start": 0.0,
+    "hip_turn_start": 0.0667,
+    "hip_turn_complete": 0.2667,
+    "acceleration_start": 0.1,
+    "transition_ready": 0.5,
+    "animation_complete": 0.8667
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      0.15
+     ],
+     [
+      0.4333,
+      0.5833
+     ],
+     [
+      0.8667,
+      0.8667
+     ]
+    ],
+    "right": [
+     [
+      0.0,
+      0.0167
+     ],
+     [
+      0.2833,
+      0.3667
+     ],
+     [
+      0.65,
+      0.8167
+     ]
+    ]
+   },
+   "mirror_file": "clips/01_linebackers/LB10_FLAT_DROP_RIGHT.glb",
+   "compatible_next_states": [
+    "DEF_READ",
+    "DEF_SHUFFLE_LEFT",
+    "DEF_SHUFFLE_RIGHT",
+    "DEF_BREAK_LEFT",
+    "DEF_BREAK_RIGHT",
+    "DEF_DOWNHILL_BREAK",
+    "DEF_BACKPEDAL"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": false,
+   "root_turn_deg": 45,
+   "root_turn_window_s": [
+    0.0667,
+    0.2667
+   ],
+   "root_turn_keys": [
+    [
+     0.0,
+     0
+    ],
+    [
+     0.0667,
+     0
+    ],
+    [
+     0.2667,
+     45
+    ]
+   ],
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "LB10_FLAT_DROP_RIGHT",
+   "file": "clips/01_linebackers/LB10_FLAT_DROP_RIGHT.glb",
+   "title": "Flat-zone drop (opens toward the sideline, drops diagonally)",
+   "group": "01_linebackers",
+   "role": "LB",
+   "position_compatibility": [
+    "LB"
+   ],
+   "state_id": "DEF_ZONE_DROP",
+   "layer": null,
+   "duration_s": 0.8667,
+   "fps": 60,
+   "frames": 53,
+   "start_pose": "lb_stance",
+   "end_pose": "zone_drop",
+   "direction": "right",
+   "preferred_speed_range": [
+    1.5,
+    2.8
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 1.73,
+     "dir_root": [
+      -0.02,
+      0.713
+     ]
+    },
+    "end": {
+     "mps": 2.42,
+     "dir_root": [
+      -0.749,
+      -0.656
+     ]
+    },
+    "whole": {
+     "mps": 1.68,
+     "dir_root": [
+      -0.612,
+      -0.32
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.2833,
+    "foot_plant_right": 0.4333,
+    "read_start": 0.0,
+    "hip_turn_start": 0.0667,
+    "hip_turn_complete": 0.2667,
+    "acceleration_start": 0.1,
+    "transition_ready": 0.5,
+    "animation_complete": 0.8667
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      0.0167
+     ],
+     [
+      0.2833,
+      0.3667
+     ],
+     [
+      0.65,
+      0.8167
+     ]
+    ],
+    "right": [
+     [
+      0.0,
+      0.15
+     ],
+     [
+      0.4333,
+      0.5833
+     ],
+     [
+      0.8667,
+      0.8667
+     ]
+    ]
+   },
+   "mirror_file": "clips/01_linebackers/LB10_FLAT_DROP_LEFT.glb",
+   "compatible_next_states": [
+    "DEF_READ",
+    "DEF_SHUFFLE_LEFT",
+    "DEF_SHUFFLE_RIGHT",
+    "DEF_BREAK_LEFT",
+    "DEF_BREAK_RIGHT",
+    "DEF_DOWNHILL_BREAK",
+    "DEF_BACKPEDAL"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": false,
+   "root_turn_deg": -45,
+   "root_turn_window_s": [
+    0.0667,
+    0.2667
+   ],
+   "root_turn_keys": [
+    [
+     0.0,
+     0
+    ],
+    [
+     0.0667,
+     0
+    ],
+    [
+     0.2667,
+     -45
+    ]
+   ],
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "LB11_MAN_TE_RB",
+   "file": "clips/01_linebackers/LB11_MAN_TE_RB.glb",
+   "title": "Man coverage on TE/RB (read, open, run with him - not full speed)",
+   "group": "01_linebackers",
+   "role": "LB",
+   "position_compatibility": [
+    "LB"
+   ],
+   "state_id": "DEF_MAN_MIRROR",
+   "layer": null,
+   "duration_s": 0.9333,
+   "fps": 60,
+   "frames": 57,
+   "start_pose": "lb_stance",
+   "end_pose": "run",
+   "direction": "forward",
+   "preferred_speed_range": [
+    0.1,
+    4.7
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 0.12,
+     "dir_root": [
+      -0.042,
+      0.027
+     ]
+    },
+    "end": {
+     "mps": 4.06,
+     "dir_root": [
+      -0.0,
+      1.67
+     ]
+    },
+    "whole": {
+     "mps": 1.7,
+     "dir_root": [
+      -0.041,
+      0.699
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.5667,
+    "foot_plant_right": 0.25,
+    "read_start": 0.0,
+    "hip_turn_start": 0.2667,
+    "hip_turn_complete": 0.4333,
+    "direction_change": 0.35,
+    "acceleration_start": 0.4333,
+    "transition_ready": 0.6667,
+    "animation_complete": 0.9333
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      0.2333
+     ],
+     [
+      0.5667,
+      0.7167
+     ]
+    ],
+    "right": [
+     [
+      0.0,
+      0.0333
+     ],
+     [
+      0.25,
+      0.5
+     ],
+     [
+      0.8167,
+      0.9333
+     ]
+    ]
+   },
+   "mirror_file": "clips/01_linebackers/LB11_MAN_TE_RB_RIGHT.glb",
+   "compatible_next_states": [
+    "DEF_PURSUIT",
+    "DEF_ACCEL",
+    "DEF_BLOCK_AVOID",
+    "DEF_PRE_TACKLE",
+    "DEF_BREAK_LEFT",
+    "DEF_BREAK_RIGHT",
+    "DEF_BALL_TRACK"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": false,
+   "root_turn_deg": 70,
+   "root_turn_window_s": [
+    0.2667,
+    0.4333
+   ],
+   "root_turn_keys": [
+    [
+     0.0,
+     0
+    ],
+    [
+     0.2667,
+     0
+    ],
+    [
+     0.4333,
+     70
+    ]
+   ],
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "LB11_MAN_TE_RB_RIGHT",
+   "file": "clips/01_linebackers/LB11_MAN_TE_RB_RIGHT.glb",
+   "title": "Man coverage on TE/RB (read, open, run with him - not full speed)",
+   "group": "01_linebackers",
+   "role": "LB",
+   "position_compatibility": [
+    "LB"
+   ],
+   "state_id": "DEF_MAN_MIRROR",
+   "layer": null,
+   "duration_s": 0.9333,
+   "fps": 60,
+   "frames": 57,
+   "start_pose": "lb_stance",
+   "end_pose": "run",
+   "direction": "right",
+   "preferred_speed_range": [
+    0.1,
+    4.6
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 0.12,
+     "dir_root": [
+      0.042,
+      0.027
+     ]
+    },
+    "end": {
+     "mps": 3.98,
+     "dir_root": [
+      0.001,
+      1.64
+     ]
+    },
+    "whole": {
+     "mps": 1.69,
+     "dir_root": [
+      0.041,
+      0.693
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.25,
+    "foot_plant_right": 0.5667,
+    "read_start": 0.0,
+    "hip_turn_start": 0.2667,
+    "hip_turn_complete": 0.4333,
+    "direction_change": 0.35,
+    "acceleration_start": 0.4333,
+    "transition_ready": 0.6667,
+    "animation_complete": 0.9333
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      0.0333
+     ],
+     [
+      0.25,
+      0.5
+     ],
+     [
+      0.8167,
+      0.9333
+     ]
+    ],
+    "right": [
+     [
+      0.0,
+      0.2333
+     ],
+     [
+      0.5667,
+      0.7167
+     ]
+    ]
+   },
+   "mirror_file": "clips/01_linebackers/LB11_MAN_TE_RB.glb",
+   "compatible_next_states": [
+    "DEF_PURSUIT",
+    "DEF_ACCEL",
+    "DEF_BLOCK_AVOID",
+    "DEF_PRE_TACKLE",
+    "DEF_BREAK_LEFT",
+    "DEF_BREAK_RIGHT",
+    "DEF_BALL_TRACK"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": false,
+   "root_turn_deg": -70,
+   "root_turn_window_s": [
+    0.2667,
+    0.4333
+   ],
+   "root_turn_keys": [
+    [
+     0.0,
+     0
+    ],
+    [
+     0.2667,
+     0
+    ],
+    [
+     0.4333,
+     -70
+    ]
+   ],
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "LB12_BLITZ",
+   "file": "clips/01_linebackers/LB12_BLITZ.glb",
+   "title": "Blitz acceleration (explosive first two steps)",
+   "group": "01_linebackers",
+   "role": "LB",
+   "position_compatibility": [
+    "LB"
+   ],
+   "state_id": "DEF_ACCEL",
+   "layer": null,
+   "duration_s": 0.7333,
+   "fps": 60,
+   "frames": 45,
+   "start_pose": "lb_stance",
+   "end_pose": "sprint",
+   "direction": "forward",
+   "preferred_speed_range": [
+    1.3,
+    6.5
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 1.57,
+     "dir_root": [
+      -0.0,
+      0.646
+     ]
+    },
+    "end": {
+     "mps": 5.64,
+     "dir_root": [
+      -0.001,
+      2.321
+     ]
+    },
+    "whole": {
+     "mps": 4.14,
+     "dir_root": [
+      -0.0,
+      1.706
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.4167,
+    "foot_plant_right": 0.0333,
+    "acceleration_start": 0.05,
+    "transition_ready": 0.4,
+    "animation_complete": 0.7333
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      0.15
+     ],
+     [
+      0.4167,
+      0.5333
+     ]
+    ],
+    "right": [
+     [
+      0.0,
+      0.0667
+     ],
+     [
+      0.2333,
+      0.3333
+     ],
+     [
+      0.6333,
+      0.7333
+     ]
+    ]
+   },
+   "mirror_file": null,
+   "compatible_next_states": [
+    "DEF_PURSUIT",
+    "DEF_BALL_TRACK",
+    "DEF_DECEL",
+    "DEF_BREAK_LEFT",
+    "DEF_BREAK_RIGHT",
+    "DEF_OVERCOMMIT_RECOVER",
+    "DEF_PASS_CONTEST_ENTRY",
+    "DEF_PRE_TACKLE",
+    "DEF_BLOCK_AVOID"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": false,
+   "root_turn_deg": null,
+   "root_turn_window_s": null,
+   "root_turn_keys": null,
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "LB13_DELAYED_BLITZ",
+   "file": "clips/01_linebackers/LB13_DELAYED_BLITZ.glb",
+   "title": "Delayed blitz (recognition step, plant, go)",
+   "group": "01_linebackers",
+   "role": "LB",
+   "position_compatibility": [
+    "LB"
+   ],
+   "state_id": "DEF_ACCEL",
+   "layer": null,
+   "duration_s": 0.9667,
+   "fps": 60,
+   "frames": 59,
+   "start_pose": "lb_stance",
+   "end_pose": "sprint",
+   "direction": "backward",
+   "preferred_speed_range": [
+    0.3,
+    6.3
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 0.34,
+     "dir_root": [
+      -0.0,
+      -0.14
+     ]
+    },
+    "end": {
+     "mps": 5.51,
+     "dir_root": [
+      -0.001,
+      2.267
+     ]
+    },
+    "whole": {
+     "mps": 1.8,
+     "dir_root": [
+      -0.0,
+      0.743
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.3167,
+    "foot_plant_right": 0.7833,
+    "read_start": 0.0,
+    "acceleration_start": 0.35,
+    "transition_ready": 0.7,
+    "animation_complete": 0.9667
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      0.3833
+     ],
+     [
+      0.5667,
+      0.7
+     ]
+    ],
+    "right": [
+     [
+      0.0,
+      0.0167
+     ],
+     [
+      0.2667,
+      0.4833
+     ],
+     [
+      0.7833,
+      0.9
+     ]
+    ]
+   },
+   "mirror_file": null,
+   "compatible_next_states": [
+    "DEF_PURSUIT",
+    "DEF_BALL_TRACK",
+    "DEF_DECEL",
+    "DEF_BREAK_LEFT",
+    "DEF_BREAK_RIGHT",
+    "DEF_OVERCOMMIT_RECOVER",
+    "DEF_PASS_CONTEST_ENTRY",
+    "DEF_PRE_TACKLE",
+    "DEF_BLOCK_AVOID"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": false,
+   "root_turn_deg": null,
+   "root_turn_window_s": null,
+   "root_turn_keys": null,
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "LB14_BLOCK_AVOID_LEFT",
+   "file": "clips/01_linebackers/LB14_BLOCK_AVOID_LEFT.glb",
+   "title": "Block avoidance (shoulder turn + lateral slip)",
+   "group": "01_linebackers",
+   "role": "LB",
+   "position_compatibility": [
+    "LB",
+    "S"
+   ],
+   "state_id": "DEF_BLOCK_AVOID",
+   "layer": null,
+   "duration_s": 0.7333,
+   "fps": 60,
+   "frames": 45,
+   "start_pose": "run",
+   "end_pose": "run",
+   "direction": "left",
+   "preferred_speed_range": [
+    3.1,
+    4.7
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 3.69,
+     "dir_root": [
+      -0.0,
+      1.519
+     ]
+    },
+    "end": {
+     "mps": 4.13,
+     "dir_root": [
+      0.139,
+      1.692
+     ]
+    },
+    "whole": {
+     "mps": 3.57,
+     "dir_root": [
+      0.286,
+      1.443
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.4833,
+    "foot_plant_right": 0.25,
+    "read_start": 0.0667,
+    "direction_change": 0.2,
+    "acceleration_start": 0.4,
+    "transition_ready": 0.5,
+    "animation_complete": 0.7333
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      0.1667
+     ],
+     [
+      0.4833,
+      0.6167
+     ]
+    ],
+    "right": [
+     [
+      0.25,
+      0.3833
+     ],
+     [
+      0.7167,
+      0.7333
+     ]
+    ]
+   },
+   "mirror_file": "clips/01_linebackers/LB14_BLOCK_AVOID_RIGHT.glb",
+   "compatible_next_states": [
+    "DEF_PURSUIT",
+    "DEF_ACCEL",
+    "DEF_BLOCK_AVOID",
+    "DEF_PRE_TACKLE",
+    "DEF_BREAK_LEFT",
+    "DEF_BREAK_RIGHT",
+    "DEF_BALL_TRACK"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": false,
+   "root_turn_deg": null,
+   "root_turn_window_s": null,
+   "root_turn_keys": null,
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "LB14_BLOCK_AVOID_RIGHT",
+   "file": "clips/01_linebackers/LB14_BLOCK_AVOID_RIGHT.glb",
+   "title": "Block avoidance (shoulder turn + lateral slip)",
+   "group": "01_linebackers",
+   "role": "LB",
+   "position_compatibility": [
+    "LB",
+    "S"
+   ],
+   "state_id": "DEF_BLOCK_AVOID",
+   "layer": null,
+   "duration_s": 0.7333,
+   "fps": 60,
+   "frames": 45,
+   "start_pose": "run",
+   "end_pose": "run",
+   "direction": "right",
+   "preferred_speed_range": [
+    3.1,
+    4.7
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 3.69,
+     "dir_root": [
+      -0.0,
+      1.519
+     ]
+    },
+    "end": {
+     "mps": 4.13,
+     "dir_root": [
+      -0.139,
+      1.692
+     ]
+    },
+    "whole": {
+     "mps": 3.57,
+     "dir_root": [
+      -0.286,
+      1.443
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.25,
+    "foot_plant_right": 0.4833,
+    "read_start": 0.0667,
+    "direction_change": 0.2,
+    "acceleration_start": 0.4,
+    "transition_ready": 0.5,
+    "animation_complete": 0.7333
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.25,
+      0.3833
+     ],
+     [
+      0.7167,
+      0.7333
+     ]
+    ],
+    "right": [
+     [
+      0.0,
+      0.1667
+     ],
+     [
+      0.4833,
+      0.6167
+     ]
+    ]
+   },
+   "mirror_file": "clips/01_linebackers/LB14_BLOCK_AVOID_LEFT.glb",
+   "compatible_next_states": [
+    "DEF_PURSUIT",
+    "DEF_ACCEL",
+    "DEF_BLOCK_AVOID",
+    "DEF_PRE_TACKLE",
+    "DEF_BREAK_LEFT",
+    "DEF_BREAK_RIGHT",
+    "DEF_BALL_TRACK"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": false,
+   "root_turn_deg": null,
+   "root_turn_window_s": null,
+   "root_turn_keys": null,
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "LB15_DOWNHILL_PURSUIT",
+   "file": "clips/01_linebackers/LB15_DOWNHILL_PURSUIT.glb",
+   "title": "Downhill pursuit (shuffle grows into sprint)",
+   "group": "01_linebackers",
+   "role": "LB",
+   "position_compatibility": [
+    "LB"
+   ],
+   "state_id": "DEF_PURSUIT",
+   "layer": null,
+   "duration_s": 0.8,
+   "fps": 60,
+   "frames": 49,
+   "start_pose": "shuffle",
+   "end_pose": "sprint",
+   "direction": "forward",
+   "preferred_speed_range": [
+    0.4,
+    6.3
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 0.46,
+     "dir_root": [
+      -0.173,
+      0.074
+     ]
+    },
+    "end": {
+     "mps": 5.47,
+     "dir_root": [
+      -0.0,
+      2.251
+     ]
+    },
+    "whole": {
+     "mps": 2.87,
+     "dir_root": [
+      -0.088,
+      1.177
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.5167,
+    "foot_plant_right": 0.2833,
+    "direction_change": 0.2,
+    "acceleration_start": 0.2333,
+    "transition_ready": 0.5333,
+    "animation_complete": 0.8
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      0.2
+     ],
+     [
+      0.5167,
+      0.65
+     ]
+    ],
+    "right": [
+     [
+      0.2833,
+      0.4333
+     ],
+     [
+      0.7333,
+      0.8
+     ]
+    ]
+   },
+   "mirror_file": "clips/01_linebackers/LB15_DOWNHILL_PURSUIT_FROM_LEFT.glb",
+   "compatible_next_states": [
+    "DEF_PURSUIT",
+    "DEF_BALL_TRACK",
+    "DEF_DECEL",
+    "DEF_BREAK_LEFT",
+    "DEF_BREAK_RIGHT",
+    "DEF_OVERCOMMIT_RECOVER",
+    "DEF_PASS_CONTEST_ENTRY",
+    "DEF_PRE_TACKLE",
+    "DEF_BLOCK_AVOID"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": false,
+   "root_turn_deg": null,
+   "root_turn_window_s": null,
+   "root_turn_keys": null,
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "LB15_DOWNHILL_PURSUIT_FROM_LEFT",
+   "file": "clips/01_linebackers/LB15_DOWNHILL_PURSUIT_FROM_LEFT.glb",
+   "title": "Downhill pursuit (shuffle grows into sprint)",
+   "group": "01_linebackers",
+   "role": "LB",
+   "position_compatibility": [
+    "LB"
+   ],
+   "state_id": "DEF_PURSUIT",
+   "layer": null,
+   "duration_s": 0.8,
+   "fps": 60,
+   "frames": 49,
+   "start_pose": "shuffle",
+   "end_pose": "sprint",
+   "direction": "left",
+   "preferred_speed_range": [
+    0.4,
+    6.3
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 0.46,
+     "dir_root": [
+      0.173,
+      0.074
+     ]
+    },
+    "end": {
+     "mps": 5.46,
+     "dir_root": [
+      -0.001,
+      2.246
+     ]
+    },
+    "whole": {
+     "mps": 2.86,
+     "dir_root": [
+      0.088,
+      1.175
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.2833,
+    "foot_plant_right": 0.5167,
+    "direction_change": 0.2,
+    "acceleration_start": 0.2333,
+    "transition_ready": 0.5333,
+    "animation_complete": 0.8
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.2833,
+      0.4333
+     ],
+     [
+      0.7333,
+      0.8
+     ]
+    ],
+    "right": [
+     [
+      0.0,
+      0.2
+     ],
+     [
+      0.5167,
+      0.65
+     ]
+    ]
+   },
+   "mirror_file": "clips/01_linebackers/LB15_DOWNHILL_PURSUIT.glb",
+   "compatible_next_states": [
+    "DEF_PURSUIT",
+    "DEF_BALL_TRACK",
+    "DEF_DECEL",
+    "DEF_BREAK_LEFT",
+    "DEF_BREAK_RIGHT",
+    "DEF_OVERCOMMIT_RECOVER",
+    "DEF_PASS_CONTEST_ENTRY",
+    "DEF_PRE_TACKLE",
+    "DEF_BLOCK_AVOID"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": false,
+   "root_turn_deg": null,
+   "root_turn_window_s": null,
+   "root_turn_keys": null,
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "LB16_PRE_TACKLE",
+   "file": "clips/01_linebackers/LB16_PRE_TACKLE.glb",
+   "title": "Tackle-entry transition (shorten, sink, arms ready)",
+   "group": "01_linebackers",
+   "role": "LB",
+   "position_compatibility": [
+    "LB"
+   ],
+   "state_id": "DEF_PRE_TACKLE",
+   "layer": null,
+   "duration_s": 0.6667,
+   "fps": 60,
+   "frames": 41,
+   "start_pose": "sprint",
+   "end_pose": "pre_tackle",
+   "direction": "forward",
+   "preferred_speed_range": [
+    3.3,
+    6.9
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 6.04,
+     "dir_root": [
+      -0.004,
+      2.486
+     ]
+    },
+    "end": {
+     "mps": 3.83,
+     "dir_root": [
+      -0.0,
+      1.575
+     ]
+    },
+    "whole": {
+     "mps": 4.96,
+     "dir_root": [
+      -0.001,
+      2.04
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.3667,
+    "foot_plant_right": 0.2,
+    "read_start": 0.0667,
+    "transition_ready": 0.5,
+    "animation_complete": 0.6667
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      0.1167
+     ],
+     [
+      0.3667,
+      0.5
+     ]
+    ],
+    "right": [
+     [
+      0.2,
+      0.3
+     ],
+     [
+      0.55,
+      0.6667
+     ]
+    ]
+   },
+   "mirror_file": null,
+   "compatible_next_states": [
+    "MASS tackle pair (defender clip)",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:T46"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": false,
+   "root_turn_deg": null,
+   "root_turn_window_s": null,
+   "root_turn_keys": null,
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "S01_DEEP_STANCE",
+   "file": "clips/03_safeties/S01_DEEP_STANCE.glb",
+   "title": "Deep safety stance (scanning)",
+   "group": "03_safeties",
+   "role": "S",
+   "position_compatibility": [
+    "S"
+   ],
+   "state_id": "DEF_STANCE",
+   "layer": null,
+   "duration_s": 1.2,
+   "fps": 60,
+   "frames": 73,
+   "start_pose": "s_deep_stance",
+   "end_pose": "s_deep_stance",
+   "direction": "in_place",
+   "preferred_speed_range": [
+    0.0,
+    0.0
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 0.0,
+     "dir_root": [
+      -0.0,
+      -0.0
+     ]
+    },
+    "end": {
+     "mps": 0.0,
+     "dir_root": [
+      -0.0,
+      -0.0
+     ]
+    },
+    "whole": {
+     "mps": 0.0,
+     "dir_root": [
+      -0.0,
+      -0.0
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "read_start": 0.0,
+    "transition_ready": 0.0,
+    "animation_complete": 1.2
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      1.2
+     ]
+    ],
+    "right": [
+     [
+      0.0,
+      1.2
+     ]
+    ]
+   },
+   "mirror_file": null,
+   "compatible_next_states": [
+    "DEF_READ",
+    "DEF_SHUFFLE_LEFT",
+    "DEF_SHUFFLE_RIGHT",
+    "DEF_BACKPEDAL",
+    "DEF_RUN_FIT",
+    "DEF_ACCEL",
+    "DEF_ZONE_DROP",
+    "DEF_DOWNHILL_BREAK",
+    "DEF_HIP_FLIP_LEFT",
+    "DEF_HIP_FLIP_RIGHT"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": true,
+   "root_turn_deg": null,
+   "root_turn_window_s": null,
+   "root_turn_keys": null,
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "S02_DEEP_BACKPEDAL",
+   "file": "clips/03_safeties/S02_DEEP_BACKPEDAL.glb",
+   "title": "Controlled deep backpedal",
+   "group": "03_safeties",
+   "role": "S",
+   "position_compatibility": [
+    "S"
+   ],
+   "state_id": "DEF_BACKPEDAL",
+   "layer": null,
+   "duration_s": 1.0667,
+   "fps": 60,
+   "frames": 65,
+   "start_pose": "backpedal",
+   "end_pose": "backpedal",
+   "direction": "backward",
+   "preferred_speed_range": [
+    1.3,
+    1.8
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 1.55,
+     "dir_root": [
+      -0.0,
+      -0.638
+     ]
+    },
+    "end": {
+     "mps": 1.55,
+     "dir_root": [
+      -0.0,
+      -0.638
+     ]
+    },
+    "whole": {
+     "mps": 1.55,
+     "dir_root": [
+      -0.0,
+      -0.638
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.5333,
+    "foot_plant_right": 0.2667,
+    "transition_ready": 0.0,
+    "animation_complete": 1.0667
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      0.1667
+     ],
+     [
+      0.5333,
+      0.7
+     ],
+     [
+      1.0667,
+      1.0667
+     ]
+    ],
+    "right": [
+     [
+      0.2667,
+      0.4333
+     ],
+     [
+      0.8,
+      0.9667
+     ]
+    ]
+   },
+   "mirror_file": null,
+   "compatible_next_states": [
+    "DEF_BACKPEDAL",
+    "DEF_BACKPEDAL_FAST",
+    "DEF_HIP_FLIP_LEFT",
+    "DEF_HIP_FLIP_RIGHT",
+    "DEF_BREAK_LEFT",
+    "DEF_BREAK_RIGHT",
+    "DEF_DOWNHILL_BREAK",
+    "DEF_MAN_MIRROR",
+    "DEF_OVERCOMMIT_RECOVER",
+    "DEF_DECEL"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": true,
+   "root_turn_deg": null,
+   "root_turn_window_s": null,
+   "root_turn_keys": null,
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "S03_DEEP_SHUFFLE_LEFT",
+   "file": "clips/03_safeties/S03_DEEP_SHUFFLE_LEFT.glb",
+   "title": "Deep lateral shuffle left (keeps depth)",
+   "group": "03_safeties",
+   "role": "S",
+   "position_compatibility": [
+    "S"
+   ],
+   "state_id": "DEF_SHUFFLE_LEFT",
+   "layer": null,
+   "duration_s": 1.0,
+   "fps": 60,
+   "frames": 61,
+   "start_pose": "s_deep_stance",
+   "end_pose": "s_deep_stance",
+   "direction": "left",
+   "preferred_speed_range": [
+    1.0,
+    1.3
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 1.13,
+     "dir_root": [
+      0.454,
+      0.109
+     ]
+    },
+    "end": {
+     "mps": 1.13,
+     "dir_root": [
+      0.454,
+      0.109
+     ]
+    },
+    "whole": {
+     "mps": 1.13,
+     "dir_root": [
+      0.454,
+      0.109
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.5,
+    "foot_plant_right": 0.25,
+    "transition_ready": 0.0,
+    "animation_complete": 1.0
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      0.1667
+     ],
+     [
+      0.5,
+      0.6667
+     ],
+     [
+      1.0,
+      1.0
+     ]
+    ],
+    "right": [
+     [
+      0.25,
+      0.4167
+     ],
+     [
+      0.75,
+      0.9167
+     ]
+    ]
+   },
+   "mirror_file": "clips/03_safeties/S04_DEEP_SHUFFLE_RIGHT.glb",
+   "compatible_next_states": [
+    "DEF_READ",
+    "DEF_SHUFFLE_LEFT",
+    "DEF_SHUFFLE_RIGHT",
+    "DEF_BACKPEDAL",
+    "DEF_RUN_FIT",
+    "DEF_ACCEL",
+    "DEF_ZONE_DROP",
+    "DEF_DOWNHILL_BREAK",
+    "DEF_HIP_FLIP_LEFT",
+    "DEF_HIP_FLIP_RIGHT"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": true,
+   "root_turn_deg": null,
+   "root_turn_window_s": null,
+   "root_turn_keys": null,
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "S04_DEEP_SHUFFLE_RIGHT",
+   "file": "clips/03_safeties/S04_DEEP_SHUFFLE_RIGHT.glb",
+   "title": "Deep lateral shuffle left (keeps depth)",
+   "group": "03_safeties",
+   "role": "S",
+   "position_compatibility": [
+    "S"
+   ],
+   "state_id": "DEF_SHUFFLE_RIGHT",
+   "layer": null,
+   "duration_s": 1.0,
+   "fps": 60,
+   "frames": 61,
+   "start_pose": "s_deep_stance",
+   "end_pose": "s_deep_stance",
+   "direction": "right",
+   "preferred_speed_range": [
+    1.0,
+    1.3
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 1.13,
+     "dir_root": [
+      -0.454,
+      0.109
+     ]
+    },
+    "end": {
+     "mps": 1.13,
+     "dir_root": [
+      -0.454,
+      0.109
+     ]
+    },
+    "whole": {
+     "mps": 1.13,
+     "dir_root": [
+      -0.454,
+      0.109
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.25,
+    "foot_plant_right": 0.5,
+    "transition_ready": 0.0,
+    "animation_complete": 1.0
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.25,
+      0.4167
+     ],
+     [
+      0.75,
+      0.9167
+     ]
+    ],
+    "right": [
+     [
+      0.0,
+      0.1667
+     ],
+     [
+      0.5,
+      0.6667
+     ],
+     [
+      1.0,
+      1.0
+     ]
+    ]
+   },
+   "mirror_file": "clips/03_safeties/S03_DEEP_SHUFFLE_LEFT.glb",
+   "compatible_next_states": [
+    "DEF_READ",
+    "DEF_SHUFFLE_LEFT",
+    "DEF_SHUFFLE_RIGHT",
+    "DEF_BACKPEDAL",
+    "DEF_RUN_FIT",
+    "DEF_ACCEL",
+    "DEF_ZONE_DROP",
+    "DEF_DOWNHILL_BREAK",
+    "DEF_HIP_FLIP_LEFT",
+    "DEF_HIP_FLIP_RIGHT"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": true,
+   "root_turn_deg": null,
+   "root_turn_window_s": null,
+   "root_turn_keys": null,
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "S05_QUARTER_TURN_LEFT",
+   "file": "clips/03_safeties/S05_QUARTER_TURN_LEFT.glb",
+   "title": "Deep-coverage quarter turn (open to run downfield)",
+   "group": "03_safeties",
+   "role": "S",
+   "position_compatibility": [
+    "S"
+   ],
+   "state_id": "DEF_HIP_FLIP_LEFT",
+   "layer": null,
+   "duration_s": 0.8,
+   "fps": 60,
+   "frames": 49,
+   "start_pose": "backpedal",
+   "end_pose": "sprint",
+   "direction": "left",
+   "preferred_speed_range": [
+    1.0,
+    5.7
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 1.15,
+     "dir_root": [
+      -0.012,
+      -0.473
+     ]
+    },
+    "end": {
+     "mps": 4.96,
+     "dir_root": [
+      0.004,
+      2.041
+     ]
+    },
+    "whole": {
+     "mps": 1.15,
+     "dir_root": [
+      -0.1,
+      0.464
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.5167,
+    "foot_plant_right": 0.1833,
+    "hip_turn_start": 0.2,
+    "hip_turn_complete": 0.4333,
+    "direction_change": 0.3167,
+    "acceleration_start": 0.4333,
+    "transition_ready": 0.5333,
+    "animation_complete": 0.8
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      0.1833
+     ],
+     [
+      0.5167,
+      0.65
+     ]
+    ],
+    "right": [
+     [
+      0.1833,
+      0.4667
+     ],
+     [
+      0.75,
+      0.8
+     ]
+    ]
+   },
+   "mirror_file": "clips/03_safeties/S05_QUARTER_TURN_RIGHT.glb",
+   "compatible_next_states": [
+    "DEF_PURSUIT",
+    "DEF_BALL_TRACK",
+    "DEF_DECEL",
+    "DEF_BREAK_LEFT",
+    "DEF_BREAK_RIGHT",
+    "DEF_OVERCOMMIT_RECOVER",
+    "DEF_PASS_CONTEST_ENTRY",
+    "DEF_PRE_TACKLE",
+    "DEF_BLOCK_AVOID"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": false,
+   "root_turn_deg": 90,
+   "root_turn_window_s": [
+    0.2,
+    0.4333
+   ],
+   "root_turn_keys": [
+    [
+     0.0,
+     0
+    ],
+    [
+     0.2,
+     0
+    ],
+    [
+     0.4333,
+     90
+    ]
+   ],
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "S05_QUARTER_TURN_RIGHT",
+   "file": "clips/03_safeties/S05_QUARTER_TURN_RIGHT.glb",
+   "title": "Deep-coverage quarter turn (open to run downfield)",
+   "group": "03_safeties",
+   "role": "S",
+   "position_compatibility": [
+    "S"
+   ],
+   "state_id": "DEF_HIP_FLIP_RIGHT",
+   "layer": null,
+   "duration_s": 0.8,
+   "fps": 60,
+   "frames": 49,
+   "start_pose": "backpedal",
+   "end_pose": "sprint",
+   "direction": "right",
+   "preferred_speed_range": [
+    1.0,
+    5.7
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 1.15,
+     "dir_root": [
+      0.012,
+      -0.473
+     ]
+    },
+    "end": {
+     "mps": 4.92,
+     "dir_root": [
+      -0.004,
+      2.025
+     ]
+    },
+    "whole": {
+     "mps": 1.05,
+     "dir_root": [
+      0.102,
+      0.419
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.1833,
+    "foot_plant_right": 0.5167,
+    "hip_turn_start": 0.2,
+    "hip_turn_complete": 0.4333,
+    "direction_change": 0.3167,
+    "acceleration_start": 0.4333,
+    "transition_ready": 0.5333,
+    "animation_complete": 0.8
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.1833,
+      0.4667
+     ],
+     [
+      0.75,
+      0.8
+     ]
+    ],
+    "right": [
+     [
+      0.0,
+      0.1833
+     ],
+     [
+      0.5167,
+      0.6333
+     ]
+    ]
+   },
+   "mirror_file": "clips/03_safeties/S05_QUARTER_TURN_LEFT.glb",
+   "compatible_next_states": [
+    "DEF_PURSUIT",
+    "DEF_BALL_TRACK",
+    "DEF_DECEL",
+    "DEF_BREAK_LEFT",
+    "DEF_BREAK_RIGHT",
+    "DEF_OVERCOMMIT_RECOVER",
+    "DEF_PASS_CONTEST_ENTRY",
+    "DEF_PRE_TACKLE",
+    "DEF_BLOCK_AVOID"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": false,
+   "root_turn_deg": -90,
+   "root_turn_window_s": [
+    0.2,
+    0.4333
+   ],
+   "root_turn_keys": [
+    [
+     0.0,
+     0
+    ],
+    [
+     0.2,
+     0
+    ],
+    [
+     0.4333,
+     -90
+    ]
+   ],
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "S06_DEEP_MIDDLE_TRACK",
+   "file": "clips/03_safeties/S06_DEEP_MIDDLE_TRACK.glb",
+   "title": "Deep-middle tracking (drifts, eyes read the routes)",
+   "group": "03_safeties",
+   "role": "S",
+   "position_compatibility": [
+    "S"
+   ],
+   "state_id": "DEF_READ",
+   "layer": null,
+   "duration_s": 1.2,
+   "fps": 60,
+   "frames": 73,
+   "start_pose": "backpedal",
+   "end_pose": "backpedal",
+   "direction": "backward",
+   "preferred_speed_range": [
+    0.9,
+    1.5
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 1.28,
+     "dir_root": [
+      -0.0,
+      -0.525
+     ]
+    },
+    "end": {
+     "mps": 1.04,
+     "dir_root": [
+      -0.027,
+      -0.427
+     ]
+    },
+    "whole": {
+     "mps": 1.03,
+     "dir_root": [
+      -0.0,
+      -0.424
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.5833,
+    "foot_plant_right": 0.2833,
+    "tracking_start": 0.0,
+    "transition_ready": 0.0,
+    "animation_complete": 1.2
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      0.25
+     ],
+     [
+      0.5833,
+      0.85
+     ],
+     [
+      1.1833,
+      1.2
+     ]
+    ],
+    "right": [
+     [
+      0.2833,
+      0.55
+     ],
+     [
+      0.8833,
+      1.15
+     ]
+    ]
+   },
+   "mirror_file": null,
+   "compatible_next_states": [
+    "DEF_BACKPEDAL",
+    "DEF_BACKPEDAL_FAST",
+    "DEF_HIP_FLIP_LEFT",
+    "DEF_HIP_FLIP_RIGHT",
+    "DEF_BREAK_LEFT",
+    "DEF_BREAK_RIGHT",
+    "DEF_DOWNHILL_BREAK",
+    "DEF_MAN_MIRROR",
+    "DEF_OVERCOMMIT_RECOVER",
+    "DEF_DECEL"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": true,
+   "root_turn_deg": null,
+   "root_turn_window_s": null,
+   "root_turn_keys": null,
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "S07_RUN_RECOGNITION",
+   "file": "clips/03_safeties/S07_RUN_RECOGNITION.glb",
+   "title": "Run recognition (plant, flip downhill)",
+   "group": "03_safeties",
+   "role": "S",
+   "position_compatibility": [
+    "S"
+   ],
+   "state_id": "DEF_DOWNHILL_BREAK",
+   "layer": null,
+   "duration_s": 0.8333,
+   "fps": 60,
+   "frames": 51,
+   "start_pose": "backpedal",
+   "end_pose": "sprint",
+   "direction": "backward",
+   "preferred_speed_range": [
+    0.8,
+    6.4
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 0.92,
+     "dir_root": [
+      -0.032,
+      -0.376
+     ]
+    },
+    "end": {
+     "mps": 5.53,
+     "dir_root": [
+      -0.0,
+      2.275
+     ]
+    },
+    "whole": {
+     "mps": 1.64,
+     "dir_root": [
+      -0.02,
+      0.673
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.4833,
+    "foot_plant_right": 0.2,
+    "read_start": 0.0667,
+    "direction_change": 0.2667,
+    "acceleration_start": 0.3,
+    "transition_ready": 0.6,
+    "animation_complete": 0.8333
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      0.35
+     ],
+     [
+      0.4833,
+      0.6167
+     ]
+    ],
+    "right": [
+     [
+      0.2,
+      0.4167
+     ],
+     [
+      0.7167,
+      0.8333
+     ]
+    ]
+   },
+   "mirror_file": null,
+   "compatible_next_states": [
+    "DEF_PURSUIT",
+    "DEF_BALL_TRACK",
+    "DEF_DECEL",
+    "DEF_BREAK_LEFT",
+    "DEF_BREAK_RIGHT",
+    "DEF_OVERCOMMIT_RECOVER",
+    "DEF_PASS_CONTEST_ENTRY",
+    "DEF_PRE_TACKLE",
+    "DEF_BLOCK_AVOID"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": false,
+   "root_turn_deg": null,
+   "root_turn_window_s": null,
+   "root_turn_keys": null,
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "S08_PLAY_ACTION_RECOVER",
+   "file": "clips/03_safeties/S08_PLAY_ACTION_RECOVER.glb",
+   "title": "Play-action recovery (bites on the run fake, plants, opens, runs back deep)",
+   "group": "03_safeties",
+   "role": "S",
+   "position_compatibility": [
+    "S",
+    "LB"
+   ],
+   "state_id": "DEF_OVERCOMMIT_RECOVER",
+   "layer": null,
+   "duration_s": 1.0333,
+   "fps": 60,
+   "frames": 63,
+   "start_pose": "s_deep_stance",
+   "end_pose": "sprint",
+   "direction": "forward",
+   "preferred_speed_range": [
+    1.0,
+    6.0
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 1.17,
+     "dir_root": [
+      -0.0,
+      0.481
+     ]
+    },
+    "end": {
+     "mps": 5.26,
+     "dir_root": [
+      -0.004,
+      2.167
+     ]
+    },
+    "whole": {
+     "mps": 2.02,
+     "dir_root": [
+      -0.009,
+      0.831
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.35,
+    "foot_plant_right": 0.7167,
+    "read_start": 0.0,
+    "hip_turn_start": 0.3667,
+    "hip_turn_complete": 0.6,
+    "direction_change": 0.4833,
+    "acceleration_start": 0.6,
+    "transition_ready": 0.8,
+    "animation_complete": 1.0333
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      0.2
+     ],
+     [
+      0.35,
+      0.6667
+     ],
+     [
+      0.95,
+      1.0333
+     ]
+    ],
+    "right": [
+     [
+      0.0,
+      0.0167
+     ],
+     [
+      0.25,
+      0.3833
+     ],
+     [
+      0.7167,
+      0.85
+     ]
+    ]
+   },
+   "mirror_file": "clips/03_safeties/S08_PLAY_ACTION_RECOVER_RIGHT.glb",
+   "compatible_next_states": [
+    "DEF_PURSUIT",
+    "DEF_BALL_TRACK",
+    "DEF_DECEL",
+    "DEF_BREAK_LEFT",
+    "DEF_BREAK_RIGHT",
+    "DEF_OVERCOMMIT_RECOVER",
+    "DEF_PASS_CONTEST_ENTRY",
+    "DEF_PRE_TACKLE",
+    "DEF_BLOCK_AVOID"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": false,
+   "root_turn_deg": 150,
+   "root_turn_window_s": [
+    0.3667,
+    0.6
+   ],
+   "root_turn_keys": [
+    [
+     0.0,
+     0
+    ],
+    [
+     0.3667,
+     0
+    ],
+    [
+     0.6,
+     150
+    ]
+   ],
+   "carries_ball": false,
+   "notes": "Two steps toward the run (frames 4-18) before the recovery plant: the lost time is intentional."
+  },
+  {
+   "id": "S08_PLAY_ACTION_RECOVER_RIGHT",
+   "file": "clips/03_safeties/S08_PLAY_ACTION_RECOVER_RIGHT.glb",
+   "title": "Play-action recovery (bites on the run fake, plants, opens, runs back deep)",
+   "group": "03_safeties",
+   "role": "S",
+   "position_compatibility": [
+    "S",
+    "LB"
+   ],
+   "state_id": "DEF_OVERCOMMIT_RECOVER",
+   "layer": null,
+   "duration_s": 1.0333,
+   "fps": 60,
+   "frames": 63,
+   "start_pose": "s_deep_stance",
+   "end_pose": "sprint",
+   "direction": "right",
+   "preferred_speed_range": [
+    1.0,
+    6.0
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 1.17,
+     "dir_root": [
+      -0.0,
+      0.481
+     ]
+    },
+    "end": {
+     "mps": 5.24,
+     "dir_root": [
+      0.006,
+      2.156
+     ]
+    },
+    "whole": {
+     "mps": 1.95,
+     "dir_root": [
+      0.009,
+      0.804
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.7167,
+    "foot_plant_right": 0.35,
+    "read_start": 0.0,
+    "hip_turn_start": 0.3667,
+    "hip_turn_complete": 0.6,
+    "direction_change": 0.4833,
+    "acceleration_start": 0.6,
+    "transition_ready": 0.8,
+    "animation_complete": 1.0333
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      0.0167
+     ],
+     [
+      0.25,
+      0.3833
+     ],
+     [
+      0.7167,
+      0.8333
+     ]
+    ],
+    "right": [
+     [
+      0.0,
+      0.2
+     ],
+     [
+      0.35,
+      0.6667
+     ],
+     [
+      0.95,
+      1.0333
+     ]
+    ]
+   },
+   "mirror_file": "clips/03_safeties/S08_PLAY_ACTION_RECOVER.glb",
+   "compatible_next_states": [
+    "DEF_PURSUIT",
+    "DEF_BALL_TRACK",
+    "DEF_DECEL",
+    "DEF_BREAK_LEFT",
+    "DEF_BREAK_RIGHT",
+    "DEF_OVERCOMMIT_RECOVER",
+    "DEF_PASS_CONTEST_ENTRY",
+    "DEF_PRE_TACKLE",
+    "DEF_BLOCK_AVOID"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": false,
+   "root_turn_deg": -150,
+   "root_turn_window_s": [
+    0.3667,
+    0.6
+   ],
+   "root_turn_keys": [
+    [
+     0.0,
+     0
+    ],
+    [
+     0.3667,
+     0
+    ],
+    [
+     0.6,
+     -150
+    ]
+   ],
+   "carries_ball": false,
+   "notes": "Two steps toward the run (frames 4-18) before the recovery plant: the lost time is intentional."
+  },
+  {
+   "id": "S09_DOWNHILL_PURSUIT",
+   "file": "clips/03_safeties/S09_DOWNHILL_PURSUIT.glb",
+   "title": "Downhill pursuit from deep stance",
+   "group": "03_safeties",
+   "role": "S",
+   "position_compatibility": [
+    "S"
+   ],
+   "state_id": "DEF_PURSUIT",
+   "layer": null,
+   "duration_s": 0.7333,
+   "fps": 60,
+   "frames": 45,
+   "start_pose": "s_deep_stance",
+   "end_pose": "sprint",
+   "direction": "forward",
+   "preferred_speed_range": [
+    1.1,
+    6.4
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 1.26,
+     "dir_root": [
+      -0.023,
+      0.518
+     ]
+    },
+    "end": {
+     "mps": 5.58,
+     "dir_root": [
+      0.005,
+      2.298
+     ]
+    },
+    "whole": {
+     "mps": 3.09,
+     "dir_root": [
+      -0.012,
+      1.273
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.5,
+    "foot_plant_right": 0.0667,
+    "acceleration_start": 0.0833,
+    "transition_ready": 0.4667,
+    "animation_complete": 0.7333
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      0.2167
+     ],
+     [
+      0.5,
+      0.6167
+     ]
+    ],
+    "right": [
+     [
+      0.0,
+      0.1
+     ],
+     [
+      0.2833,
+      0.4167
+     ],
+     [
+      0.7167,
+      0.7333
+     ]
+    ]
+   },
+   "mirror_file": null,
+   "compatible_next_states": [
+    "DEF_PURSUIT",
+    "DEF_BALL_TRACK",
+    "DEF_DECEL",
+    "DEF_BREAK_LEFT",
+    "DEF_BREAK_RIGHT",
+    "DEF_OVERCOMMIT_RECOVER",
+    "DEF_PASS_CONTEST_ENTRY",
+    "DEF_PRE_TACKLE",
+    "DEF_BLOCK_AVOID"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": false,
+   "root_turn_deg": null,
+   "root_turn_window_s": null,
+   "root_turn_keys": null,
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "S10_ANGLE_CORRECT_LEFT",
+   "file": "clips/03_safeties/S10_ANGLE_CORRECT_LEFT.glb",
+   "title": "Pursuit-angle correction",
+   "group": "03_safeties",
+   "role": "S",
+   "position_compatibility": [
+    "S",
+    "LB",
+    "CB"
+   ],
+   "state_id": "DEF_BREAK_LEFT",
+   "layer": null,
+   "duration_s": 0.7667,
+   "fps": 60,
+   "frames": 47,
+   "start_pose": "sprint",
+   "end_pose": "sprint",
+   "direction": "left",
+   "preferred_speed_range": [
+    4.3,
+    5.9
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 5.1,
+     "dir_root": [
+      0.187,
+      2.092
+     ]
+    },
+    "end": {
+     "mps": 5.16,
+     "dir_root": [
+      -0.001,
+      2.125
+     ]
+    },
+    "whole": {
+     "mps": 3.49,
+     "dir_root": [
+      0.01,
+      1.436
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.4167,
+    "foot_plant_right": 0.2,
+    "read_start": 0.1333,
+    "hip_turn_start": 0.2667,
+    "hip_turn_complete": 0.4,
+    "direction_change": 0.3333,
+    "acceleration_start": 0.4,
+    "transition_ready": 0.5333,
+    "animation_complete": 0.7667
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      0.1167
+     ],
+     [
+      0.4167,
+      0.5667
+     ]
+    ],
+    "right": [
+     [
+      0.2,
+      0.4333
+     ],
+     [
+      0.65,
+      0.7667
+     ]
+    ]
+   },
+   "mirror_file": "clips/03_safeties/S10_ANGLE_CORRECT_RIGHT.glb",
+   "compatible_next_states": [
+    "DEF_PURSUIT",
+    "DEF_BALL_TRACK",
+    "DEF_DECEL",
+    "DEF_BREAK_LEFT",
+    "DEF_BREAK_RIGHT",
+    "DEF_OVERCOMMIT_RECOVER",
+    "DEF_PASS_CONTEST_ENTRY",
+    "DEF_PRE_TACKLE",
+    "DEF_BLOCK_AVOID"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": false,
+   "root_turn_deg": 50,
+   "root_turn_window_s": [
+    0.2667,
+    0.4
+   ],
+   "root_turn_keys": [
+    [
+     0.0,
+     0
+    ],
+    [
+     0.2667,
+     0
+    ],
+    [
+     0.4,
+     50
+    ]
+   ],
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "S10_ANGLE_CORRECT_RIGHT",
+   "file": "clips/03_safeties/S10_ANGLE_CORRECT_RIGHT.glb",
+   "title": "Pursuit-angle correction",
+   "group": "03_safeties",
+   "role": "S",
+   "position_compatibility": [
+    "S",
+    "LB",
+    "CB"
+   ],
+   "state_id": "DEF_BREAK_RIGHT",
+   "layer": null,
+   "duration_s": 0.7667,
+   "fps": 60,
+   "frames": 47,
+   "start_pose": "sprint",
+   "end_pose": "sprint",
+   "direction": "right",
+   "preferred_speed_range": [
+    4.3,
+    5.9
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 5.08,
+     "dir_root": [
+      -0.208,
+      2.082
+     ]
+    },
+    "end": {
+     "mps": 5.15,
+     "dir_root": [
+      -0.0,
+      2.118
+     ]
+    },
+    "whole": {
+     "mps": 3.38,
+     "dir_root": [
+      -0.011,
+      1.393
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.2,
+    "foot_plant_right": 0.4167,
+    "read_start": 0.1333,
+    "hip_turn_start": 0.2667,
+    "hip_turn_complete": 0.4,
+    "direction_change": 0.3333,
+    "acceleration_start": 0.4,
+    "transition_ready": 0.5333,
+    "animation_complete": 0.7667
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.2,
+      0.4333
+     ],
+     [
+      0.65,
+      0.75
+     ]
+    ],
+    "right": [
+     [
+      0.0,
+      0.1
+     ],
+     [
+      0.4167,
+      0.5667
+     ]
+    ]
+   },
+   "mirror_file": "clips/03_safeties/S10_ANGLE_CORRECT_LEFT.glb",
+   "compatible_next_states": [
+    "DEF_PURSUIT",
+    "DEF_BALL_TRACK",
+    "DEF_DECEL",
+    "DEF_BREAK_LEFT",
+    "DEF_BREAK_RIGHT",
+    "DEF_OVERCOMMIT_RECOVER",
+    "DEF_PASS_CONTEST_ENTRY",
+    "DEF_PRE_TACKLE",
+    "DEF_BLOCK_AVOID"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": false,
+   "root_turn_deg": -50,
+   "root_turn_window_s": [
+    0.2667,
+    0.4
+   ],
+   "root_turn_keys": [
+    [
+     0.0,
+     0
+    ],
+    [
+     0.2667,
+     0
+    ],
+    [
+     0.4,
+     -50
+    ]
+   ],
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "S11_DEEP_BALL_TRACK",
+   "file": "clips/03_safeties/S11_DEEP_BALL_TRACK.glb",
+   "title": "Deep-pass ball tracking (no slowdown)",
+   "group": "03_safeties",
+   "role": "S",
+   "position_compatibility": [
+    "S",
+    "CB"
+   ],
+   "state_id": "DEF_BALL_TRACK",
+   "layer": null,
+   "duration_s": 0.8667,
+   "fps": 60,
+   "frames": 53,
+   "start_pose": "sprint",
+   "end_pose": "sprint",
+   "direction": "forward",
+   "preferred_speed_range": [
+    4.6,
+    6.3
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 5.47,
+     "dir_root": [
+      0.002,
+      2.252
+     ]
+    },
+    "end": {
+     "mps": 5.51,
+     "dir_root": [
+      0.0,
+      2.268
+     ]
+    },
+    "whole": {
+     "mps": 5.51,
+     "dir_root": [
+      -0.001,
+      2.268
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.4333,
+    "foot_plant_right": 0.2167,
+    "tracking_start": 0.0,
+    "transition_ready": 0.0,
+    "animation_complete": 0.8667
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      0.1167
+     ],
+     [
+      0.4333,
+      0.55
+     ],
+     [
+      0.8667,
+      0.8667
+     ]
+    ],
+    "right": [
+     [
+      0.2167,
+      0.3333
+     ],
+     [
+      0.65,
+      0.7667
+     ]
+    ]
+   },
+   "mirror_file": "clips/03_safeties/S11_DEEP_BALL_TRACK_RIGHT.glb",
+   "compatible_next_states": [
+    "DEF_PURSUIT",
+    "DEF_BALL_TRACK",
+    "DEF_DECEL",
+    "DEF_BREAK_LEFT",
+    "DEF_BREAK_RIGHT",
+    "DEF_OVERCOMMIT_RECOVER",
+    "DEF_PASS_CONTEST_ENTRY",
+    "DEF_PRE_TACKLE",
+    "DEF_BLOCK_AVOID"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": true,
+   "root_turn_deg": null,
+   "root_turn_window_s": null,
+   "root_turn_keys": null,
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "S11_DEEP_BALL_TRACK_RIGHT",
+   "file": "clips/03_safeties/S11_DEEP_BALL_TRACK_RIGHT.glb",
+   "title": "Deep-pass ball tracking (no slowdown)",
+   "group": "03_safeties",
+   "role": "S",
+   "position_compatibility": [
+    "S",
+    "CB"
+   ],
+   "state_id": "DEF_BALL_TRACK",
+   "layer": null,
+   "duration_s": 0.8667,
+   "fps": 60,
+   "frames": 53,
+   "start_pose": "sprint",
+   "end_pose": "sprint",
+   "direction": "right",
+   "preferred_speed_range": [
+    4.7,
+    6.4
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 5.49,
+     "dir_root": [
+      -0.0,
+      2.258
+     ]
+    },
+    "end": {
+     "mps": 5.54,
+     "dir_root": [
+      -0.003,
+      2.281
+     ]
+    },
+    "whole": {
+     "mps": 5.54,
+     "dir_root": [
+      0.001,
+      2.279
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.2167,
+    "foot_plant_right": 0.4333,
+    "tracking_start": 0.0,
+    "transition_ready": 0.0,
+    "animation_complete": 0.8667
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.2167,
+      0.3167
+     ],
+     [
+      0.65,
+      0.75
+     ]
+    ],
+    "right": [
+     [
+      0.0,
+      0.1
+     ],
+     [
+      0.4333,
+      0.5333
+     ],
+     [
+      0.8667,
+      0.8667
+     ]
+    ]
+   },
+   "mirror_file": "clips/03_safeties/S11_DEEP_BALL_TRACK.glb",
+   "compatible_next_states": [
+    "DEF_PURSUIT",
+    "DEF_BALL_TRACK",
+    "DEF_DECEL",
+    "DEF_BREAK_LEFT",
+    "DEF_BREAK_RIGHT",
+    "DEF_OVERCOMMIT_RECOVER",
+    "DEF_PASS_CONTEST_ENTRY",
+    "DEF_PRE_TACKLE",
+    "DEF_BLOCK_AVOID"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": true,
+   "root_turn_deg": null,
+   "root_turn_window_s": null,
+   "root_turn_keys": null,
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "S12_HIGH_POINT_ENTRY",
+   "file": "clips/03_safeties/S12_HIGH_POINT_ENTRY.glb",
+   "title": "High-point contest entry (gather, plant, load)",
+   "group": "03_safeties",
+   "role": "S",
+   "position_compatibility": [
+    "S",
+    "CB"
+   ],
+   "state_id": "DEF_PASS_CONTEST_ENTRY",
+   "layer": null,
+   "duration_s": 0.6,
+   "fps": 60,
+   "frames": 37,
+   "start_pose": "sprint",
+   "end_pose": "jump_load",
+   "direction": "forward",
+   "preferred_speed_range": [
+    0.1,
+    6.7
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 5.85,
+     "dir_root": [
+      -0.004,
+      2.408
+     ]
+    },
+    "end": {
+     "mps": 0.17,
+     "dir_root": [
+      -0.014,
+      0.069
+     ]
+    },
+    "whole": {
+     "mps": 2.07,
+     "dir_root": [
+      -0.01,
+      0.854
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.3833,
+    "foot_plant_right": 0.4333,
+    "tracking_start": 0.1,
+    "transition_ready": 0.5667,
+    "animation_complete": 0.6
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      0.1167
+     ],
+     [
+      0.3833,
+      0.6
+     ]
+    ],
+    "right": [
+     [
+      0.2,
+      0.3167
+     ],
+     [
+      0.4333,
+      0.6
+     ]
+    ]
+   },
+   "mirror_file": null,
+   "compatible_next_states": [
+    "BALLSYNC jumping contest clip (takeoff)",
+    "BALLSYNC:BS126",
+    "BALLSYNC:BS097 defender",
+    "BALLSYNC:BS114 defender",
+    "BALLSYNC:BS099"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": false,
+   "root_turn_deg": null,
+   "root_turn_window_s": null,
+   "root_turn_keys": null,
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "S13_OPEN_FIELD_PRE_TACKLE",
+   "file": "clips/03_safeties/S13_OPEN_FIELD_PRE_TACKLE.glb",
+   "title": "Open-field tackle preparation (breakdown)",
+   "group": "03_safeties",
+   "role": "S",
+   "position_compatibility": [
+    "S",
+    "CB",
+    "LB"
+   ],
+   "state_id": "DEF_PRE_TACKLE",
+   "layer": null,
+   "duration_s": 0.8,
+   "fps": 60,
+   "frames": 49,
+   "start_pose": "sprint",
+   "end_pose": "pre_tackle_breakdown",
+   "direction": "forward",
+   "preferred_speed_range": [
+    1.0,
+    7.1
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 6.16,
+     "dir_root": [
+      -0.012,
+      2.538
+     ]
+    },
+    "end": {
+     "mps": 1.19,
+     "dir_root": [
+      -0.0,
+      0.49
+     ]
+    },
+    "whole": {
+     "mps": 2.95,
+     "dir_root": [
+      -0.001,
+      1.215
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.35,
+    "foot_plant_right": 0.2,
+    "read_start": 0.0667,
+    "transition_ready": 0.6,
+    "animation_complete": 0.8
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      0.1167
+     ],
+     [
+      0.35,
+      0.5167
+     ],
+     [
+      0.7167,
+      0.8
+     ]
+    ],
+    "right": [
+     [
+      0.2,
+      0.3
+     ],
+     [
+      0.5333,
+      0.7167
+     ]
+    ]
+   },
+   "mirror_file": null,
+   "compatible_next_states": [
+    "MASS tackle pair (defender clip)",
+    "MASS:F21",
+    "MASS:F22",
+    "MASS:S11",
+    "MASS:F23"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": false,
+   "root_turn_deg": null,
+   "root_turn_window_s": null,
+   "root_turn_keys": null,
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "S14_INT_RETURN",
+   "file": "clips/03_safeties/S14_INT_RETURN.glb",
+   "title": "Interception-return transition (turn upfield with the ball)",
+   "group": "03_safeties",
+   "role": "S",
+   "position_compatibility": [
+    "S",
+    "CB",
+    "LB"
+   ],
+   "state_id": "DEF_INTERCEPTION_RETURN",
+   "layer": null,
+   "duration_s": 0.9333,
+   "fps": 60,
+   "frames": 57,
+   "start_pose": "stand_carry",
+   "end_pose": "sprint_carry",
+   "direction": "forward",
+   "preferred_speed_range": [
+    1.1,
+    6.1
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 1.34,
+     "dir_root": [
+      -0.325,
+      0.444
+     ]
+    },
+    "end": {
+     "mps": 5.28,
+     "dir_root": [
+      0.001,
+      2.174
+     ]
+    },
+    "whole": {
+     "mps": 2.23,
+     "dir_root": [
+      -0.015,
+      0.918
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.55,
+    "foot_plant_right": 0.1167,
+    "hip_turn_start": 0.1333,
+    "hip_turn_complete": 0.3667,
+    "acceleration_start": 0.3667,
+    "transition_ready": 0.6,
+    "animation_complete": 0.9333
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      0.1333
+     ],
+     [
+      0.55,
+      0.6833
+     ]
+    ],
+    "right": [
+     [
+      0.1167,
+      0.4667
+     ],
+     [
+      0.7833,
+      0.8833
+     ]
+    ]
+   },
+   "mirror_file": "clips/03_safeties/S14_INT_RETURN_LEFT_TURN.glb",
+   "compatible_next_states": [
+    "ballcarrier run",
+    "MASS tackle pair (runner clip)",
+    "run_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": false,
+   "root_turn_deg": 180,
+   "root_turn_window_s": [
+    0.1333,
+    0.3667
+   ],
+   "root_turn_keys": [
+    [
+     0.0,
+     0
+    ],
+    [
+     0.1333,
+     0
+    ],
+    [
+     0.3667,
+     180
+    ]
+   ],
+   "carries_ball": true,
+   "notes": null
+  },
+  {
+   "id": "S14_INT_RETURN_LEFT_TURN",
+   "file": "clips/03_safeties/S14_INT_RETURN_LEFT_TURN.glb",
+   "title": "Interception-return transition (turn upfield with the ball)",
+   "group": "03_safeties",
+   "role": "S",
+   "position_compatibility": [
+    "S",
+    "CB",
+    "LB"
+   ],
+   "state_id": "DEF_INTERCEPTION_RETURN",
+   "layer": null,
+   "duration_s": 0.9333,
+   "fps": 60,
+   "frames": 57,
+   "start_pose": "stand_carry",
+   "end_pose": "sprint_carry",
+   "direction": "left",
+   "preferred_speed_range": [
+    1.1,
+    6.0
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 1.33,
+     "dir_root": [
+      0.324,
+      0.443
+     ]
+    },
+    "end": {
+     "mps": 5.22,
+     "dir_root": [
+      0.003,
+      2.147
+     ]
+    },
+    "whole": {
+     "mps": 2.16,
+     "dir_root": [
+      0.015,
+      0.889
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.1167,
+    "foot_plant_right": 0.55,
+    "hip_turn_start": 0.1333,
+    "hip_turn_complete": 0.3667,
+    "acceleration_start": 0.3667,
+    "transition_ready": 0.6,
+    "animation_complete": 0.9333
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.1167,
+      0.4667
+     ],
+     [
+      0.7833,
+      0.8833
+     ]
+    ],
+    "right": [
+     [
+      0.0,
+      0.1333
+     ],
+     [
+      0.55,
+      0.6667
+     ]
+    ]
+   },
+   "mirror_file": "clips/03_safeties/S14_INT_RETURN.glb",
+   "compatible_next_states": [
+    "ballcarrier run",
+    "MASS tackle pair (runner clip)",
+    "run_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": false,
+   "root_turn_deg": -180,
+   "root_turn_window_s": [
+    0.1333,
+    0.3667
+   ],
+   "root_turn_keys": [
+    [
+     0.0,
+     0
+    ],
+    [
+     0.1333,
+     0
+    ],
+    [
+     0.3667,
+     -180
+    ]
+   ],
+   "carries_ball": true,
+   "notes": null
+  },
+  {
+   "id": "SH_DECEL",
+   "file": "clips/04_shared/SH_DECEL.glb",
+   "title": "Controlled braking into an athletic stance",
+   "group": "04_shared",
+   "role": "LB/CB/S",
+   "position_compatibility": [
+    "LB",
+    "CB",
+    "S"
+   ],
+   "state_id": "DEF_DECEL",
+   "layer": null,
+   "duration_s": 0.7333,
+   "fps": 60,
+   "frames": 45,
+   "start_pose": "sprint",
+   "end_pose": "athletic_stance",
+   "direction": "forward",
+   "preferred_speed_range": [
+    0.0,
+    7.3
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 6.36,
+     "dir_root": [
+      -0.001,
+      2.616
+     ]
+    },
+    "end": {
+     "mps": 0.03,
+     "dir_root": [
+      -0.001,
+      -0.011
+     ]
+    },
+    "whole": {
+     "mps": 1.79,
+     "dir_root": [
+      -0.001,
+      0.739
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.3667,
+    "foot_plant_right": 0.1833,
+    "read_start": 0.0667,
+    "transition_ready": 0.5667,
+    "animation_complete": 0.7333
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      0.1167
+     ],
+     [
+      0.3667,
+      0.7333
+     ]
+    ],
+    "right": [
+     [
+      0.1833,
+      0.3167
+     ],
+     [
+      0.5,
+      0.7333
+     ]
+    ]
+   },
+   "mirror_file": null,
+   "compatible_next_states": [
+    "DEF_READ",
+    "DEF_SHUFFLE_LEFT",
+    "DEF_SHUFFLE_RIGHT",
+    "DEF_BACKPEDAL",
+    "DEF_RUN_FIT",
+    "DEF_ACCEL",
+    "DEF_ZONE_DROP",
+    "DEF_DOWNHILL_BREAK",
+    "DEF_HIP_FLIP_LEFT",
+    "DEF_HIP_FLIP_RIGHT"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": false,
+   "root_turn_deg": null,
+   "root_turn_window_s": null,
+   "root_turn_keys": null,
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "SH_ACCEL",
+   "file": "clips/04_shared/SH_ACCEL.glb",
+   "title": "Acceleration into sprint",
+   "group": "04_shared",
+   "role": "LB/CB/S",
+   "position_compatibility": [
+    "LB",
+    "CB",
+    "S"
+   ],
+   "state_id": "DEF_ACCEL",
+   "layer": null,
+   "duration_s": 0.7333,
+   "fps": 60,
+   "frames": 45,
+   "start_pose": "athletic_stance",
+   "end_pose": "sprint",
+   "direction": "forward",
+   "preferred_speed_range": [
+    1.1,
+    6.4
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 1.26,
+     "dir_root": [
+      -0.022,
+      0.517
+     ]
+    },
+    "end": {
+     "mps": 5.59,
+     "dir_root": [
+      0.004,
+      2.303
+     ]
+    },
+    "whole": {
+     "mps": 3.1,
+     "dir_root": [
+      -0.011,
+      1.275
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.5,
+    "foot_plant_right": 0.05,
+    "acceleration_start": 0.0667,
+    "transition_ready": 0.4667,
+    "animation_complete": 0.7333
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      0.2
+     ],
+     [
+      0.5,
+      0.6167
+     ]
+    ],
+    "right": [
+     [
+      0.0,
+      0.0833
+     ],
+     [
+      0.2833,
+      0.4
+     ],
+     [
+      0.7167,
+      0.7333
+     ]
+    ]
+   },
+   "mirror_file": null,
+   "compatible_next_states": [
+    "DEF_PURSUIT",
+    "DEF_BALL_TRACK",
+    "DEF_DECEL",
+    "DEF_BREAK_LEFT",
+    "DEF_BREAK_RIGHT",
+    "DEF_OVERCOMMIT_RECOVER",
+    "DEF_PASS_CONTEST_ENTRY",
+    "DEF_PRE_TACKLE",
+    "DEF_BLOCK_AVOID"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": false,
+   "root_turn_deg": null,
+   "root_turn_window_s": null,
+   "root_turn_keys": null,
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "SH_PURSUIT",
+   "file": "clips/04_shared/SH_PURSUIT.glb",
+   "title": "Pursuit run (loop)",
+   "group": "04_shared",
+   "role": "LB/CB/S",
+   "position_compatibility": [
+    "LB",
+    "CB",
+    "S"
+   ],
+   "state_id": "DEF_PURSUIT",
+   "layer": null,
+   "duration_s": 0.8667,
+   "fps": 60,
+   "frames": 53,
+   "start_pose": "sprint",
+   "end_pose": "sprint",
+   "direction": "forward",
+   "preferred_speed_range": [
+    4.8,
+    6.6
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 5.67,
+     "dir_root": [
+      0.004,
+      2.335
+     ]
+    },
+    "end": {
+     "mps": 5.75,
+     "dir_root": [
+      0.003,
+      2.366
+     ]
+    },
+    "whole": {
+     "mps": 5.75,
+     "dir_root": [
+      0.0,
+      2.365
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.4333,
+    "foot_plant_right": 0.2167,
+    "transition_ready": 0.0,
+    "animation_complete": 0.8667
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      0.1167
+     ],
+     [
+      0.4333,
+      0.55
+     ],
+     [
+      0.8667,
+      0.8667
+     ]
+    ],
+    "right": [
+     [
+      0.2167,
+      0.3333
+     ],
+     [
+      0.65,
+      0.7667
+     ]
+    ]
+   },
+   "mirror_file": null,
+   "compatible_next_states": [
+    "DEF_PURSUIT",
+    "DEF_BALL_TRACK",
+    "DEF_DECEL",
+    "DEF_BREAK_LEFT",
+    "DEF_BREAK_RIGHT",
+    "DEF_OVERCOMMIT_RECOVER",
+    "DEF_PASS_CONTEST_ENTRY",
+    "DEF_PRE_TACKLE",
+    "DEF_BLOCK_AVOID"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": true,
+   "root_turn_deg": null,
+   "root_turn_window_s": null,
+   "root_turn_keys": null,
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "SH_BREAK_LEFT",
+   "file": "clips/04_shared/SH_BREAK_LEFT.glb",
+   "title": "Sharp direction change from a run (decel, plant, rotate, push)",
+   "group": "04_shared",
+   "role": "LB/CB/S",
+   "position_compatibility": [
+    "LB",
+    "CB",
+    "S"
+   ],
+   "state_id": "DEF_BREAK_LEFT",
+   "layer": null,
+   "duration_s": 0.7667,
+   "fps": 60,
+   "frames": 47,
+   "start_pose": "sprint",
+   "end_pose": "sprint",
+   "direction": "left",
+   "preferred_speed_range": [
+    4.1,
+    5.6
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 4.86,
+     "dir_root": [
+      0.278,
+      1.981
+     ]
+    },
+    "end": {
+     "mps": 4.77,
+     "dir_root": [
+      0.001,
+      1.963
+     ]
+    },
+    "whole": {
+     "mps": 3.12,
+     "dir_root": [
+      0.024,
+      1.283
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.45,
+    "foot_plant_right": 0.2,
+    "read_start": 0.1333,
+    "hip_turn_start": 0.2667,
+    "hip_turn_complete": 0.4333,
+    "direction_change": 0.35,
+    "acceleration_start": 0.4333,
+    "transition_ready": 0.5333,
+    "animation_complete": 0.7667
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      0.1167
+     ],
+     [
+      0.45,
+      0.6
+     ]
+    ],
+    "right": [
+     [
+      0.2,
+      0.4667
+     ],
+     [
+      0.6833,
+      0.7667
+     ]
+    ]
+   },
+   "mirror_file": "clips/04_shared/SH_BREAK_RIGHT.glb",
+   "compatible_next_states": [
+    "DEF_PURSUIT",
+    "DEF_BALL_TRACK",
+    "DEF_DECEL",
+    "DEF_BREAK_LEFT",
+    "DEF_BREAK_RIGHT",
+    "DEF_OVERCOMMIT_RECOVER",
+    "DEF_PASS_CONTEST_ENTRY",
+    "DEF_PRE_TACKLE",
+    "DEF_BLOCK_AVOID"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": false,
+   "root_turn_deg": 60,
+   "root_turn_window_s": [
+    0.2667,
+    0.4333
+   ],
+   "root_turn_keys": [
+    [
+     0.0,
+     0
+    ],
+    [
+     0.2667,
+     0
+    ],
+    [
+     0.4333,
+     60
+    ]
+   ],
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "SH_BREAK_RIGHT",
+   "file": "clips/04_shared/SH_BREAK_RIGHT.glb",
+   "title": "Sharp direction change from a run (decel, plant, rotate, push)",
+   "group": "04_shared",
+   "role": "LB/CB/S",
+   "position_compatibility": [
+    "LB",
+    "CB",
+    "S"
+   ],
+   "state_id": "DEF_BREAK_RIGHT",
+   "layer": null,
+   "duration_s": 0.7667,
+   "fps": 60,
+   "frames": 47,
+   "start_pose": "sprint",
+   "end_pose": "sprint",
+   "direction": "right",
+   "preferred_speed_range": [
+    4.1,
+    5.5
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 4.81,
+     "dir_root": [
+      -0.31,
+      1.957
+     ]
+    },
+    "end": {
+     "mps": 4.77,
+     "dir_root": [
+      -0.001,
+      1.963
+     ]
+    },
+    "whole": {
+     "mps": 3.06,
+     "dir_root": [
+      -0.025,
+      1.259
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.2,
+    "foot_plant_right": 0.45,
+    "read_start": 0.1333,
+    "hip_turn_start": 0.2667,
+    "hip_turn_complete": 0.4333,
+    "direction_change": 0.35,
+    "acceleration_start": 0.4333,
+    "transition_ready": 0.5333,
+    "animation_complete": 0.7667
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.2,
+      0.4667
+     ],
+     [
+      0.6833,
+      0.7667
+     ]
+    ],
+    "right": [
+     [
+      0.0,
+      0.1
+     ],
+     [
+      0.45,
+      0.6
+     ]
+    ]
+   },
+   "mirror_file": "clips/04_shared/SH_BREAK_LEFT.glb",
+   "compatible_next_states": [
+    "DEF_PURSUIT",
+    "DEF_BALL_TRACK",
+    "DEF_DECEL",
+    "DEF_BREAK_LEFT",
+    "DEF_BREAK_RIGHT",
+    "DEF_OVERCOMMIT_RECOVER",
+    "DEF_PASS_CONTEST_ENTRY",
+    "DEF_PRE_TACKLE",
+    "DEF_BLOCK_AVOID"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": false,
+   "root_turn_deg": -60,
+   "root_turn_window_s": [
+    0.2667,
+    0.4333
+   ],
+   "root_turn_keys": [
+    [
+     0.0,
+     0
+    ],
+    [
+     0.2667,
+     0
+    ],
+    [
+     0.4333,
+     -60
+    ]
+   ],
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "SH_OVERCOMMIT_RECOVER",
+   "file": "clips/04_shared/SH_OVERCOMMIT_RECOVER.glb",
+   "title": "Recovery after an incorrect pursuit commit",
+   "group": "04_shared",
+   "role": "LB/CB/S",
+   "position_compatibility": [
+    "LB",
+    "CB",
+    "S"
+   ],
+   "state_id": "DEF_OVERCOMMIT_RECOVER",
+   "layer": null,
+   "duration_s": 0.9333,
+   "fps": 60,
+   "frames": 57,
+   "start_pose": "sprint",
+   "end_pose": "sprint",
+   "direction": "bites_right_recovers_left",
+   "preferred_speed_range": [
+    2.8,
+    5.6
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 3.34,
+     "dir_root": [
+      -0.088,
+      1.373
+     ]
+    },
+    "end": {
+     "mps": 4.9,
+     "dir_root": [
+      -0.003,
+      2.018
+     ]
+    },
+    "whole": {
+     "mps": 2.45,
+     "dir_root": [
+      0.048,
+      1.008
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.3833,
+    "foot_plant_right": 0.1667,
+    "hip_turn_start": 0.1667,
+    "hip_turn_complete": 0.6,
+    "direction_change": 0.4,
+    "acceleration_start": 0.6,
+    "transition_ready": 0.7,
+    "animation_complete": 0.9333
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      0.15
+     ],
+     [
+      0.3833,
+      0.6333
+     ],
+     [
+      0.8667,
+      0.9333
+     ]
+    ],
+    "right": [
+     [
+      0.1667,
+      0.3667
+     ],
+     [
+      0.6333,
+      0.7667
+     ]
+    ]
+   },
+   "mirror_file": "clips/04_shared/SH_OVERCOMMIT_RECOVER_RIGHT.glb",
+   "compatible_next_states": [
+    "DEF_PURSUIT",
+    "DEF_BALL_TRACK",
+    "DEF_DECEL",
+    "DEF_BREAK_LEFT",
+    "DEF_BREAK_RIGHT",
+    "DEF_OVERCOMMIT_RECOVER",
+    "DEF_PASS_CONTEST_ENTRY",
+    "DEF_PRE_TACKLE",
+    "DEF_BLOCK_AVOID"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": false,
+   "root_turn_deg": -40,
+   "root_turn_window_s": [
+    0.4,
+    0.6
+   ],
+   "root_turn_keys": [
+    [
+     0.0,
+     0
+    ],
+    [
+     0.1667,
+     0
+    ],
+    [
+     0.3,
+     35
+    ],
+    [
+     0.4,
+     35
+    ],
+    [
+     0.6,
+     -40
+    ]
+   ],
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "SH_OVERCOMMIT_RECOVER_RIGHT",
+   "file": "clips/04_shared/SH_OVERCOMMIT_RECOVER_RIGHT.glb",
+   "title": "Recovery after an incorrect pursuit commit",
+   "group": "04_shared",
+   "role": "LB/CB/S",
+   "position_compatibility": [
+    "LB",
+    "CB",
+    "S"
+   ],
+   "state_id": "DEF_OVERCOMMIT_RECOVER",
+   "layer": null,
+   "duration_s": 0.9333,
+   "fps": 60,
+   "frames": 57,
+   "start_pose": "sprint",
+   "end_pose": "sprint",
+   "direction": "bites_right_recovers_left",
+   "preferred_speed_range": [
+    2.8,
+    5.6
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 3.34,
+     "dir_root": [
+      0.088,
+      1.373
+     ]
+    },
+    "end": {
+     "mps": 4.9,
+     "dir_root": [
+      0.003,
+      2.016
+     ]
+    },
+    "whole": {
+     "mps": 2.45,
+     "dir_root": [
+      -0.048,
+      1.007
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.1667,
+    "foot_plant_right": 0.3833,
+    "hip_turn_start": 0.1667,
+    "hip_turn_complete": 0.6,
+    "direction_change": 0.4,
+    "acceleration_start": 0.6,
+    "transition_ready": 0.7,
+    "animation_complete": 0.9333
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.1667,
+      0.3667
+     ],
+     [
+      0.6333,
+      0.7667
+     ]
+    ],
+    "right": [
+     [
+      0.0,
+      0.15
+     ],
+     [
+      0.3833,
+      0.6333
+     ],
+     [
+      0.8667,
+      0.9333
+     ]
+    ]
+   },
+   "mirror_file": "clips/04_shared/SH_OVERCOMMIT_RECOVER.glb",
+   "compatible_next_states": [
+    "DEF_PURSUIT",
+    "DEF_BALL_TRACK",
+    "DEF_DECEL",
+    "DEF_BREAK_LEFT",
+    "DEF_BREAK_RIGHT",
+    "DEF_OVERCOMMIT_RECOVER",
+    "DEF_PASS_CONTEST_ENTRY",
+    "DEF_PRE_TACKLE",
+    "DEF_BLOCK_AVOID"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": false,
+   "root_turn_deg": 40,
+   "root_turn_window_s": [
+    0.4,
+    0.6
+   ],
+   "root_turn_keys": [
+    [
+     0.0,
+     0
+    ],
+    [
+     0.1667,
+     0
+    ],
+    [
+     0.3,
+     -35
+    ],
+    [
+     0.4,
+     -35
+    ],
+    [
+     0.6,
+     40
+    ]
+   ],
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "SH_PASS_CONTEST_ENTRY",
+   "file": "clips/04_shared/SH_PASS_CONTEST_ENTRY.glb",
+   "title": "Pass-contest entry (eyes up, hands rising, stride kept)",
+   "group": "04_shared",
+   "role": "LB/CB/S",
+   "position_compatibility": [
+    "LB",
+    "CB",
+    "S"
+   ],
+   "state_id": "DEF_PASS_CONTEST_ENTRY",
+   "layer": null,
+   "duration_s": 0.6,
+   "fps": 60,
+   "frames": 37,
+   "start_pose": "sprint",
+   "end_pose": "contest_ready",
+   "direction": "forward",
+   "preferred_speed_range": [
+    3.8,
+    6.1
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 5.31,
+     "dir_root": [
+      -0.002,
+      2.187
+     ]
+    },
+    "end": {
+     "mps": 4.51,
+     "dir_root": [
+      0.0,
+      1.857
+     ]
+    },
+    "whole": {
+     "mps": 4.86,
+     "dir_root": [
+      -0.001,
+      1.999
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.45,
+    "foot_plant_right": 0.2167,
+    "tracking_start": 0.1,
+    "transition_ready": 0.4667,
+    "animation_complete": 0.6
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      0.1167
+     ],
+     [
+      0.45,
+      0.5833
+     ]
+    ],
+    "right": [
+     [
+      0.2167,
+      0.35
+     ]
+    ]
+   },
+   "mirror_file": null,
+   "compatible_next_states": [
+    "BALLSYNC contest/interception clip",
+    "BALLSYNC:BS101-BS113 defender",
+    "BALLSYNC:BS176",
+    "BALLSYNC:BS123",
+    "BALLSYNC:BS096 defender"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": null,
+   "loop": false,
+   "root_turn_deg": null,
+   "root_turn_window_s": null,
+   "root_turn_keys": null,
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "CB15_PRESS_CONTACT_WR",
+   "file": "clips/05_press_interactions/CB15_PRESS_CONTACT_WR.glb",
+   "title": "Press contact (CB jams, both react; outcome left to the game)",
+   "group": "05_press_interactions",
+   "role": "WR",
+   "position_compatibility": [
+    "WR"
+   ],
+   "state_id": "DEF_PRESS_CONTACT",
+   "layer": null,
+   "duration_s": 0.6,
+   "fps": 60,
+   "frames": 37,
+   "start_pose": "wr_stance",
+   "end_pose": "press_hold",
+   "direction": "in_place",
+   "preferred_speed_range": [
+    0.0,
+    0.5
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 0.4,
+     "dir_root": [
+      -0.0,
+      -0.164
+     ]
+    },
+    "end": {
+     "mps": 0.0,
+     "dir_root": [
+      -0.0,
+      -0.0
+     ]
+    },
+    "whole": {
+     "mps": 0.15,
+     "dir_root": [
+      0.0,
+      -0.063
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_right": 0.25,
+    "read_start": 0.0,
+    "contact_start": 0.2333,
+    "transition_ready": 0.5,
+    "animation_complete": 0.6
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      0.6
+     ]
+    ],
+    "right": [
+     [
+      0.0,
+      0.15
+     ],
+     [
+      0.25,
+      0.6
+     ]
+    ]
+   },
+   "mirror_file": null,
+   "compatible_next_states": [
+    "receiver release / route states (game)"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": "CB15_PRESS_CONTACT",
+   "loop": false,
+   "root_turn_deg": null,
+   "root_turn_window_s": null,
+   "root_turn_keys": null,
+   "carries_ball": false,
+   "notes": null,
+   "pair": {
+    "partner_file": "clips/05_press_interactions/CB15_PRESS_CONTACT_CB.glb",
+    "cb_start_offset_in_wr_root": {
+     "x": 0.0,
+     "z": 17.5
+    },
+    "cb_root_yaw_deg": 180,
+    "shared_events": [
+     "contact_start",
+     "contact_end"
+    ],
+    "note": "Pair frame = WR root. The CB root stands 17.5 rig units in front of the WR and faces him (yaw 180), i.e. the CB root faces the offense as in every other CB clip. Start both on the same tick."
+   }
+  },
+  {
+   "id": "CB15_PRESS_CONTACT_CB",
+   "file": "clips/05_press_interactions/CB15_PRESS_CONTACT_CB.glb",
+   "title": "Press contact (CB jams, both react; outcome left to the game)",
+   "group": "05_press_interactions",
+   "role": "CB",
+   "position_compatibility": [
+    "CB"
+   ],
+   "state_id": "DEF_PRESS_CONTACT",
+   "layer": null,
+   "duration_s": 0.6,
+   "fps": 60,
+   "frames": 37,
+   "start_pose": "cb_press_stance",
+   "end_pose": "press_hold",
+   "direction": "in_place",
+   "preferred_speed_range": [
+    0.0,
+    0.0
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 0.0,
+     "dir_root": [
+      -0.0,
+      -0.0
+     ]
+    },
+    "end": {
+     "mps": 0.0,
+     "dir_root": [
+      -0.0,
+      -0.0
+     ]
+    },
+    "whole": {
+     "mps": 0.0,
+     "dir_root": [
+      -0.0,
+      -0.0
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "read_start": 0.0,
+    "contact_start": 0.2333,
+    "transition_ready": 0.5,
+    "animation_complete": 0.6
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      0.6
+     ]
+    ],
+    "right": [
+     [
+      0.0,
+      0.6
+     ]
+    ]
+   },
+   "mirror_file": null,
+   "compatible_next_states": [
+    "DEF_PRESS_WIN",
+    "DEF_PRESS_LOST"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": "CB15_PRESS_CONTACT",
+   "loop": false,
+   "root_turn_deg": null,
+   "root_turn_window_s": null,
+   "root_turn_keys": null,
+   "carries_ball": false,
+   "notes": null,
+   "pair": {
+    "partner_file": "clips/05_press_interactions/CB15_PRESS_CONTACT_WR.glb",
+    "cb_start_offset_in_wr_root": {
+     "x": 0.0,
+     "z": 17.5
+    },
+    "cb_root_yaw_deg": 180,
+    "shared_events": [
+     "contact_start",
+     "contact_end"
+    ],
+    "note": "Pair frame = WR root. The CB root stands 17.5 rig units in front of the WR and faces him (yaw 180), i.e. the CB root faces the offense as in every other CB clip. Start both on the same tick."
+   }
+  },
+  {
+   "id": "CB16_PRESS_LOST_WR",
+   "file": "clips/05_press_interactions/CB16_PRESS_LOST_WR.glb",
+   "title": "Cornerback loses the press (WR swipes and releases, CB lunges, flips and chases)",
+   "group": "05_press_interactions",
+   "role": "WR",
+   "position_compatibility": [
+    "WR"
+   ],
+   "state_id": "DEF_PRESS_LOST",
+   "layer": null,
+   "duration_s": 0.8667,
+   "fps": 60,
+   "frames": 53,
+   "start_pose": "press_hold",
+   "end_pose": "sprint",
+   "direction": "forward",
+   "preferred_speed_range": [
+    0.6,
+    5.2
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 0.74,
+     "dir_root": [
+      0.071,
+      0.297
+     ]
+    },
+    "end": {
+     "mps": 4.5,
+     "dir_root": [
+      0.777,
+      1.683
+     ]
+    },
+    "whole": {
+     "mps": 2.36,
+     "dir_root": [
+      0.362,
+      0.903
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.15,
+    "foot_plant_right": 0.3167,
+    "acceleration_start": 0.2667,
+    "contact_start": 0.0,
+    "contact_end": 0.1333,
+    "transition_ready": 0.6667,
+    "animation_complete": 0.8667
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      0.0167
+     ],
+     [
+      0.15,
+      0.3
+     ],
+     [
+      0.5833,
+      0.7167
+     ]
+    ],
+    "right": [
+     [
+      0.0,
+      0.1833
+     ],
+     [
+      0.3167,
+      0.5167
+     ],
+     [
+      0.8167,
+      0.8667
+     ]
+    ]
+   },
+   "mirror_file": "clips/05_press_interactions/CB16_PRESS_LOST_WR_mirror.glb",
+   "compatible_next_states": [
+    "receiver release / route states (game)"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": "CB16_PRESS_LOST",
+   "loop": false,
+   "root_turn_deg": null,
+   "root_turn_window_s": null,
+   "root_turn_keys": null,
+   "carries_ball": false,
+   "notes": null,
+   "pair": {
+    "partner_file": "clips/05_press_interactions/CB16_PRESS_LOST_CB.glb",
+    "cb_start_offset_in_wr_root": {
+     "x": 0.0,
+     "z": 17.5
+    },
+    "cb_root_yaw_deg": 180,
+    "shared_events": [
+     "contact_start",
+     "contact_end"
+    ],
+    "note": "Pair frame = WR root. The CB root stands 17.5 rig units in front of the WR and faces him (yaw 180), i.e. the CB root faces the offense as in every other CB clip. Start both on the same tick."
+   }
+  },
+  {
+   "id": "CB16_PRESS_LOST_CB",
+   "file": "clips/05_press_interactions/CB16_PRESS_LOST_CB.glb",
+   "title": "Cornerback loses the press (WR swipes and releases, CB lunges, flips and chases)",
+   "group": "05_press_interactions",
+   "role": "CB",
+   "position_compatibility": [
+    "CB"
+   ],
+   "state_id": "DEF_PRESS_LOST",
+   "layer": null,
+   "duration_s": 0.8667,
+   "fps": 60,
+   "frames": 53,
+   "start_pose": "press_hold",
+   "end_pose": "sprint",
+   "direction": "forward",
+   "preferred_speed_range": [
+    0.1,
+    4.6
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 0.14,
+     "dir_root": [
+      0.008,
+      -0.058
+     ]
+    },
+    "end": {
+     "mps": 4.03,
+     "dir_root": [
+      0.002,
+      1.658
+     ]
+    },
+    "whole": {
+     "mps": 1.03,
+     "dir_root": [
+      0.01,
+      0.426
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.2,
+    "foot_plant_right": 0.5167,
+    "hip_turn_start": 0.3,
+    "hip_turn_complete": 0.5333,
+    "direction_change": 0.4,
+    "acceleration_start": 0.5,
+    "contact_start": 0.0,
+    "contact_end": 0.1333,
+    "transition_ready": 0.7,
+    "animation_complete": 0.8667
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      0.0333
+     ],
+     [
+      0.2,
+      0.55
+     ],
+     [
+      0.6167,
+      0.7333
+     ]
+    ],
+    "right": [
+     [
+      0.0,
+      0.3
+     ],
+     [
+      0.5167,
+      0.55
+     ],
+     [
+      0.85,
+      0.8667
+     ]
+    ]
+   },
+   "mirror_file": "clips/05_press_interactions/CB16_PRESS_LOST_CB_mirror.glb",
+   "compatible_next_states": [
+    "DEF_PURSUIT",
+    "DEF_BALL_TRACK",
+    "DEF_DECEL",
+    "DEF_BREAK_LEFT",
+    "DEF_BREAK_RIGHT",
+    "DEF_OVERCOMMIT_RECOVER",
+    "DEF_PASS_CONTEST_ENTRY",
+    "DEF_PRE_TACKLE",
+    "DEF_BLOCK_AVOID"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": "CB16_PRESS_LOST",
+   "loop": false,
+   "root_turn_deg": -135,
+   "root_turn_window_s": [
+    0.3,
+    0.5333
+   ],
+   "root_turn_keys": [
+    [
+     0.0,
+     0
+    ],
+    [
+     0.3,
+     0
+    ],
+    [
+     0.5333,
+     -135
+    ]
+   ],
+   "carries_ball": false,
+   "notes": null,
+   "pair": {
+    "partner_file": "clips/05_press_interactions/CB16_PRESS_LOST_WR.glb",
+    "cb_start_offset_in_wr_root": {
+     "x": 0.0,
+     "z": 17.5
+    },
+    "cb_root_yaw_deg": 180,
+    "shared_events": [
+     "contact_start",
+     "contact_end"
+    ],
+    "note": "Pair frame = WR root. The CB root stands 17.5 rig units in front of the WR and faces him (yaw 180), i.e. the CB root faces the offense as in every other CB clip. Start both on the same tick."
+   }
+  },
+  {
+   "id": "CB16_PRESS_LOST_WR_mirror",
+   "file": "clips/05_press_interactions/CB16_PRESS_LOST_WR_mirror.glb",
+   "title": "Cornerback loses the press (WR swipes and releases, CB lunges, flips and chases) (mirrored)",
+   "group": "05_press_interactions",
+   "role": "WR",
+   "position_compatibility": [
+    "WR"
+   ],
+   "state_id": "DEF_PRESS_LOST",
+   "layer": null,
+   "duration_s": 0.8667,
+   "fps": 60,
+   "frames": 53,
+   "start_pose": "press_hold",
+   "end_pose": "sprint",
+   "direction": "forward",
+   "preferred_speed_range": [
+    0.6,
+    5.2
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 0.74,
+     "dir_root": [
+      -0.071,
+      0.297
+     ]
+    },
+    "end": {
+     "mps": 4.5,
+     "dir_root": [
+      -0.777,
+      1.683
+     ]
+    },
+    "whole": {
+     "mps": 2.36,
+     "dir_root": [
+      -0.362,
+      0.903
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.3167,
+    "foot_plant_right": 0.15,
+    "acceleration_start": 0.2667,
+    "contact_start": 0.0,
+    "contact_end": 0.1333,
+    "transition_ready": 0.6667,
+    "animation_complete": 0.8667
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      0.1833
+     ],
+     [
+      0.3167,
+      0.5167
+     ],
+     [
+      0.8167,
+      0.8667
+     ]
+    ],
+    "right": [
+     [
+      0.0,
+      0.0167
+     ],
+     [
+      0.15,
+      0.3
+     ],
+     [
+      0.5833,
+      0.7167
+     ]
+    ]
+   },
+   "mirror_file": "clips/05_press_interactions/CB16_PRESS_LOST_WR.glb",
+   "compatible_next_states": [
+    "receiver release / route states (game)"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": "CB16_PRESS_LOST",
+   "loop": false,
+   "root_turn_deg": null,
+   "root_turn_window_s": null,
+   "root_turn_keys": null,
+   "carries_ball": false,
+   "notes": null,
+   "pair": {
+    "partner_file": "clips/05_press_interactions/CB16_PRESS_LOST_CB_mirror.glb",
+    "cb_start_offset_in_wr_root": {
+     "x": 0.0,
+     "z": 17.5
+    },
+    "cb_root_yaw_deg": 180,
+    "shared_events": [
+     "contact_start",
+     "contact_end"
+    ],
+    "note": "Pair frame = WR root. The CB root stands 17.5 rig units in front of the WR and faces him (yaw 180), i.e. the CB root faces the offense as in every other CB clip. Start both on the same tick."
+   }
+  },
+  {
+   "id": "CB16_PRESS_LOST_CB_mirror",
+   "file": "clips/05_press_interactions/CB16_PRESS_LOST_CB_mirror.glb",
+   "title": "Cornerback loses the press (WR swipes and releases, CB lunges, flips and chases) (mirrored)",
+   "group": "05_press_interactions",
+   "role": "CB",
+   "position_compatibility": [
+    "CB"
+   ],
+   "state_id": "DEF_PRESS_LOST",
+   "layer": null,
+   "duration_s": 0.8667,
+   "fps": 60,
+   "frames": 53,
+   "start_pose": "press_hold",
+   "end_pose": "sprint",
+   "direction": "forward",
+   "preferred_speed_range": [
+    0.1,
+    4.6
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 0.14,
+     "dir_root": [
+      -0.008,
+      -0.058
+     ]
+    },
+    "end": {
+     "mps": 3.99,
+     "dir_root": [
+      -0.005,
+      1.642
+     ]
+    },
+    "whole": {
+     "mps": 1.03,
+     "dir_root": [
+      -0.011,
+      0.423
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.5167,
+    "foot_plant_right": 0.2,
+    "hip_turn_start": 0.3,
+    "hip_turn_complete": 0.5333,
+    "direction_change": 0.4,
+    "acceleration_start": 0.5,
+    "contact_start": 0.0,
+    "contact_end": 0.1333,
+    "transition_ready": 0.7,
+    "animation_complete": 0.8667
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      0.3
+     ],
+     [
+      0.5167,
+      0.55
+     ],
+     [
+      0.85,
+      0.8667
+     ]
+    ],
+    "right": [
+     [
+      0.0,
+      0.0333
+     ],
+     [
+      0.2,
+      0.55
+     ],
+     [
+      0.6167,
+      0.7333
+     ]
+    ]
+   },
+   "mirror_file": "clips/05_press_interactions/CB16_PRESS_LOST_CB.glb",
+   "compatible_next_states": [
+    "DEF_PURSUIT",
+    "DEF_BALL_TRACK",
+    "DEF_DECEL",
+    "DEF_BREAK_LEFT",
+    "DEF_BREAK_RIGHT",
+    "DEF_OVERCOMMIT_RECOVER",
+    "DEF_PASS_CONTEST_ENTRY",
+    "DEF_PRE_TACKLE",
+    "DEF_BLOCK_AVOID"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": "CB16_PRESS_LOST",
+   "loop": false,
+   "root_turn_deg": 135,
+   "root_turn_window_s": [
+    0.3,
+    0.5333
+   ],
+   "root_turn_keys": [
+    [
+     0.0,
+     0
+    ],
+    [
+     0.3,
+     0
+    ],
+    [
+     0.5333,
+     135
+    ]
+   ],
+   "carries_ball": false,
+   "notes": null,
+   "pair": {
+    "partner_file": "clips/05_press_interactions/CB16_PRESS_LOST_WR_mirror.glb",
+    "cb_start_offset_in_wr_root": {
+     "x": 0.0,
+     "z": 17.5
+    },
+    "cb_root_yaw_deg": 180,
+    "shared_events": [
+     "contact_start",
+     "contact_end"
+    ],
+    "note": "Pair frame = WR root. The CB root stands 17.5 rig units in front of the WR and faces him (yaw 180), i.e. the CB root faces the offense as in every other CB clip. Start both on the same tick."
+   }
+  },
+  {
+   "id": "CB17_PRESS_WIN_WR",
+   "file": "clips/05_press_interactions/CB17_PRESS_WIN_WR.glb",
+   "title": "Cornerback wins the press (redirects the WR, keeps leverage)",
+   "group": "05_press_interactions",
+   "role": "WR",
+   "position_compatibility": [
+    "WR"
+   ],
+   "state_id": "DEF_PRESS_WIN",
+   "layer": null,
+   "duration_s": 0.7667,
+   "fps": 60,
+   "frames": 47,
+   "start_pose": "press_hold",
+   "end_pose": "jog",
+   "direction": "forward",
+   "preferred_speed_range": [
+    0.1,
+    2.6
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 0.09,
+     "dir_root": [
+      0.003,
+      0.035
+     ]
+    },
+    "end": {
+     "mps": 2.29,
+     "dir_root": [
+      -0.588,
+      0.735
+     ]
+    },
+    "whole": {
+     "mps": 1.01,
+     "dir_root": [
+      -0.255,
+      0.327
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.3167,
+    "foot_plant_right": 0.15,
+    "contact_start": 0.0,
+    "contact_end": 0.3,
+    "transition_ready": 0.5667,
+    "animation_complete": 0.7667
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      0.2167
+     ],
+     [
+      0.3167,
+      0.3667
+     ],
+     [
+      0.6167,
+      0.7667
+     ]
+    ],
+    "right": [
+     [
+      0.0,
+      0.0333
+     ],
+     [
+      0.15,
+      0.55
+     ]
+    ]
+   },
+   "mirror_file": "clips/05_press_interactions/CB17_PRESS_WIN_WR_mirror.glb",
+   "compatible_next_states": [
+    "receiver release / route states (game)"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": "CB17_PRESS_WIN",
+   "loop": false,
+   "root_turn_deg": null,
+   "root_turn_window_s": null,
+   "root_turn_keys": null,
+   "carries_ball": false,
+   "notes": null,
+   "pair": {
+    "partner_file": "clips/05_press_interactions/CB17_PRESS_WIN_CB.glb",
+    "cb_start_offset_in_wr_root": {
+     "x": 0.0,
+     "z": 17.5
+    },
+    "cb_root_yaw_deg": 180,
+    "shared_events": [
+     "contact_start",
+     "contact_end"
+    ],
+    "note": "Pair frame = WR root. The CB root stands 17.5 rig units in front of the WR and faces him (yaw 180), i.e. the CB root faces the offense as in every other CB clip. Start both on the same tick."
+   }
+  },
+  {
+   "id": "CB17_PRESS_WIN_CB",
+   "file": "clips/05_press_interactions/CB17_PRESS_WIN_CB.glb",
+   "title": "Cornerback wins the press (redirects the WR, keeps leverage)",
+   "group": "05_press_interactions",
+   "role": "CB",
+   "position_compatibility": [
+    "CB"
+   ],
+   "state_id": "DEF_PRESS_WIN",
+   "layer": null,
+   "duration_s": 0.7667,
+   "fps": 60,
+   "frames": 47,
+   "start_pose": "press_hold",
+   "end_pose": "jog",
+   "direction": "forward",
+   "preferred_speed_range": [
+    0.3,
+    1.0
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 0.3,
+     "dir_root": [
+      -0.007,
+      -0.125
+     ]
+    },
+    "end": {
+     "mps": 0.86,
+     "dir_root": [
+      0.171,
+      -0.312
+     ]
+    },
+    "whole": {
+     "mps": 0.3,
+     "dir_root": [
+      0.074,
+      -0.1
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.6,
+    "foot_plant_right": 0.1,
+    "direction_change": 0.3333,
+    "contact_start": 0.0,
+    "contact_end": 0.3,
+    "transition_ready": 0.5,
+    "animation_complete": 0.7667
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      0.3333
+     ],
+     [
+      0.6,
+      0.7667
+     ]
+    ],
+    "right": [
+     [
+      0.0,
+      0.5167
+     ]
+    ]
+   },
+   "mirror_file": "clips/05_press_interactions/CB17_PRESS_WIN_CB_mirror.glb",
+   "compatible_next_states": [
+    "DEF_ACCEL",
+    "DEF_PURSUIT",
+    "DEF_DECEL"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": "CB17_PRESS_WIN",
+   "loop": false,
+   "root_turn_deg": null,
+   "root_turn_window_s": null,
+   "root_turn_keys": null,
+   "carries_ball": false,
+   "notes": null,
+   "pair": {
+    "partner_file": "clips/05_press_interactions/CB17_PRESS_WIN_WR.glb",
+    "cb_start_offset_in_wr_root": {
+     "x": 0.0,
+     "z": 17.5
+    },
+    "cb_root_yaw_deg": 180,
+    "shared_events": [
+     "contact_start",
+     "contact_end"
+    ],
+    "note": "Pair frame = WR root. The CB root stands 17.5 rig units in front of the WR and faces him (yaw 180), i.e. the CB root faces the offense as in every other CB clip. Start both on the same tick."
+   }
+  },
+  {
+   "id": "CB17_PRESS_WIN_WR_mirror",
+   "file": "clips/05_press_interactions/CB17_PRESS_WIN_WR_mirror.glb",
+   "title": "Cornerback wins the press (redirects the WR, keeps leverage) (mirrored)",
+   "group": "05_press_interactions",
+   "role": "WR",
+   "position_compatibility": [
+    "WR"
+   ],
+   "state_id": "DEF_PRESS_WIN",
+   "layer": null,
+   "duration_s": 0.7667,
+   "fps": 60,
+   "frames": 47,
+   "start_pose": "press_hold",
+   "end_pose": "jog",
+   "direction": "forward",
+   "preferred_speed_range": [
+    0.1,
+    2.6
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 0.09,
+     "dir_root": [
+      -0.003,
+      0.035
+     ]
+    },
+    "end": {
+     "mps": 2.29,
+     "dir_root": [
+      0.588,
+      0.735
+     ]
+    },
+    "whole": {
+     "mps": 1.01,
+     "dir_root": [
+      0.255,
+      0.327
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.15,
+    "foot_plant_right": 0.3167,
+    "contact_start": 0.0,
+    "contact_end": 0.3,
+    "transition_ready": 0.5667,
+    "animation_complete": 0.7667
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      0.0333
+     ],
+     [
+      0.15,
+      0.55
+     ]
+    ],
+    "right": [
+     [
+      0.0,
+      0.2167
+     ],
+     [
+      0.3167,
+      0.3667
+     ],
+     [
+      0.6167,
+      0.7667
+     ]
+    ]
+   },
+   "mirror_file": "clips/05_press_interactions/CB17_PRESS_WIN_WR.glb",
+   "compatible_next_states": [
+    "receiver release / route states (game)"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": "CB17_PRESS_WIN",
+   "loop": false,
+   "root_turn_deg": null,
+   "root_turn_window_s": null,
+   "root_turn_keys": null,
+   "carries_ball": false,
+   "notes": null,
+   "pair": {
+    "partner_file": "clips/05_press_interactions/CB17_PRESS_WIN_CB_mirror.glb",
+    "cb_start_offset_in_wr_root": {
+     "x": 0.0,
+     "z": 17.5
+    },
+    "cb_root_yaw_deg": 180,
+    "shared_events": [
+     "contact_start",
+     "contact_end"
+    ],
+    "note": "Pair frame = WR root. The CB root stands 17.5 rig units in front of the WR and faces him (yaw 180), i.e. the CB root faces the offense as in every other CB clip. Start both on the same tick."
+   }
+  },
+  {
+   "id": "CB17_PRESS_WIN_CB_mirror",
+   "file": "clips/05_press_interactions/CB17_PRESS_WIN_CB_mirror.glb",
+   "title": "Cornerback wins the press (redirects the WR, keeps leverage) (mirrored)",
+   "group": "05_press_interactions",
+   "role": "CB",
+   "position_compatibility": [
+    "CB"
+   ],
+   "state_id": "DEF_PRESS_WIN",
+   "layer": null,
+   "duration_s": 0.7667,
+   "fps": 60,
+   "frames": 47,
+   "start_pose": "press_hold",
+   "end_pose": "jog",
+   "direction": "forward",
+   "preferred_speed_range": [
+    0.3,
+    1.0
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 0.3,
+     "dir_root": [
+      0.007,
+      -0.125
+     ]
+    },
+    "end": {
+     "mps": 0.86,
+     "dir_root": [
+      -0.171,
+      -0.312
+     ]
+    },
+    "whole": {
+     "mps": 0.3,
+     "dir_root": [
+      -0.074,
+      -0.1
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "foot_plant_left": 0.1,
+    "foot_plant_right": 0.6,
+    "direction_change": 0.3333,
+    "contact_start": 0.0,
+    "contact_end": 0.3,
+    "transition_ready": 0.5,
+    "animation_complete": 0.7667
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      0.5167
+     ]
+    ],
+    "right": [
+     [
+      0.0,
+      0.3333
+     ],
+     [
+      0.6,
+      0.7667
+     ]
+    ]
+   },
+   "mirror_file": "clips/05_press_interactions/CB17_PRESS_WIN_CB.glb",
+   "compatible_next_states": [
+    "DEF_ACCEL",
+    "DEF_PURSUIT",
+    "DEF_DECEL"
+   ],
+   "upper_body_additive": false,
+   "additive_reference_frame": null,
+   "additive_tracks": null,
+   "paired_interaction_id": "CB17_PRESS_WIN",
+   "loop": false,
+   "root_turn_deg": null,
+   "root_turn_window_s": null,
+   "root_turn_keys": null,
+   "carries_ball": false,
+   "notes": null,
+   "pair": {
+    "partner_file": "clips/05_press_interactions/CB17_PRESS_WIN_WR_mirror.glb",
+    "cb_start_offset_in_wr_root": {
+     "x": 0.0,
+     "z": 17.5
+    },
+    "cb_root_yaw_deg": 180,
+    "shared_events": [
+     "contact_start",
+     "contact_end"
+    ],
+    "note": "Pair frame = WR root. The CB root stands 17.5 rig units in front of the WR and faces him (yaw 180), i.e. the CB root faces the offense as in every other CB clip. Start both on the same tick."
+   }
+  },
+  {
+   "id": "ADD_LOOK_LEFT",
+   "file": "clips/06_additive_tracking/ADD_LOOK_LEFT.glb",
+   "title": "Look left (additive)",
+   "group": "06_additive_tracking",
+   "role": "LB/CB/S",
+   "position_compatibility": [
+    "LB",
+    "CB",
+    "S"
+   ],
+   "state_id": null,
+   "layer": "ADD_LOOK_LEFT",
+   "duration_s": 0.6,
+   "fps": 60,
+   "frames": 37,
+   "start_pose": "any",
+   "end_pose": "any",
+   "direction": "left",
+   "preferred_speed_range": [
+    0.0,
+    0.0
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 0.0,
+     "dir_root": [
+      -0.0,
+      -0.0
+     ]
+    },
+    "end": {
+     "mps": 0.0,
+     "dir_root": [
+      -0.0,
+      -0.0
+     ]
+    },
+    "whole": {
+     "mps": 0.0,
+     "dir_root": [
+      -0.0,
+      -0.0
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "tracking_start": 0.0,
+    "transition_ready": 0.1667,
+    "animation_complete": 0.6
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      0.6
+     ]
+    ],
+    "right": [
+     [
+      0.0,
+      0.6
+     ]
+    ]
+   },
+   "mirror_file": "clips/06_additive_tracking/ADD_LOOK_RIGHT.glb",
+   "compatible_next_states": [],
+   "upper_body_additive": true,
+   "additive_reference_frame": 0,
+   "additive_tracks": [
+    "Head",
+    "HeadTop_End",
+    "Neck",
+    "Spine",
+    "Spine1",
+    "Spine2"
+   ],
+   "paired_interaction_id": null,
+   "loop": false,
+   "root_turn_deg": null,
+   "root_turn_window_s": null,
+   "root_turn_keys": null,
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "ADD_LOOK_RIGHT",
+   "file": "clips/06_additive_tracking/ADD_LOOK_RIGHT.glb",
+   "title": "Look left (additive)",
+   "group": "06_additive_tracking",
+   "role": "LB/CB/S",
+   "position_compatibility": [
+    "LB",
+    "CB",
+    "S"
+   ],
+   "state_id": null,
+   "layer": "ADD_LOOK_RIGHT",
+   "duration_s": 0.6,
+   "fps": 60,
+   "frames": 37,
+   "start_pose": "any",
+   "end_pose": "any",
+   "direction": "right",
+   "preferred_speed_range": [
+    0.0,
+    0.0
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 0.0,
+     "dir_root": [
+      -0.0,
+      -0.0
+     ]
+    },
+    "end": {
+     "mps": 0.0,
+     "dir_root": [
+      -0.0,
+      -0.0
+     ]
+    },
+    "whole": {
+     "mps": 0.0,
+     "dir_root": [
+      -0.0,
+      -0.0
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "tracking_start": 0.0,
+    "transition_ready": 0.1667,
+    "animation_complete": 0.6
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      0.6
+     ]
+    ],
+    "right": [
+     [
+      0.0,
+      0.6
+     ]
+    ]
+   },
+   "mirror_file": "clips/06_additive_tracking/ADD_LOOK_LEFT.glb",
+   "compatible_next_states": [],
+   "upper_body_additive": true,
+   "additive_reference_frame": 0,
+   "additive_tracks": [
+    "Head",
+    "HeadTop_End",
+    "Neck",
+    "Spine",
+    "Spine1",
+    "Spine2"
+   ],
+   "paired_interaction_id": null,
+   "loop": false,
+   "root_turn_deg": null,
+   "root_turn_window_s": null,
+   "root_turn_keys": null,
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "ADD_LOOK_QB_BEHIND_LEFT",
+   "file": "clips/06_additive_tracking/ADD_LOOK_QB_BEHIND_LEFT.glb",
+   "title": "Look back toward the quarterback over the left shoulder (additive)",
+   "group": "06_additive_tracking",
+   "role": "LB/CB/S",
+   "position_compatibility": [
+    "LB",
+    "CB",
+    "S"
+   ],
+   "state_id": null,
+   "layer": "ADD_LOOK_QB_BEHIND_LEFT",
+   "duration_s": 0.6,
+   "fps": 60,
+   "frames": 37,
+   "start_pose": "any",
+   "end_pose": "any",
+   "direction": "left",
+   "preferred_speed_range": [
+    0.0,
+    0.0
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 0.0,
+     "dir_root": [
+      -0.0,
+      -0.0
+     ]
+    },
+    "end": {
+     "mps": 0.0,
+     "dir_root": [
+      -0.0,
+      -0.0
+     ]
+    },
+    "whole": {
+     "mps": 0.0,
+     "dir_root": [
+      -0.0,
+      -0.0
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "tracking_start": 0.0,
+    "transition_ready": 0.1667,
+    "animation_complete": 0.6
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      0.6
+     ]
+    ],
+    "right": [
+     [
+      0.0,
+      0.6
+     ]
+    ]
+   },
+   "mirror_file": "clips/06_additive_tracking/ADD_LOOK_QB_BEHIND_RIGHT.glb",
+   "compatible_next_states": [],
+   "upper_body_additive": true,
+   "additive_reference_frame": 0,
+   "additive_tracks": [
+    "Head",
+    "HeadTop_End",
+    "Neck",
+    "Spine",
+    "Spine1",
+    "Spine2"
+   ],
+   "paired_interaction_id": null,
+   "loop": false,
+   "root_turn_deg": null,
+   "root_turn_window_s": null,
+   "root_turn_keys": null,
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "ADD_LOOK_QB_BEHIND_RIGHT",
+   "file": "clips/06_additive_tracking/ADD_LOOK_QB_BEHIND_RIGHT.glb",
+   "title": "Look back toward the quarterback over the left shoulder (additive)",
+   "group": "06_additive_tracking",
+   "role": "LB/CB/S",
+   "position_compatibility": [
+    "LB",
+    "CB",
+    "S"
+   ],
+   "state_id": null,
+   "layer": "ADD_LOOK_QB_BEHIND_RIGHT",
+   "duration_s": 0.6,
+   "fps": 60,
+   "frames": 37,
+   "start_pose": "any",
+   "end_pose": "any",
+   "direction": "right",
+   "preferred_speed_range": [
+    0.0,
+    0.0
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 0.0,
+     "dir_root": [
+      -0.0,
+      -0.0
+     ]
+    },
+    "end": {
+     "mps": 0.0,
+     "dir_root": [
+      -0.0,
+      -0.0
+     ]
+    },
+    "whole": {
+     "mps": 0.0,
+     "dir_root": [
+      -0.0,
+      -0.0
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "tracking_start": 0.0,
+    "transition_ready": 0.1667,
+    "animation_complete": 0.6
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      0.6
+     ]
+    ],
+    "right": [
+     [
+      0.0,
+      0.6
+     ]
+    ]
+   },
+   "mirror_file": "clips/06_additive_tracking/ADD_LOOK_QB_BEHIND_LEFT.glb",
+   "compatible_next_states": [],
+   "upper_body_additive": true,
+   "additive_reference_frame": 0,
+   "additive_tracks": [
+    "Head",
+    "HeadTop_End",
+    "Neck",
+    "Spine",
+    "Spine1",
+    "Spine2"
+   ],
+   "paired_interaction_id": null,
+   "loop": false,
+   "root_turn_deg": null,
+   "root_turn_window_s": null,
+   "root_turn_keys": null,
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "ADD_LOOK_QB_FRONT",
+   "file": "clips/06_additive_tracking/ADD_LOOK_QB_FRONT.glb",
+   "title": "Eyes on the quarterback in front (additive, slight chin-up)",
+   "group": "06_additive_tracking",
+   "role": "LB/CB/S",
+   "position_compatibility": [
+    "LB",
+    "CB",
+    "S"
+   ],
+   "state_id": null,
+   "layer": "ADD_LOOK_QB_FRONT",
+   "duration_s": 0.6,
+   "fps": 60,
+   "frames": 37,
+   "start_pose": "any",
+   "end_pose": "any",
+   "direction": "none",
+   "preferred_speed_range": [
+    0.0,
+    0.0
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 0.0,
+     "dir_root": [
+      -0.0,
+      -0.0
+     ]
+    },
+    "end": {
+     "mps": 0.0,
+     "dir_root": [
+      -0.0,
+      -0.0
+     ]
+    },
+    "whole": {
+     "mps": 0.0,
+     "dir_root": [
+      -0.0,
+      -0.0
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "tracking_start": 0.0,
+    "transition_ready": 0.1667,
+    "animation_complete": 0.6
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      0.6
+     ]
+    ],
+    "right": [
+     [
+      0.0,
+      0.6
+     ]
+    ]
+   },
+   "mirror_file": null,
+   "compatible_next_states": [],
+   "upper_body_additive": true,
+   "additive_reference_frame": 0,
+   "additive_tracks": [
+    "Head",
+    "HeadTop_End",
+    "Neck",
+    "Spine",
+    "Spine1",
+    "Spine2"
+   ],
+   "paired_interaction_id": null,
+   "loop": false,
+   "root_turn_deg": null,
+   "root_turn_window_s": null,
+   "root_turn_keys": null,
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "ADD_LOOK_UP_BALL",
+   "file": "clips/06_additive_tracking/ADD_LOOK_UP_BALL.glb",
+   "title": "Look up toward the football (additive)",
+   "group": "06_additive_tracking",
+   "role": "LB/CB/S",
+   "position_compatibility": [
+    "LB",
+    "CB",
+    "S"
+   ],
+   "state_id": null,
+   "layer": "ADD_LOOK_UP_BALL",
+   "duration_s": 0.6,
+   "fps": 60,
+   "frames": 37,
+   "start_pose": "any",
+   "end_pose": "any",
+   "direction": "none",
+   "preferred_speed_range": [
+    0.0,
+    0.0
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 0.0,
+     "dir_root": [
+      -0.0,
+      -0.0
+     ]
+    },
+    "end": {
+     "mps": 0.0,
+     "dir_root": [
+      -0.0,
+      -0.0
+     ]
+    },
+    "whole": {
+     "mps": 0.0,
+     "dir_root": [
+      -0.0,
+      -0.0
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "tracking_start": 0.0,
+    "transition_ready": 0.1667,
+    "animation_complete": 0.6
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      0.6
+     ]
+    ],
+    "right": [
+     [
+      0.0,
+      0.6
+     ]
+    ]
+   },
+   "mirror_file": null,
+   "compatible_next_states": [],
+   "upper_body_additive": true,
+   "additive_reference_frame": 0,
+   "additive_tracks": [
+    "Head",
+    "HeadTop_End",
+    "Neck",
+    "Spine",
+    "Spine1",
+    "Spine2"
+   ],
+   "paired_interaction_id": null,
+   "loop": false,
+   "root_turn_deg": null,
+   "root_turn_window_s": null,
+   "root_turn_keys": null,
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "ADD_TRACK_DEEP_PASS_LEFT",
+   "file": "clips/06_additive_tracking/ADD_TRACK_DEEP_PASS_LEFT.glb",
+   "title": "Track a deep pass over the left shoulder (additive, behind-up to overhead)",
+   "group": "06_additive_tracking",
+   "role": "LB/CB/S",
+   "position_compatibility": [
+    "LB",
+    "CB",
+    "S"
+   ],
+   "state_id": null,
+   "layer": "ADD_TRACK_DEEP_PASS_LEFT",
+   "duration_s": 1.0,
+   "fps": 60,
+   "frames": 61,
+   "start_pose": "any",
+   "end_pose": "any",
+   "direction": "left",
+   "preferred_speed_range": [
+    0.0,
+    0.0
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 0.0,
+     "dir_root": [
+      -0.0,
+      -0.0
+     ]
+    },
+    "end": {
+     "mps": 0.0,
+     "dir_root": [
+      -0.0,
+      -0.0
+     ]
+    },
+    "whole": {
+     "mps": 0.0,
+     "dir_root": [
+      -0.0,
+      -0.0
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "tracking_start": 0.0,
+    "transition_ready": 0.1667,
+    "animation_complete": 1.0
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      1.0
+     ]
+    ],
+    "right": [
+     [
+      0.0,
+      1.0
+     ]
+    ]
+   },
+   "mirror_file": "clips/06_additive_tracking/ADD_TRACK_DEEP_PASS_RIGHT.glb",
+   "compatible_next_states": [],
+   "upper_body_additive": true,
+   "additive_reference_frame": 0,
+   "additive_tracks": [
+    "Head",
+    "HeadTop_End",
+    "Neck",
+    "Spine",
+    "Spine1",
+    "Spine2"
+   ],
+   "paired_interaction_id": null,
+   "loop": false,
+   "root_turn_deg": null,
+   "root_turn_window_s": null,
+   "root_turn_keys": null,
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "ADD_TRACK_DEEP_PASS_RIGHT",
+   "file": "clips/06_additive_tracking/ADD_TRACK_DEEP_PASS_RIGHT.glb",
+   "title": "Track a deep pass over the left shoulder (additive, behind-up to overhead)",
+   "group": "06_additive_tracking",
+   "role": "LB/CB/S",
+   "position_compatibility": [
+    "LB",
+    "CB",
+    "S"
+   ],
+   "state_id": null,
+   "layer": "ADD_TRACK_DEEP_PASS_RIGHT",
+   "duration_s": 1.0,
+   "fps": 60,
+   "frames": 61,
+   "start_pose": "any",
+   "end_pose": "any",
+   "direction": "right",
+   "preferred_speed_range": [
+    0.0,
+    0.0
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 0.0,
+     "dir_root": [
+      -0.0,
+      -0.0
+     ]
+    },
+    "end": {
+     "mps": 0.0,
+     "dir_root": [
+      -0.0,
+      -0.0
+     ]
+    },
+    "whole": {
+     "mps": 0.0,
+     "dir_root": [
+      -0.0,
+      -0.0
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "tracking_start": 0.0,
+    "transition_ready": 0.1667,
+    "animation_complete": 1.0
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      1.0
+     ]
+    ],
+    "right": [
+     [
+      0.0,
+      1.0
+     ]
+    ]
+   },
+   "mirror_file": "clips/06_additive_tracking/ADD_TRACK_DEEP_PASS_LEFT.glb",
+   "compatible_next_states": [],
+   "upper_body_additive": true,
+   "additive_reference_frame": 0,
+   "additive_tracks": [
+    "Head",
+    "HeadTop_End",
+    "Neck",
+    "Spine",
+    "Spine1",
+    "Spine2"
+   ],
+   "paired_interaction_id": null,
+   "loop": false,
+   "root_turn_deg": null,
+   "root_turn_window_s": null,
+   "root_turn_keys": null,
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "ADD_SCAN_FIELD",
+   "file": "clips/06_additive_tracking/ADD_SCAN_FIELD.glb",
+   "title": "Scan the field left to right (additive, loopable after frame 0)",
+   "group": "06_additive_tracking",
+   "role": "LB/CB/S",
+   "position_compatibility": [
+    "LB",
+    "CB",
+    "S"
+   ],
+   "state_id": null,
+   "layer": "ADD_SCAN_FIELD",
+   "duration_s": 1.6,
+   "fps": 60,
+   "frames": 97,
+   "start_pose": "any",
+   "end_pose": "any",
+   "direction": "none",
+   "preferred_speed_range": [
+    0.0,
+    0.0
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 0.0,
+     "dir_root": [
+      -0.0,
+      -0.0
+     ]
+    },
+    "end": {
+     "mps": 0.0,
+     "dir_root": [
+      -0.0,
+      -0.0
+     ]
+    },
+    "whole": {
+     "mps": 0.0,
+     "dir_root": [
+      -0.0,
+      -0.0
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "tracking_start": 0.0,
+    "transition_ready": 0.1667,
+    "animation_complete": 1.6
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      1.6
+     ]
+    ],
+    "right": [
+     [
+      0.0,
+      1.6
+     ]
+    ]
+   },
+   "mirror_file": null,
+   "compatible_next_states": [],
+   "upper_body_additive": true,
+   "additive_reference_frame": 0,
+   "additive_tracks": [
+    "Head",
+    "HeadTop_End",
+    "Neck",
+    "Spine",
+    "Spine1",
+    "Spine2"
+   ],
+   "paired_interaction_id": null,
+   "loop": true,
+   "root_turn_deg": null,
+   "root_turn_window_s": null,
+   "root_turn_keys": null,
+   "carries_ball": false,
+   "notes": null
+  },
+  {
+   "id": "ADD_CONTEST_PREP",
+   "file": "clips/06_additive_tracking/ADD_CONTEST_PREP.glb",
+   "title": "Prepare a pass contest: eyes up, hands up (additive incl. arms)",
+   "group": "06_additive_tracking",
+   "role": "LB/CB/S",
+   "position_compatibility": [
+    "LB",
+    "CB",
+    "S"
+   ],
+   "state_id": null,
+   "layer": "ADD_CONTEST_PREP",
+   "duration_s": 0.6,
+   "fps": 60,
+   "frames": 37,
+   "start_pose": "any",
+   "end_pose": "any",
+   "direction": "none",
+   "preferred_speed_range": [
+    0.0,
+    0.0
+   ],
+   "implied_ground_speed": {
+    "start": {
+     "mps": 0.0,
+     "dir_root": [
+      -0.0,
+      -0.0
+     ]
+    },
+    "end": {
+     "mps": 0.0,
+     "dir_root": [
+      -0.0,
+      -0.0
+     ]
+    },
+    "whole": {
+     "mps": 0.0,
+     "dir_root": [
+      -0.0,
+      -0.0
+     ]
+    }
+   },
+   "events": {
+    "animation_start": 0.0,
+    "tracking_start": 0.0,
+    "transition_ready": 0.1667,
+    "animation_complete": 0.6
+   },
+   "foot_contacts_s": {
+    "left": [
+     [
+      0.0,
+      0.6
+     ]
+    ],
+    "right": [
+     [
+      0.0,
+      0.6
+     ]
+    ]
+   },
+   "mirror_file": null,
+   "compatible_next_states": [],
+   "upper_body_additive": true,
+   "additive_reference_frame": 0,
+   "additive_tracks": [
+    "Head",
+    "HeadTop_End",
+    "LeftArm",
+    "LeftForeArm",
+    "LeftHand",
+    "LeftHandIndex1",
+    "LeftHandIndex2",
+    "LeftHandIndex3",
+    "LeftHandMiddle1",
+    "LeftHandMiddle2",
+    "LeftHandMiddle3",
+    "LeftHandPinky1",
+    "LeftHandPinky2",
+    "LeftHandPinky3",
+    "LeftHandRing1",
+    "LeftHandRing2",
+    "LeftHandRing3",
+    "LeftHandThumb1",
+    "LeftHandThumb2",
+    "LeftHandThumb3",
+    "LeftShoulder",
+    "Neck",
+    "RightArm",
+    "RightForeArm",
+    "RightHand",
+    "RightHandIndex1",
+    "RightHandIndex2",
+    "RightHandIndex3",
+    "RightHandMiddle1",
+    "RightHandMiddle2",
+    "RightHandMiddle3",
+    "RightHandPinky1",
+    "RightHandPinky2",
+    "RightHandPinky3",
+    "RightHandRing1",
+    "RightHandRing2",
+    "RightHandRing3",
+    "RightHandThumb1",
+    "RightHandThumb2",
+    "RightHandThumb3",
+    "RightShoulder",
+    "Spine",
+    "Spine1",
+    "Spine2"
+   ],
+   "paired_interaction_id": null,
+   "loop": false,
+   "root_turn_deg": null,
+   "root_turn_window_s": null,
+   "root_turn_keys": null,
+   "carries_ball": false,
+   "notes": null
+  }
+ ],
+ "reuse": {
+  "MASS": "Tackles are not in this library: DEF_PRE_TACKLE clips end in a pose that blends (6-8 frames) into the defender clips of the existing MASS tackle pairs.",
+  "BALLSYNC": "Catches/swats/interceptions are not in this library: DEF_PASS_CONTEST_ENTRY / CB19 / S12 end in poses that blend into the BallSync defender clips; S14 follows a BallSync interception."
+ }
+}
