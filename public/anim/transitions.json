@@ -1,0 +1,1349 @@
+{
+ "version": 1,
+ "phases": [
+  "approach",
+  "contact",
+  "wrap",
+  "resistance",
+  "balance_disruption",
+  "takedown_or_escape",
+  "ground_contact_or_recovery",
+  "transition_to_gameplay"
+ ],
+ "pose_tags": [
+  "sprint",
+  "wrapped_hold",
+  "prone",
+  "supine",
+  "side_lying",
+  "kneel",
+  "seated",
+  "prone_dive",
+  "stand_recover",
+  "clinch",
+  "stand"
+ ],
+ "switch_families": [
+  {
+   "family": "rear_waist_wrap",
+   "clip_ids": [
+    "R01",
+    "R03",
+    "R08",
+    "R10"
+   ],
+   "switch_window_frames": [
+    12,
+    22
+   ],
+   "note": "These clips share the same body poses inside this frame window (same approach/contact timeline), so the game can switch from one to the next without a visible pop (use a 6-frame blend)."
+  },
+  {
+   "family": "side_wrap",
+   "clip_ids": [
+    "S11",
+    "S14",
+    "S18",
+    "S20"
+   ],
+   "switch_window_frames": [
+    12,
+    22
+   ],
+   "note": "These clips share the same body poses inside this frame window (same approach/contact timeline), so the game can switch from one to the next without a visible pop (use a 6-frame blend)."
+  },
+  {
+   "family": "front_wrap",
+   "clip_ids": [
+    "F21",
+    "F22",
+    "F27",
+    "F29"
+   ],
+   "switch_window_frames": [
+    12,
+    22
+   ],
+   "note": "These clips share the same body poses inside this frame window (same approach/contact timeline), so the game can switch from one to the next without a visible pop (use a 6-frame blend)."
+  },
+  {
+   "family": "rear_wrap_to_break",
+   "clip_ids": [
+    "R01",
+    "B31"
+   ],
+   "switch_window_frames": [
+    12,
+    18
+   ],
+   "note": "These clips share the same body poses inside this frame window (same approach/contact timeline), so the game can switch from one to the next without a visible pop (use a 6-frame blend)."
+  },
+  {
+   "family": "side_wrap_to_break",
+   "clip_ids": [
+    "S11",
+    "B34"
+   ],
+   "switch_window_frames": [
+    12,
+    18
+   ],
+   "note": "These clips share the same body poses inside this frame window (same approach/contact timeline), so the game can switch from one to the next without a visible pop (use a 6-frame blend)."
+  },
+  {
+   "family": "front_wrap_to_break",
+   "clip_ids": [
+    "F21",
+    "B36"
+   ],
+   "switch_window_frames": [
+    12,
+    18
+   ],
+   "note": "These clips share the same body poses inside this frame window (same approach/contact timeline), so the game can switch from one to the next without a visible pop (use a 6-frame blend)."
+  },
+  {
+   "family": "truck_outcomes",
+   "clip_ids": [
+    "T46",
+    "T47",
+    "T49",
+    "T51"
+   ],
+   "switch_window_frames": [
+    9,
+    14
+   ],
+   "note": "These clips share the same body poses inside this frame window (same approach/contact timeline), so the game can switch from one to the next without a visible pop (use a 6-frame blend)."
+  },
+  {
+   "family": "stiffarm_outcomes",
+   "clip_ids": [
+    "A56",
+    "A58",
+    "A60",
+    "A61"
+   ],
+   "switch_window_frames": [
+    10,
+    16
+   ],
+   "note": "These clips share the same body poses inside this frame window (same approach/contact timeline), so the game can switch from one to the next without a visible pop (use a 6-frame blend)."
+  },
+  {
+   "family": "dive_outcomes",
+   "clip_ids": [
+    "D74",
+    "D76",
+    "D78",
+    "D81"
+   ],
+   "switch_window_frames": [
+    12,
+    22
+   ],
+   "note": "These clips share the same body poses inside this frame window (same approach/contact timeline), so the game can switch from one to the next without a visible pop (use a 6-frame blend)."
+  }
+ ],
+ "edges": [
+  {
+   "from_id": "R01",
+   "to_ids": [
+    "L110",
+    "getup",
+    "idle"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (kneel)"
+  },
+  {
+   "from_id": "R02",
+   "to_ids": [
+    "L110",
+    "getup",
+    "idle"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (kneel)"
+  },
+  {
+   "from_id": "R03",
+   "to_ids": [
+    "L110",
+    "getup",
+    "idle"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (kneel)"
+  },
+  {
+   "from_id": "R04",
+   "to_ids": [
+    "L110",
+    "getup",
+    "idle"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (kneel)"
+  },
+  {
+   "from_id": "R05",
+   "to_ids": [
+    "L110",
+    "getup",
+    "idle"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (kneel)"
+  },
+  {
+   "from_id": "R06",
+   "to_ids": [
+    "L110",
+    "getup",
+    "idle"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (kneel)"
+  },
+  {
+   "from_id": "R07",
+   "to_ids": [
+    "L110",
+    "getup",
+    "idle"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (kneel)"
+  },
+  {
+   "from_id": "R08",
+   "to_ids": [
+    "L110",
+    "getup",
+    "idle"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (kneel)"
+  },
+  {
+   "from_id": "R09",
+   "to_ids": [
+    "L110",
+    "getup",
+    "idle"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (kneel)"
+  },
+  {
+   "from_id": "R10",
+   "to_ids": [
+    "L110",
+    "getup",
+    "idle"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (kneel)"
+  },
+  {
+   "from_id": "S11",
+   "to_ids": [
+    "L110",
+    "getup",
+    "idle"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (kneel)"
+  },
+  {
+   "from_id": "S12",
+   "to_ids": [
+    "L110",
+    "getup",
+    "idle"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (kneel)"
+  },
+  {
+   "from_id": "S13",
+   "to_ids": [
+    "L110",
+    "getup",
+    "idle"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (kneel)"
+  },
+  {
+   "from_id": "S14",
+   "to_ids": [
+    "L110",
+    "getup",
+    "idle"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (kneel)"
+  },
+  {
+   "from_id": "S15",
+   "to_ids": [
+    "L110",
+    "getup",
+    "idle"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (kneel)"
+  },
+  {
+   "from_id": "S16",
+   "to_ids": [
+    "L110",
+    "getup",
+    "idle"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (kneel)"
+  },
+  {
+   "from_id": "S17",
+   "to_ids": [
+    "L110",
+    "getup",
+    "idle"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (kneel)"
+  },
+  {
+   "from_id": "S18",
+   "to_ids": [
+    "L110",
+    "getup",
+    "idle"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (kneel)"
+  },
+  {
+   "from_id": "S19",
+   "to_ids": [
+    "L110",
+    "getup",
+    "idle"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (kneel)"
+  },
+  {
+   "from_id": "S20",
+   "to_ids": [
+    "L110",
+    "getup",
+    "idle"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (kneel)"
+  },
+  {
+   "from_id": "F21",
+   "to_ids": [
+    "L110",
+    "getup",
+    "idle"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (kneel)"
+  },
+  {
+   "from_id": "F22",
+   "to_ids": [
+    "L110",
+    "getup",
+    "idle"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (kneel)"
+  },
+  {
+   "from_id": "F23",
+   "to_ids": [
+    "L110",
+    "getup",
+    "idle"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (kneel)"
+  },
+  {
+   "from_id": "F24",
+   "to_ids": [
+    "L110",
+    "getup",
+    "idle"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (kneel)"
+  },
+  {
+   "from_id": "F25",
+   "to_ids": [
+    "L110",
+    "getup",
+    "idle"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (kneel)"
+  },
+  {
+   "from_id": "F26",
+   "to_ids": [
+    "L110",
+    "getup",
+    "idle"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (kneel)"
+  },
+  {
+   "from_id": "F27",
+   "to_ids": [
+    "L110",
+    "getup",
+    "idle"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (kneel)"
+  },
+  {
+   "from_id": "F28",
+   "to_ids": [
+    "L110",
+    "getup",
+    "idle"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (kneel)"
+  },
+  {
+   "from_id": "F29",
+   "to_ids": [
+    "L110",
+    "getup",
+    "idle"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (kneel)"
+  },
+  {
+   "from_id": "F30",
+   "to_ids": [
+    "L110",
+    "getup",
+    "idle"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (kneel)"
+  },
+  {
+   "from_id": "B31",
+   "to_ids": [
+    "idle",
+    "run",
+    "L110"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (stand_recover)"
+  },
+  {
+   "from_id": "B32",
+   "to_ids": [
+    "idle",
+    "run",
+    "L110"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (stand_recover)"
+  },
+  {
+   "from_id": "B33",
+   "to_ids": [
+    "downed_player",
+    "fallen",
+    "L107",
+    "L109"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (prone_dive)"
+  },
+  {
+   "from_id": "B34",
+   "to_ids": [
+    "idle",
+    "run",
+    "L110"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (stand_recover)"
+  },
+  {
+   "from_id": "B35",
+   "to_ids": [
+    "idle",
+    "run",
+    "L110"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (stand_recover)"
+  },
+  {
+   "from_id": "B36",
+   "to_ids": [
+    "idle",
+    "run",
+    "L110"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (stand_recover)"
+  },
+  {
+   "from_id": "B37",
+   "to_ids": [
+    "L110",
+    "getup",
+    "idle"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (kneel)"
+  },
+  {
+   "from_id": "B38",
+   "to_ids": [
+    "idle",
+    "run",
+    "L110"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (stand_recover)"
+  },
+  {
+   "from_id": "B39",
+   "to_ids": [
+    "idle",
+    "run",
+    "L110"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (stand_recover)"
+  },
+  {
+   "from_id": "B40",
+   "to_ids": [
+    "idle",
+    "run",
+    "L110"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (stand_recover)"
+  },
+  {
+   "from_id": "B41",
+   "to_ids": [
+    "idle",
+    "run",
+    "L110"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (stand_recover)"
+  },
+  {
+   "from_id": "B42",
+   "to_ids": [
+    "idle",
+    "run",
+    "L110"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (stand_recover)"
+  },
+  {
+   "from_id": "B43",
+   "to_ids": [
+    "idle",
+    "run",
+    "L110"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (stand_recover)"
+  },
+  {
+   "from_id": "B44",
+   "to_ids": [
+    "idle",
+    "run",
+    "L110"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (stand_recover)"
+  },
+  {
+   "from_id": "B45",
+   "to_ids": [
+    "downed_player",
+    "fallen",
+    "L107",
+    "L109"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (prone)"
+  },
+  {
+   "from_id": "T46",
+   "to_ids": [
+    "idle",
+    "run",
+    "L110"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (seated)"
+  },
+  {
+   "from_id": "T47",
+   "to_ids": [
+    "downed_player",
+    "fallen",
+    "L107",
+    "L109"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (supine)"
+  },
+  {
+   "from_id": "T48",
+   "to_ids": [
+    "idle",
+    "run",
+    "L110"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (stand_recover)"
+  },
+  {
+   "from_id": "T49",
+   "to_ids": [
+    "downed_player",
+    "fallen",
+    "L107",
+    "L109"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (supine)"
+  },
+  {
+   "from_id": "T50",
+   "to_ids": [
+    "downed_player",
+    "fallen",
+    "L107",
+    "L109"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (side_lying)"
+  },
+  {
+   "from_id": "T51",
+   "to_ids": [
+    "idle",
+    "run",
+    "L110"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (stand_recover)"
+  },
+  {
+   "from_id": "T53",
+   "to_ids": [
+    "idle",
+    "run",
+    "L110"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (clinch)"
+  },
+  {
+   "from_id": "T54",
+   "to_ids": [
+    "downed_player",
+    "fallen",
+    "L107",
+    "L109"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (supine)"
+  },
+  {
+   "from_id": "T55",
+   "to_ids": [
+    "downed_player",
+    "fallen",
+    "L107",
+    "L109"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (supine)"
+  },
+  {
+   "from_id": "T52",
+   "to_ids": [
+    "L110",
+    "getup",
+    "idle"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (kneel)"
+  },
+  {
+   "from_id": "G64",
+   "to_ids": [
+    "downed_player",
+    "fallen",
+    "L107",
+    "L109"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (prone)"
+  },
+  {
+   "from_id": "G65",
+   "to_ids": [
+    "downed_player",
+    "fallen",
+    "L107",
+    "L109"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (prone)"
+  },
+  {
+   "from_id": "G66",
+   "to_ids": [
+    "downed_player",
+    "fallen",
+    "L107",
+    "L109"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (prone)"
+  },
+  {
+   "from_id": "G67",
+   "to_ids": [
+    "downed_player",
+    "fallen",
+    "L107",
+    "L109"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (prone)"
+  },
+  {
+   "from_id": "G68",
+   "to_ids": [
+    "downed_player",
+    "fallen",
+    "L107",
+    "L109"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (prone)"
+  },
+  {
+   "from_id": "G69",
+   "to_ids": [
+    "downed_player",
+    "fallen",
+    "L107",
+    "L109"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (prone)"
+  },
+  {
+   "from_id": "G70",
+   "to_ids": [
+    "downed_player",
+    "fallen",
+    "L107",
+    "L109"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (supine)"
+  },
+  {
+   "from_id": "G71",
+   "to_ids": [
+    "downed_player",
+    "fallen",
+    "L107",
+    "L109"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (prone)"
+  },
+  {
+   "from_id": "G72",
+   "to_ids": [
+    "downed_player",
+    "fallen",
+    "L107",
+    "L109"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (prone)"
+  },
+  {
+   "from_id": "G73",
+   "to_ids": [
+    "downed_player",
+    "fallen",
+    "L107",
+    "L109"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (prone)"
+  },
+  {
+   "from_id": "D74",
+   "to_ids": [
+    "downed_player",
+    "fallen",
+    "L107",
+    "L109"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (prone_dive)"
+  },
+  {
+   "from_id": "D75",
+   "to_ids": [
+    "downed_player",
+    "fallen",
+    "L107",
+    "L109"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (prone_dive)"
+  },
+  {
+   "from_id": "D76",
+   "to_ids": [
+    "downed_player",
+    "fallen",
+    "L107",
+    "L109"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (prone_dive)"
+  },
+  {
+   "from_id": "D77",
+   "to_ids": [
+    "downed_player",
+    "fallen",
+    "L107",
+    "L109"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (prone_dive)"
+  },
+  {
+   "from_id": "D78",
+   "to_ids": [
+    "downed_player",
+    "fallen",
+    "L107",
+    "L109"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (prone_dive)"
+  },
+  {
+   "from_id": "D79",
+   "to_ids": [
+    "downed_player",
+    "fallen",
+    "L107",
+    "L109"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (prone_dive)"
+  },
+  {
+   "from_id": "D80",
+   "to_ids": [
+    "downed_player",
+    "fallen",
+    "L107",
+    "L109"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (prone_dive)"
+  },
+  {
+   "from_id": "D81",
+   "to_ids": [
+    "downed_player",
+    "fallen",
+    "L107",
+    "L109"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (prone_dive)"
+  },
+  {
+   "from_id": "L82",
+   "to_ids": [
+    "run",
+    "sprint",
+    "fastRun",
+    "R01",
+    "S11",
+    "F21",
+    "T46",
+    "A56"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (sprint)"
+  },
+  {
+   "from_id": "L83",
+   "to_ids": [
+    "run",
+    "sprint",
+    "fastRun",
+    "R01",
+    "S11",
+    "F21",
+    "T46",
+    "A56",
+    "L82"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (sprint)"
+  },
+  {
+   "from_id": "L84",
+   "to_ids": [
+    "run",
+    "sprint",
+    "fastRun",
+    "R01",
+    "S11",
+    "F21",
+    "T46",
+    "A56",
+    "L82"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (sprint)"
+  },
+  {
+   "from_id": "L86",
+   "to_ids": [
+    "run",
+    "sprint",
+    "fastRun",
+    "R01",
+    "S11",
+    "F21",
+    "T46",
+    "A56",
+    "L82"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (sprint)"
+  },
+  {
+   "from_id": "L87",
+   "to_ids": [
+    "run",
+    "sprint",
+    "fastRun",
+    "R01",
+    "S11",
+    "F21",
+    "T46",
+    "A56",
+    "L82"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (sprint)"
+  },
+  {
+   "from_id": "L88",
+   "to_ids": [
+    "run",
+    "sprint",
+    "fastRun",
+    "R01",
+    "S11",
+    "F21",
+    "T46",
+    "A56",
+    "L82"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (sprint)"
+  },
+  {
+   "from_id": "L89",
+   "to_ids": [
+    "run",
+    "sprint",
+    "fastRun",
+    "R01",
+    "S11",
+    "F21",
+    "T46",
+    "A56",
+    "L82"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (sprint)"
+  },
+  {
+   "from_id": "L90",
+   "to_ids": [
+    "run",
+    "sprint",
+    "fastRun",
+    "R01",
+    "S11",
+    "F21",
+    "T46",
+    "A56",
+    "L82"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (sprint)"
+  },
+  {
+   "from_id": "L91",
+   "to_ids": [
+    "run",
+    "sprint",
+    "fastRun",
+    "R01",
+    "S11",
+    "F21",
+    "T46",
+    "A56",
+    "L82"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (sprint)"
+  },
+  {
+   "from_id": "L92",
+   "to_ids": [
+    "run",
+    "sprint",
+    "fastRun",
+    "R01",
+    "S11",
+    "F21",
+    "T46",
+    "A56",
+    "L82"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (sprint)"
+  },
+  {
+   "from_id": "L93",
+   "to_ids": [
+    "run",
+    "sprint",
+    "fastRun",
+    "R01",
+    "S11",
+    "F21",
+    "T46",
+    "A56",
+    "L82"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (sprint)"
+  },
+  {
+   "from_id": "L94",
+   "to_ids": [
+    "run",
+    "sprint",
+    "fastRun",
+    "R01",
+    "S11",
+    "F21",
+    "T46",
+    "A56",
+    "L82"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (sprint)"
+  },
+  {
+   "from_id": "L97",
+   "to_ids": [
+    "downed_player",
+    "fallen",
+    "L107",
+    "L109"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (prone)"
+  },
+  {
+   "from_id": "L98",
+   "to_ids": [
+    "downed_player",
+    "fallen",
+    "L107",
+    "L109"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (supine)"
+  },
+  {
+   "from_id": "L100",
+   "to_ids": [
+    "downed_player",
+    "fallen",
+    "L107",
+    "L109"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (side_lying)"
+  },
+  {
+   "from_id": "L101",
+   "to_ids": [
+    "downed_player",
+    "fallen",
+    "L107",
+    "L109"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (prone)"
+  },
+  {
+   "from_id": "L102",
+   "to_ids": [
+    "downed_player",
+    "fallen",
+    "L107",
+    "L109"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (supine)"
+  },
+  {
+   "from_id": "L103",
+   "to_ids": [
+    "downed_player",
+    "fallen",
+    "L107",
+    "L109"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (prone)"
+  },
+  {
+   "from_id": "L104",
+   "to_ids": [
+    "downed_player",
+    "fallen",
+    "L107",
+    "L109"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (prone)"
+  },
+  {
+   "from_id": "L105",
+   "to_ids": [
+    "downed_player",
+    "fallen",
+    "L107",
+    "L109"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (prone)"
+  },
+  {
+   "from_id": "L106",
+   "to_ids": [
+    "downed_player",
+    "fallen",
+    "L107",
+    "L109"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (side_lying)"
+  },
+  {
+   "from_id": "L107",
+   "to_ids": [
+    "downed_player",
+    "fallen",
+    "L107",
+    "L109"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (prone)"
+  },
+  {
+   "from_id": "L108",
+   "to_ids": [
+    "downed_player",
+    "fallen",
+    "L107",
+    "L109"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (prone)"
+  },
+  {
+   "from_id": "L109",
+   "to_ids": [
+    "downed_player",
+    "fallen",
+    "L107",
+    "L109"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (prone)"
+  },
+  {
+   "from_id": "L96",
+   "to_ids": [
+    "downed_player",
+    "fallen",
+    "L107",
+    "L109"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (prone)"
+  },
+  {
+   "from_id": "L110",
+   "to_ids": [
+    "idle",
+    "run",
+    "L110"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (stand)"
+  },
+  {
+   "from_id": "L95",
+   "to_ids": [
+    "R01",
+    "S11",
+    "F21",
+    "R03"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (wrapped_hold)"
+  },
+  {
+   "from_id": "A56",
+   "to_ids": [
+    "idle",
+    "run",
+    "L110"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (stand_recover)"
+  },
+  {
+   "from_id": "A57",
+   "to_ids": [
+    "idle",
+    "run",
+    "L110"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (stand_recover)"
+  },
+  {
+   "from_id": "A58",
+   "to_ids": [
+    "L110",
+    "getup",
+    "idle"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (kneel)"
+  },
+  {
+   "from_id": "A60",
+   "to_ids": [
+    "idle",
+    "run",
+    "L110"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (stand_recover)"
+  },
+  {
+   "from_id": "A61",
+   "to_ids": [
+    "downed_player",
+    "fallen",
+    "L107",
+    "L109"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (side_lying)"
+  },
+  {
+   "from_id": "A62",
+   "to_ids": [
+    "idle",
+    "run",
+    "L110"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (stand_recover)"
+  },
+  {
+   "from_id": "A63",
+   "to_ids": [
+    "idle",
+    "run",
+    "L110"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (stand_recover)"
+  },
+  {
+   "from_id": "A59",
+   "to_ids": [
+    "L110",
+    "getup",
+    "idle"
+   ],
+   "blend_frames": 8,
+   "note": "blend from the end pose (kneel)"
+  }
+ ],
+ "examples": [
+  "R01 -> R03 -> L97 (rear wrap, drag-down, forward fall)",
+  "R01 -> B31 -> L83 -> sprint (rear wrap broken, heavy stumble, sprint)",
+  "S11 -> S17 (side wrap, spinning takedown)",
+  "F21 -> G65 (front wrap, rear defender joins)",
+  "T46 -> L94 (truck, stumble into sprint)",
+  "R04 -> L95 -> R01 (ankle attempt, stumble, second defender wraps)"
+ ]
+}
