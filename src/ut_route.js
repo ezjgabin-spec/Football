@@ -1,6 +1,6 @@
 // /api/ut/<action>: forwards to the signed-in player's Vault. CORS is open because the game page lives on another address.
 const CORS = { 'access-control-allow-origin': '*', 'access-control-allow-methods': 'POST, OPTIONS', 'access-control-allow-headers': 'content-type', 'access-control-max-age': '86400', 'cache-control': 'no-store' };
-const ACTIONS = new Set(['seasonset', 'seasonclaim', 'lbget', 'chalclaim', 'emailinfo', 'emailstart', 'emailcheck', 'register', 'login', 'state', 'buy', 'open', 'gamestart', 'gamefinish', 'logout', 'lineup', 'upgrade', 'kickbuy', 'ping', 'sell', 'setjersey', 'cardup', 'passclaim', 'xfequip', 'xfunequip', 'passarm', 'tradelist', 'tradeopen', 'tradeget', 'tradeset', 'tradeaccept', 'tradecancel', 'mjoin', 'mreport', 'mstake', 'mwcancel', 'mforfeit', 'mqueue', 'mpoll', 'mcancel']);
+const ACTIONS = new Set(['seasonset', 'seasonclaim', 'draftget', 'draftpick', 'lbget', 'chalclaim', 'emailinfo', 'emailstart', 'emailcheck', 'register', 'login', 'state', 'buy', 'open', 'gamestart', 'gamefinish', 'logout', 'lineup', 'upgrade', 'kickbuy', 'ping', 'sell', 'setjersey', 'cardup', 'passclaim', 'xfequip', 'xfunequip', 'passarm', 'tradelist', 'tradeopen', 'tradeget', 'tradeset', 'tradeaccept', 'tradecancel', 'mjoin', 'mreport', 'mstake', 'mwcancel', 'mforfeit', 'mqueue', 'mpoll', 'mcancel']);
 export async function utRoute(req, env) {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
   const act = new URL(req.url).pathname.split('/').pop();

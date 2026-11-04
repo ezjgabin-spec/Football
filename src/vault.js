@@ -2,7 +2,7 @@
 // packs, rewards - lives here and is only changed by this code. A Durable Object runs one request at a time,
 // so two requests can never spend the same coins or open the same pack twice.
 import { DurableObject } from 'cloudflare:workers';
-import { UT, LINES, KICKERS, MATCH, SELL, STARTER, TRADE, UPGRADE, WAGER, PASS, XF, CHALLENGES, SEASON } from './ut_config.js';
+import { UT, LINES, KICKERS, MATCH, SELL, STARTER, TRADE, UPGRADE, WAGER, PASS, XF, CHALLENGES, SEASON, DRAFT } from './ut_config.js';
 import { PLAYERS } from './ut_players.js';
 const TEAMS = new Set(Object.values(PLAYERS).map(p => p.team).filter(Boolean));
 import { CATALOG } from './ut_catalog.js';
@@ -202,6 +202,30 @@ export class Vault extends DurableObject {
     if (!o || !(o.div >= 1 && o.div <= 5) || !(o.no >= 1 && o.no < 100000)) return j({ ok: false, err: 'bad season data' }, 400);
     const key = o.div + ':' + o.no; if (this.metaGet('skey') !== key) { this.metaSet('skey', key); this.metaSet('sgp', String(this.gamesPlayed())); this.metaSet('sclaim', '[]'); }   // a new season starts counting games from now
     this.metaSet('season', raw); return j({ ok: true, ...this.state() });
+  }
+  draftGet() {                           // the 3 cards on offer for the season you just finished (rolled once by the server, fixed for that season)
+    const key = this.metaGet('skey'); if (!key) return j({ ok: false, err: 'no season yet' }, 409);
+    const played = this.gamesPlayed() - (parseInt(this.metaGet('sgp') || '0', 10) || 0);
+    if (played < SEASON.minGames.playoff) return j({ ok: false, err: 'finish more games this season first (' + played + '/' + SEASON.minGames.playoff + ')' }, 409);
+    let d = null; try { d = JSON.parse(this.metaGet('draft') || 'null'); } catch (e) {}
+    if (!d || d.key !== key) {
+      const pk = { tierWeights: DRAFT.tierWeights, rarityWeights: DRAFT.rarityWeights }, offers = []; const seen = new Set();
+      for (let i = 0; i < 40 && offers.length < DRAFT.cards; i++) { const c = rollCard(pk); if (seen.has(c.pid)) continue; seen.add(c.pid); offers.push({ pid: c.pid, rarity: c.rarity }); }
+      d = { key, offers, picked: -1 }; this.metaSet('draft', JSON.stringify(d));
+    }
+    return j({ ok: true, draft: { offers: d.offers, picked: d.picked }, ...this.state() });
+  }
+  draftPick(b) {
+    const i = parseInt(b.i, 10); let res = null;
+    this.ctx.storage.transactionSync(() => {
+      const key = this.metaGet('skey'); let d = null; try { d = JSON.parse(this.metaGet('draft') || 'null'); } catch (e) {}
+      if (!key || !d || d.key !== key) { res = { ok: false, err: 'open the draft first' }; return; }
+      if (d.picked >= 0) { res = { ok: false, err: 'you already drafted this season' }; return; }
+      if (!(i >= 0 && i < d.offers.length)) { res = { ok: false, err: 'pick one of the cards' }; return; }
+      const o = d.offers[i], u = uid(); this.sql.exec('INSERT INTO cards (uid,pid,rarity,got,src) VALUES (?,?,?,?,?)', u, o.pid, o.rarity, Date.now(), 'draft');
+      d.picked = i; this.metaSet('draft', JSON.stringify(d)); res = { ok: true, card: { uid: u, pid: o.pid, rarity: o.rarity } };
+    });
+    return res.ok ? j({ ok: true, pulled: [res.card], draft: { picked: i }, ...this.state() }) : j(res, 409);
   }
   seasonClaim(b) {
     const kind = String(b.kind || ''), coins = SEASON.reward[kind]; if (!coins) return j({ ok: false, err: 'unknown reward' }, 400);
@@ -444,6 +468,8 @@ export class Vault extends DurableObject {
       if (act === 'setjersey') return this.setJersey(b);
       if (act === 'chalclaim') return this.chalClaim(b);
       if (act === 'seasonset') return this.seasonSet(b);
+      if (act === 'draftget') return this.draftGet();
+      if (act === 'draftpick') return this.draftPick(b);
       if (act === 'seasonclaim') return this.seasonClaim(b);
       if (act === 'cardup') return this.cardUp(b);
       if (act === 'passclaim') return this.passClaim(b);
