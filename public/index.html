@@ -18365,7 +18365,14 @@ function fbMove(p, tx, tz, maxSp, dt, acc){
   if (p.ur) maxSp *= p.ur.spd;                                                  // Ultimate Team: the equipped card's speed
   const dx = tx-p.x, dz = tz-p.z, d = Math.hypot(dx,dz);
   let want = Math.min(maxSp, d*5.5); if (d < 0.05) want = 0;
-  const wx = d>0.001 ? dx/d*want : 0, wz = d>0.001 ? dz/d*want : 0;
+  let wx = d>0.001 ? dx/d*want : 0, wz = d>0.001 ? dz/d*want : 0;
+  if (p.side==='D' && FB.scr==='live' && !p.carry && acc < 60 && fbCpuDef(p)) {                 // CPU defenders turn like bodies: no instant 180s
+    const sp=Math.hypot(p.vx||0,p.vz||0), wl=Math.hypot(wx,wz);
+    if (sp>2 && wl>0.5) { const AGI=fbDR(p,'Agility'), sr=Math.min(1,sp/Math.max(1,maxSp)), rate=(180+220*AGI)*(1-0.4*sr*sr)*Math.PI/180, cur=Math.atan2(p.vz,p.vx), tgt=Math.atan2(wz,wx); let da=tgt-cur; while(da>Math.PI)da-=2*Math.PI; while(da<-Math.PI)da+=2*Math.PI;
+      if (Math.abs(da) > 1.75 && !(p.cutRecT>0) && p.cutPlay!==FB.s.skillPlayId+':'+Math.round(FB.s.t*4)) { p.cutPlay=FB.s.skillPlayId+':'+Math.round(FB.s.t*4); p.cutRecT=clamp(0.30-0.18*fbDR(p,'Dir Change'),0.10,0.30); }   // a hard reverse: he has to plant
+      const lim=rate*dt; if (Math.abs(da)>lim) { const a2=cur+Math.sign(da)*lim; wx=Math.cos(a2)*wl; wz=Math.sin(a2)*wl; } }
+    if (p.cutRecT>0) { p.cutRecT-=dt; wx*=0.45; wz*=0.45; }
+  }
   fbVel(p, wx, wz, dt, acc||38, true);
   const sp = Math.hypot(p.vx,p.vz), cap = maxSp*1.03; if (sp > cap) { p.vx *= cap/sp; p.vz *= cap/sp; }
 }
@@ -18408,7 +18415,7 @@ const fbDist = (a,b) => Math.hypot(a.x-b.x, a.z-b.z);
 function fbLive(dt){
   const s = FB.s, D = FBD[FB.diff], play = s.play, run = fbIsRun(play);
   s.t += dt; s.cmT = (s.cmT||0) + dt; try { fbAdaptLive(); } catch(e){}
-  const q = fbBy('QB');fbSkillTimers(dt);
+  const q = fbBy('QB');fbSkillTimers(dt);if(s.ballZ0Play!==s.skillPlayId){s.ballZ0Play=s.skillPlayId;s.ballZ0=q?q.z:0;}
   if (s.wantChuck) { s.wantChuck = false; if (s.defMode && s.dctl) fbChuck(s.dctl); } if (s.wantChuckG) { s.wantChuckG = false; if (s.gdc) fbChuck(s.gdc); }
   fbRigs.forEach(p => { ['catchT','jumpT','recoilT','shedT','breakT','lungeT','tkWin','tkLock','chuckT','chuckCd'].forEach(k => { if (p[k] > 0) p[k] -= dt; }); });
   // ---- ball snap
@@ -18590,7 +18597,7 @@ function fbDefStep(dt){
     if (d.down || d.wrapping) return;
     if (s.tutFreeze) { fbVel(d,0,0,dt,30); d.st = 'ready'; return; }
     if (car && (car.slid || car.kneel) && !(d.eng && !d.free)) { fbVel(d,0,0,dt,22); d.st = 'ready'; return; }   // he gave himself up: pull up
-    const k = fbKind(d.role), msp = FB_SP[k] * D.def * (s.tutMode && s.defMode ? 0.45 : 1) * ((k==='CB' || k==='S') && !s.defMode && !fbVs() ? 1.03 + 0.1*(s.cbL||0) : 1);
+    const k = fbKind(d.role), msp = FB_SP[k] * D.def * (s.tutMode && s.defMode ? 0.45 : 1);   // top speed is Speed (in fbMove) and difficulty only
     let sl = d.slow!==undefined ? d.slow : 1; d.slow = 1; if (d.disgT > 0) { d.disgT -= dt; sl *= 1.35; }   // V46: rotating out of a disguise in the first 0.6 s
     if (d.stun > 0) { d.st = d.lungeT > 0 ? 'lunge' : 'stumble'; fbVel(d,0,0,dt,d.offG ? 6 : 30);
       if (d.offG) { if (d.stun < 0.5) { d.fallTo = 0; d.fall *= 0.88; d.st = 'rise'; } if (d.stun <= dt+0.001) { d.offG = false; d.fall = 0; d.fallTo = 0; d.fallRoll = 0; } } return; }
@@ -18601,9 +18608,7 @@ function fbDefStep(dt){
     if (s.play.pa && !s.thrown && s.t < 0.45 + 0.22*Math.min(3, s.runStreak|0) + (s.dmode==='stuff' ? 0.3 : 0) && !d.rusher && (k==='LB' || k==='S')) { const fk = fbBy(s.play.fake || 'RB'); if (fk) { fbMove(d, fk.x + 2.6, fk.z, msp*0.8, dt, 30); d.st = 'ready'; return; } }   // biting on the fake
     d.st = 'ready';
     const pursue = (tg, k2) => { const lead = Math.min(0.5, fbDist(d,tg)/12); let v = msp*sl*(k2||1)*(d.burstT>0?1.12:1);
-      if (!fbVs() && tg===s.ctl && tg.carry && (tg.role!=='QB' || tg.x > los) && k!=='DL' && k!=='OL') { const top = (tg.role==='RB' ? 9.8 : tg.role==='QB' ? 8.2 : 9.8) * fbRm(tg); v = Math.max(v, top*(1.02+0.025*FB.diff)*sl); }   // defenders are always a touch faster than you
-      let ti = Math.min(1.8, fbDist(d,tg)/Math.max(3,v)), px = tg.x, pz = tg.z;      // cut off the angle: run to where he WILL be when I get there (not at where he is)
-      for (let it = 0; it < 3; it++) { px = tg.x + (tg.vx||0)*ti; pz = tg.z + (tg.vz||0)*ti; ti = Math.min(1.8, Math.hypot(px-d.x, pz-d.z)/Math.max(3,v)); }
+      const ic = fbInterceptCourse(d, tg, Math.max(3, v*((d.ur&&d.ur.spd)||1))); let px = ic.x, pz = ic.z; d.aiState = 'PURSUIT';      // cut off the angle: the earliest point he can really meet the runner on his current line
       if (d.contain && !fbVs() && s.t < 2.2 && !(tg.x > d.x + 1.2)) { pz = d.contain > 0 ? Math.max(pz, tg.z + 0.9) : Math.min(pz, tg.z - 0.9); }   // contain: stay on the outside shoulder, make him cut back into the pile
       fbMove(d, px, pz, v, dt, d.rusher && k==='LB' ? 14 : 36); };
     if (s.turn) { const ch = s.carrier; fbBlockDef(d,dt); return; }
@@ -18613,10 +18618,16 @@ function fbDefStep(dt){
       if (hd < 9) { if (hd > 0.6) fbMove(d, hx, hz, msp*sl, dt, 30); else fbVel(d,0,0,dt,30); fbFace(d, car.x, car.z); d.st = 'ready'; return; }
     }
     const carrierOut = car && (car.role!=='QB' || car.x > los-0.1 && car.carry) ;
-    if (d.rdPlay !== s.skillPlayId) { d.rdPlay = s.skillPlayId; d.rdT = (k==='DL' ? 0.05 : 0.2) + Math.random()*0.38 + (k==='CB' ? 0.12 : k==='S' ? 0.1 : 0); d.contain = 0; }          // each man reads the play for a beat of his own (nobody commits on the snap)
+    if (d.rdPlay !== s.skillPlayId) { d.rdPlay = s.skillPlayId; d.rdT = k==='DL' ? 0.05 : fbReadDelay(d,'run') + Math.random()*0.12; d.contain = 0; d.gapZ = undefined; d.relSeen = 0; d.brkT = -9; d.prevBrkT = -9; d.biteUntil = 0; d.pressed = false; }          // his own read time, from his card
     if (s.contPlay !== s.skillPlayId && s.t > 0.05) { s.contPlay = s.skillPlayId; const w = fbDef().filter(q => { const kk = fbKind(q.role); return kk==='LB' || kk==='S' || kk==='CB'; }).sort((a,b) => a.z-b.z); if (w.length > 3) { w[0].contain = -1; w[w.length-1].contain = 1; } }   // the outside man on each side has the edge
     if (car && car.carry && (run ? s.t > 0.4 + (k==='CB'?0.5:0) : true) && (car.role!=='QB' || car.x > los)) {
-      if (run && !s.turn && k!=='DL' && s.t < 0.4 + d.rdT && car.x < los + 3) { fbMove(d, d.x + 0.15, d.z + (car.z - d.z)*0.45, msp*0.5*sl, dt, 24); d.st = 'ready'; fbFace(d, car.x, car.z); return; }   // read step: slide with the ball, stay home
+      if (run && !s.turn && k!=='DL' && s.t < 0.4 + d.rdT && car.x < los + 3) { d.aiState='READING_PLAY'; fbMove(d, d.x + 0.15, d.z + (car.z - d.z)*0.45, msp*0.5*sl, dt, 24); d.st = 'ready'; fbFace(d, car.x, car.z); return; }   // read step: slide with the ball, stay home
+      if (run && !s.turn && k==='LB' && car.x < los + 0.6) {                         // RUN FIT: he owns a gap; Gap Discipline decides how long he stays in it before chasing
+        if (d.gapZ===undefined) { const lbs = fbDef().filter(q => fbKind(q.role)==='LB').sort((a,b) => a.z-b.z), i = lbs.indexOf(d); d.gapZ = (s.ballZ0||0) + (lbs.length>1 ? (i===0 ? -2.3 : 2.3) : 0); }
+        const GC = 0.45 + 0.45*fbDR(d,'Gap Discipline'), off = Math.abs(car.z - d.gapZ), away = (car.z - d.gapZ)*(car.vz||0) > 0 && Math.abs(car.vz||0) > 2.5;
+        if (off > 1.6 + 3.2*(1-GC) && !(away && off > 6.5 - 3*GC)) { d.aiState='RUN_FIT'; fbMove(d, los + 1.4, d.gapZ, msp*0.85*sl, dt, 26); fbFace(d, car.x, car.z); d.st='ready'; return; }
+      }
+      if (run && !s.turn && k==='S' && d.cover && d.cover.deep && car.x < los + 4.5 - 3*(0.65*fbDR(d,'Run Support')+0.35*fbDR(d,'Play Recognition'))) { d.aiState='READING_PLAY'; fbMove(d, Math.max(los+9, d.x - 0.4), d.z + (car.z - d.z)*0.3, msp*0.6*sl, dt, 24); fbFace(d, car.x, car.z); return; }   // a deep safety keeps his depth until the run is real
       pursue(car, 1); return;
     }
     if (car && car.role==='QB' && !car.carry && ball.mode==='held' && !s.thrown) {
@@ -18628,7 +18639,7 @@ function fbDefStep(dt){
     }
     if (run && s.t <= 0.45) { fbMove(d, d.x - 0.6, d.z, 3, dt, 20); return; }
     // Steer to the real ball trajectory, with acceleration and reachable hand targets.
-    if(ball.mode==='fly'&&s.thrown&&(Math.hypot(ball.x-d.x,ball.z-d.z)<8||(ball.hang>2.4&&s.land&&Math.hypot(s.land.x-d.x,s.land.z-d.z)<14))&&fbTrackPass(d,dt))return;   // a ball that hangs > 2.4 s: everyone in the area reads it
+    if(ball.mode==='fly'&&s.thrown&&s.t-(s.throwT||0)>=fbReadDelay(d,'throw')*0.8&&(Math.hypot(ball.x-d.x,ball.z-d.z)<8||(ball.hang>2.4&&s.land&&Math.hypot(s.land.x-d.x,s.land.z-d.z)<14))&&(d.aiState='BALL_TRACKING',fbTrackPass(d,dt)))return;   // a ball that hangs > 2.4 s: everyone in the area reads it
     if (s.thrown && (ball.mode==='ground' || ball.dead)) { fbVel(d,0,0,dt,20); return; }
     // rushers (a free blitzer can still get picked up by a lineman nobody is blocking)
     if (d.rusher && (d.free || !d.eng)) {
@@ -18642,19 +18653,28 @@ function fbDefStep(dt){
     if (cv && cv.spy) { const qq = fbBy('QB'); if (qq.carry && qq.x > los - 0.5) { pursue(qq,1); } else { fbMove(d, los + 3.5, clamp(qq.z, -8, 8), msp*0.9*sl, dt, 30); fbFace(d, qq.x, qq.z); } return; }   // the spy mirrors the QB
     if (cv && cv.man) {
       // smarter man coverage: mirror where he IS, but read his direction a beat late (so sharp cuts still win)
-      const r = cv.man, H = r.hist || [], gl = fbCovEff(D,d,r), rated = fbRated(d,r), lag = Math.round(D.delay/(FB_TS/60)/(rated ? Math.max(0.5, gl*gl) : 1)), n = H.length;   // a better man reads the break sooner, a worse one later
+      const r = cv.man; d.aiState = 'MAN_COVERAGE';
+      if (fbCpuDef(d) && (r.blocking || (r.eng && !r.free))) { d.relSeen = 0; fbMove(d, los + 3.2, r.z, msp*0.6*sl, dt, 22); fbFace(d, r.x, r.z); return; }   // his man stays in to block: sit and read
+      if (fbCpuDef(d) && !d.relSeen && (r.role==='RB' || r.role==='TE') && s.t > 0.3) { d.relSeen = s.t; }
+      if (fbCpuDef(d) && d.relSeen && s.t < d.relSeen + fbReadDelay(d,'release')) { fbMove(d, d.x, d.z + (r.z-d.z)*0.3, msp*0.5*sl, dt, 22); fbFace(d, r.x, r.z); return; }   // the delayed release: he has to see it first
+      if (fbCpuDef(d) && k==='CB' && !d.pressed && s.t < 0.6 && fbDist(d,r) < 1.7 && r.x < los + 2.5) { d.pressed = true; if (Math.random() < 0.25 + 0.55*(0.75*fbDR(d,'Press')+0.25*fbDR(d,'Strength'))) fbChuck(d, true); }   // press at the line: real contact, resolved by fbChuck
+      if (fbCpuDef(d)) { const ang = fbBreakSeen(r); if (ang > 0.85 && s.t - d.brkT > 0.25) { d.prevBrkT = d.brkT; d.brkT = s.t;
+          if (s.t - d.prevBrkT < 0.75) { const sp = Math.hypot(r.vx||0, r.vz||0), FQ = clamp((ang-0.8)/1.6,0,1)*clamp(sp/7,0,1)*clamp((r.ur?r.ur.rte:1),0.6,1.4), oc = clamp(0.18 + 0.55*FQ - 0.25*fbDR(d,'Route Recognition') - 0.12*fbDR(d,'Recovery'), 0.03, 0.65);   // a double move: did he bite on the first cut?
+            if (Math.random() < oc) d.biteUntil = s.t + clamp(0.32 - 0.20*fbDR(d,'Recovery') - 0.05*fbDR(d,'Route Recognition'), 0.06, 0.32); } } }
+      const H = r.hist || [], gl = fbCovEff(D,d,r), rated = fbRated(d,r), CPS = fbCpuDef(d) ? fbManSkill(d) : 0.6, rd = fbCpuDef(d) ? fbReadDelay(d,'route') + (d.biteUntil > s.t ? d.biteUntil - s.t : 0) : D.delay, lag = Math.round(rd/(FB_TS/60)), n = H.length;   // he sees the break after his read time (longer if he bit)
       const a = n > lag+4 ? H[n-1-lag] : r, b0 = n > lag+4 ? H[n-5-lag] : r, fdt = 4*FB_TS/60;
       const lvx = (a.x-b0.x)/fdt, lvz = (a.z-b0.z)/fdt;              // his velocity as the defender perceived it
       const deep = r.x - los, vert = lvx > 5.5;                       // running vertically -> stay on top, otherwise stay tight
       const cush = rated ? (deep < 2 ? 1.6 : vert ? 1.0 + (deep > 12 ? 0.8 : 0) : 0.55) * clamp(1+(1-gl)*1.6, 0.15, 3)   // glued when he is better, a big window when he is worse
         : (deep < 2 ? 1.6 : vert ? 1.0 + (1-fbCovEff(D,d,r))*0.8 + (deep > 12 ? 0.8 : 0) : 0.55 + (1-fbCovEff(D,d,r))*0.6);
       const inside = (r.z > 0 ? -0.55 : 0.55) * (rated ? clamp(2-gl, 0.5, 1) : 1);                          // inside leverage: make him beat you to the sideline
-      let tx = r.x + lvx*0.32 + cush, tz = r.z + lvz*0.32 + (vert ? inside*0.75 : inside*0.5);
+      const hz = 0.08 + 0.18*CPS;                                     // how far ahead he positions (Man Coverage)
+      let tx = r.x + lvx*hz + cush, tz = r.z + lvz*hz + (vert ? inside*0.75 : inside*0.5);
       if (lvx < -1.5 && deep > 4) tx = r.x + lvx*0.2 + 0.4;          // comeback / curl: drive on it
       const behind = d.x < r.x - 0.4;                                 // got beat: chase hard straight at his hip
       if (behind) { tx = r.x + r.vx*0.25; tz = r.z + r.vz*0.25; }
       if ((s.rdL||0) > 0 && r!==s.ctl) { const pr = fbObsPred(r, s.t + 0.75); if (pr) { const w = 0.65*s.rdL; tx += (pr.x + 0.4 - tx)*w; tz += (pr.z - tz)*w; } }   // he saw where this guy went from this setup last time: jump it
-      fbMove(d, tx, tz, msp*(k==='CB'?1.04:0.99)*sl*(1+0.06*(s.rdL||0))*(rated ? clamp(1+(gl-1)*0.6, 0.6, 1.4) : 1), dt, D.acc + (k==='CB'?4:0) + (d.disgT>0?60:0));   // a corner who is much worse than the receiver gets torn apart (slow to react, big cushion); a lockdown corner stays on him
+      fbMove(d, tx, tz, msp*sl, dt, D.acc + (k==='CB'?4:0) + (d.disgT>0?60:0));   // full Speed; skill shows in where he goes and when he sees it   // a corner who is much worse than the receiver gets torn apart (slow to react, big cushion); a lockdown corner stays on him
       fbFace(d, r.x, r.z);
     } else if (cv && cv.spot && s.fav) {
       // sitting on your favourite spot: shade over early, then drive on it as the QB sets up
@@ -18678,7 +18698,7 @@ function fbDefStep(dt){
       fbMove(d, tx, tz, msp*(deep ? 1.04 : 0.97)*sl, dt, D.acc+3+(d.disgT>0?60:0));
       fbFace(d, q.x, q.z);
     } else if (cv && cv.zone && k==='CB') {
-      const [zz] = cv.zone; let thr = null, best = -1;
+      d.aiState = 'ZONE_COVERAGE'; const [zz] = cv.zone; let thr = null, best = -1;
       fbOff().forEach(o => { if (['OL1','OL2','OL3','OL4','OL5','QB'].includes(o.role) || o.down) return;
         if (Math.abs(o.z - zz) > 10 || o.x < los - 1) return;
         const sc = (o.x - los) + (Math.abs(o.z) > Math.abs(zz)*0.5 ? 3 : 0) + Math.max(0,o.vx)*0.6;   // deeper + outside + running vertically = more dangerous
@@ -19551,7 +19571,7 @@ function fbLobbyWalkDraw(g){
     T(d.name, x+w/2, y+2.4, ok ? '#ffffff' : '#9aa3bd', 4.6, 'center'); if (sub) T(sub, x+w/2, y+10, ok ? d.col : '#7a82a0', 3.1, 'center'); g.globalAlpha = 1; });
   if (FB.lobbyDwell > 0 && FB.lobbyNear) { const d = FB_LPADS.find(q => q.id===FB.lobbyNear); if (d) { fbPanel(g,100,150,120,12,0.8); g.fillStyle = 'rgba(255,255,255,.18)'; g.fillRect(104,159,112,2); g.fillStyle = d.col; g.fillRect(104,159,112*clamp(FB.lobbyDwell/0.55,0,1),2); T('GOING TO  '+d.name,160,152.4,'#ffffff',4.2,'center'); } }
   fbPanel(g,56,164,208,12,0.6); T('WASD WALK     SHIFT RUN     STEP ON A GLOWING PAD',160,167,'#cfd8f4',4.4,'center');
-  T('BUILD v120',314,174,'#8fa0cc',4,'right'); { const us = uoStatus(); if (us) T(us, 6, 174, UO.state==='off' ? '#ff8b7b' : '#6f7ea8', 3, 'left'); }
+  T('BUILD v121',314,174,'#8fa0cc',4,'right'); { const us = uoStatus(); if (us) T(us, 6, 174, UO.state==='off' ? '#ff8b7b' : '#6f7ea8', 3, 'left'); }
 }
 /* ---------------------------------------------------------------- ULTIMATE TEAM: hub, collection, cards (packs come in the next stage) */
 const UT_KEY = 'blacktop_ut_v1';
@@ -21898,7 +21918,7 @@ function fbLobbyDraw(g){
   T('WHEN THE CPU HAS THE BALL YOU CAN PLAY DEFENSE (OR SKIP IT)',160,167,'#aeb9dc',4.6,'center');
   fbBtn(g,'lobbyback',6,5,76,12,'< BACK TO THE FIELD',{size:4.6});
   fbBtn(g,'party',6,19,76,10,PARTY.on ? 'PARTY  '+PARTY.code.toUpperCase() : 'PLAY WITH A FRIEND',{size:4.4,line:'#7ddc8a',tc:'#c9f7d0'});
-  T('BUILD v120',314,174,'#8fa0cc',4,'right');   // so you can tell which build is live
+  T('BUILD v121',314,174,'#8fa0cc',4,'right');   // so you can tell which build is live
   fbBtn(g,'tut',100,141,58,13,'TUTORIAL',{size:5,line:'#ffd24a',tc:'#ffe9a8'}); fbBtn(g,'howlobby',162,141,58,13,'HOW TO PLAY',{size:4.4,line:'#ffd24a',tc:'#ffe9a8'});
   fbBtn(g,'shop',6,141,90,13,'PLAY SHOP',{size:5.5,line:'#7ddc8a',tc:'#c9f7d0'});
   fbBtn(g,'stats',224,141,90,13,'MY STATS',{size:5.5,line:'#6fd0ff',tc:'#cfeeff'});
@@ -23824,7 +23844,7 @@ function fbShedStep(car, tackler, dt){
   d.face = Math.atan2(-(car.z-d.z), car.x-d.x); d.st = 'tackle'; d.fallTo = -0.25 - 0.35*u; d.fallT = 1; d.fall = d.fallTo;
   return true;
 }
-function fbChuck(d){      // F on defense: jam the nearest receiver off his route (before the throw). Strength + weight against his release; the timing meter comes with the new animations.
+function fbChuck(d, quiet){      // F on defense: jam the nearest receiver off his route (before the throw). Strength + weight against his release; the timing meter comes with the new animations.
   const s = FB.s; if (!d || d.down || d.tackling || d.stun > 0 || d.chuckCd > 0 || s.thrown || s.ending || s.turn || (d.eng && !d.free)) return;
   const k = fbKind(d.role); if (k==='DL' || k==='OL') return;
   let best = null, bd = 2.1; fbOff().forEach(o => { if (!['W1','W2','W3','TE','RB'].includes(o.role) || o.down || o.chuckT > 0) return; const dd = fbDist(d,o); if (dd < bd) { const fx = Math.cos(d.face), fz = -Math.sin(d.face), L = dd || 1, fr = ((o.x-d.x)*fx + (o.z-d.z)*fz)/L; if (fr > -0.2) { bd = dd; best = o; } } });
@@ -23833,8 +23853,8 @@ function fbChuck(d){      // F on defense: jam the nearest receiver off his rout
   const mD = fbMassLb(d), mR = fbMassLb(best), sD = fbRate(d,'str',.008), sR = fbRate(best,'str',.008), rel = fbRate(best,'rte',.012), ag = fbRate(best,'agi',.008);
   const dp = Math.pow(mD/220,.55)*(.40+.60*(sD*0.7 + fbRate(d,'hit',.015)*0.3)/99), rp = Math.pow(mR/220,.55)*(.40+.60*((sR + rel + ag)/3)/99);
   const early = clamp(1 - (s.t - 0.0)/3, 0.35, 1), ratio = dp*(0.8+0.3*early)/Math.max(.05, rp), chance = clamp(1/(1+Math.exp(-4*(ratio-0.95))), .1, .9);
-  if (Math.random() < chance) { best.chuckT = 0.55 + 0.35*clamp(ratio-0.7,0,1); best.chuckK = clamp(0.55 - 0.25*(ratio-0.9), 0.2, 0.6); best.st = 'stumble'; const side = (best.z > d.z ? 1 : -1); best.vz = (best.vz||0) + side*1.4; fbSfx('hit'); fbMsg('CHUCKED!', '#ffd24a', 40); fbDust(best.x, best.z, 3, 0.5); d.chuckT = 0.12; d.chuckK = 0.6; }
-  else { d.chuckT = 0.4; d.chuckK = 0.45; fbSfx('swat'); fbMsg('CHUCK MISSED', '#ff8b7b', 36); }
+  if (Math.random() < chance) { best.chuckT = 0.55 + 0.35*clamp(ratio-0.7,0,1); best.chuckK = clamp(0.55 - 0.25*(ratio-0.9), 0.2, 0.6); best.st = 'stumble'; const side = (best.z > d.z ? 1 : -1); best.vz = (best.vz||0) + side*1.4; if(!quiet){ fbSfx('hit'); fbMsg('CHUCKED!', '#ffd24a', 40); } fbDust(best.x, best.z, 3, 0.5); d.chuckT = 0.12; d.chuckK = 0.6; }
+  else { d.chuckT = 0.4; d.chuckK = 0.45; if(!quiet){ fbSfx('swat'); fbMsg('CHUCK MISSED', '#ff8b7b', 36); } }
 }
 function fbStiffTry(c){ if (c && c.carry && Math.hypot(c.vx||0,c.vz||0) >= 3 && !(c.stiffCd > 0) && !c.wrapBy && !c.brkBy && !(c.diveT > 0)) { c.stiffT = 0.85; c.stiffCd = 1.5; c.truckT = 0.85; fbSfx('juke'); } }   // V46: F = TRUCK; the first contact inside truckT is resolved in fbMomentumTackle by mass and brace, no dice
 function fbBodyMass(p){ return (FB_BODY[fbKind(p.role)]||0.47)*((p.rig&&p.rig.build)||1)*(p.ur?p.ur.mk:1); }
@@ -24799,7 +24819,7 @@ function fbPossStep(car, dt){
 // ---- offensive line: kick-slide to meet the rush (the d-line now lines up a step deeper), then lock on; free linemen pick up loose rushers
 function fbLineMeet(e,run,dt){
   const d=e.d,o=e.o,q=fbBy('QB'),los=FB.s.los,gap=Math.hypot(d.x-o.x,d.z-o.z);
-  if(gap<=1.24){e.contact=true;e.engagedAt=FB.s.t;e.beat=d.beat||FB.s.t+2.4;o.st=d.st='block';const toward=Math.atan2(-(o.z-d.z),o.x-d.x);d.face=angApproach(d.face,toward+Math.PI,0.3);o.face=angApproach(o.face,toward,0.3);return false;}
+  if(gap<=1.24){e.contact=true;e.engagedAt=FB.s.t;e.beat=d.beat||FB.s.t+2.4*(d.ur&&/^(LB|DL)/.test(fbKind(d.role))?clamp(1.35-0.7*(0.75*fbDR(d,'Block Shedding')+0.25*fbDR(d,'Strength')),0.7,1.2):1);o.st=d.st='block';const toward=Math.atan2(-(o.z-d.z),o.x-d.x);d.face=angApproach(d.face,toward+Math.PI,0.3);o.face=angApproach(o.face,toward,0.3);return false;}
   // Individual assignments: the blocker kick-slides into his rusher's lane while
   // the rusher attacks the passer. They approach through velocity, never snaps.
   const lane=e.laneZ===undefined?(e.laneZ=d.z):e.laneZ;
@@ -28316,6 +28336,45 @@ function fbWrapStart(car,d,carry){      // he keeps driving forward, slowing to 
 }
 // His speed against theirs: going 5 into a tackler going 3 = 2 yards of fight before he goes down. Tacklers add up; a negative number means down on the spot.
 // From behind he only loses half his speed in yards.
+/* ===================== DEFENSIVE INTELLIGENCE 3.1: the card's own ratings drive reads, positioning and body control (never top speed) ===================== */
+const FB_DR_ATTR = { Speed:'speed', Agility:'agility', Strength:'strength', 'Dir Change':'direction_change', Tackling:'tackling', 'Big Hit':'big_hit', Coverage:'coverage', Intercepts:'interceptions' };
+function fbDR(p, name){            // a defender's rating, 0..1, straight from his card (+ the rarity bonus); generic players are a 70 (+3 per difficulty step)
+  const u=p&&p.ur, base=(70+3*(FB.diff|0))/99; if (!u || !u.id) return base;
+  const C = (p.drC && p.drC.id===u.id) ? p.drC : (p.drC={ id:u.id, v:{} }); if (C.v[name]!==undefined) return C.v[name];
+  const rec = (typeof utById==='function') ? utById(u.id) : null; let v=null;
+  if (rec) { const sk=(rec.skills||[]).find(k=>k.name===name); if (sk) v=sk.rating; else { const key=FB_DR_ATTR[name]; if (key && rec.attributes) v=rec.attributes[key]; } }
+  if (v==null) return C.v[name]=base; return C.v[name]=Math.min(99, v+(typeof utBonus==='function'?utBonus(u.rarity||'Common'):0))/99;
+}
+// how long after an observable cue he reacts (s), by position and cue
+function fbReadDelay(d, cue){
+  const k=fbKind(d.role), COV=fbDR(d,'Coverage');
+  if (k==='CB') return cue==='run' ? clamp(0.5-0.2*fbDR(d,'Route Recognition')-0.1*COV,0.14,0.5) : clamp(0.42-0.25*fbDR(d,'Route Recognition')-0.07*COV,0.08,0.42);
+  if (k==='S')  return clamp(0.43-0.24*fbDR(d,'Play Recognition')-0.06*COV,0.10,0.43);
+  if (k==='LB') return cue==='run'||cue==='release' ? clamp(0.42-0.24*fbDR(d,'Run Recognition')-0.05*fbDR(d,'Gap Discipline'),0.10,0.42) : clamp(0.42-0.22*COV-0.06*fbDR(d,'Run Recognition'),0.10,0.42);
+  return 0.2;
+}
+// man / zone / pursuit skill for the position (decides positioning quality, not speed)
+function fbManSkill(d){ const k=fbKind(d.role), COV=fbDR(d,'Coverage'); return k==='CB' ? 0.75*fbDR(d,'Man Coverage')+0.25*COV : k==='S' ? 0.75*fbDR(d,'Man Matchups')+0.25*COV : 0.6*COV+0.4*fbDR(d,'Pursuit'); }
+function fbPursuitSkill(d){ const k=fbKind(d.role); return k==='LB' ? fbDR(d,'Pursuit') : k==='S' ? 0.65*fbDR(d,'Run Support')+0.35*fbDR(d,'Play Recognition') : k==='CB' ? 0.5*fbDR(d,'Recovery')+0.5*fbDR(d,'Coverage') : 0.6*fbDR(d,'Tackling')+0.4*fbDR(d,'Strength'); }
+function fbCpuDef(d){ const s=FB.s; return d.side==='D' && !fbUD(d) && d!==s.dctl && d!==s.gdc; }
+// intercept course: earliest t with |r + v t| = s t, limited by how far ahead his pursuit skill lets him trust the runner's line
+function fbInterceptCourse(d, tg, spd){
+  const rx=tg.x-d.x, rz=tg.z-d.z, vx=tg.vx||0, vz=tg.vz||0, a=vx*vx+vz*vz-spd*spd, b=2*(rx*vx+rz*vz), c=rx*rx+rz*rz; let t=null;
+  if (Math.abs(a)<1e-6) { if (b<0) t=-c/b; } else { const disc=b*b-4*a*c; if (disc>=0) { const q=Math.sqrt(disc), t1=(-b-q)/(2*a), t2=(-b+q)/(2*a); t=[t1,t2].filter(x=>x>=0).sort((x,y)=>x-y)[0]; if (t===undefined) t=null; } }
+  const cap=0.35+1.25*fbPursuitSkill(d); if (t===null) t=cap; t=Math.min(t,cap);
+  return { x:tg.x+vx*t, z:clamp(tg.z+vz*t,-FB_Z+0.3,FB_Z-0.3), t };
+}
+// route breaks: a sharp change in the receiver's real direction (from his position history, i.e. what anyone watching could see)
+function fbBreakSeen(r){
+  const H=r.hist||[], n=H.length; if (n<14) return 0; const v1x=H[n-1].x-H[n-5].x, v1z=H[n-1].z-H[n-5].z, v0x=H[n-9].x-H[n-13].x, v0z=H[n-9].z-H[n-13].z, s1=Math.hypot(v1x,v1z), s0=Math.hypot(v0x,v0z);
+  if (s1<0.12||s0<0.12) return 0; const c=clamp((v1x*v0x+v1z*v0z)/(s1*s0),-1,1); return Math.acos(c);
+}
+function fbDefAnimState(d){            // movement-animation label for the defensive library (DEF_*); the AI state says why, this says how he is moving
+  const sp=Math.hypot(d.vx||0,d.vz||0), fx=Math.cos(d.face||0), fz=-Math.sin(d.face||0), fw=sp>0.3?((d.vx||0)*fx+(d.vz||0)*fz)/sp:0, lat=sp>0.3?((d.vx||0)*-fz+(d.vz||0)*fx)/sp:0, st=d.aiState||'';
+  if (FB.scr==='pre') return 'DEF_STANCE'; if (d.eng && !d.free) return 'DEF_BLOCK_AVOID'; if (d.cutRecT>0) return 'DEF_DECEL'; if (st==='READING_PLAY') return sp<1 ? 'DEF_READ' : lat>0.6 ? 'DEF_SHUFFLE_LEFT' : lat<-0.6 ? 'DEF_SHUFFLE_RIGHT' : 'DEF_READ';
+  if (sp>1.2 && fw<-0.5) return sp>5 ? 'DEF_BACKPEDAL_FAST' : 'DEF_BACKPEDAL'; if (st==='BALL_TRACKING') return 'DEF_BALL_TRACK'; if (st==='RUN_FIT') return 'DEF_RUN_FIT';
+  if (st==='PURSUIT') return sp>5 ? 'DEF_PURSUIT' : 'DEF_ACCEL'; if (st==='ZONE_COVERAGE') return 'DEF_ZONE_DROP'; if (st==='MAN_COVERAGE') return Math.abs(lat)>0.6 ? (lat>0?'DEF_BREAK_LEFT':'DEF_BREAK_RIGHT') : 'DEF_MAN_MIRROR'; return '';
+}
 // ===== MASS 2.0 TACKLING: one break roll per tackle attempt, from real masses, ratings, speed and contact geometry =====
 const FB_MASS_K=215/0.45;                                   // fbBodyMass (the game's own mass) -> pounds: a typical 215 lb back = 0.45
 const fbMassLb=p=>fbBodyMass(p)*FB_MASS_K;
