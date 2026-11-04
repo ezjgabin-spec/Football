@@ -19586,7 +19586,7 @@ function fbLobbyWalkDraw(g){
     T(d.name, x+w/2, y+2.4, ok ? '#ffffff' : '#9aa3bd', 4.6, 'center'); if (sub) T(sub, x+w/2, y+10, ok ? d.col : '#7a82a0', 3.1, 'center'); g.globalAlpha = 1; });
   if (FB.lobbyDwell > 0 && FB.lobbyNear) { const d = FB_LPADS.find(q => q.id===FB.lobbyNear); if (d) { fbPanel(g,100,150,120,12,0.8); g.fillStyle = 'rgba(255,255,255,.18)'; g.fillRect(104,159,112,2); g.fillStyle = d.col; g.fillRect(104,159,112*clamp(FB.lobbyDwell/0.55,0,1),2); T('GOING TO  '+d.name,160,152.4,'#ffffff',4.2,'center'); } }
   fbPanel(g,56,164,208,12,0.6); T('WASD WALK     SHIFT RUN     STEP ON A GLOWING PAD',160,167,'#cfd8f4',4.4,'center');
-  T('BUILD v122',314,174,'#8fa0cc',4,'right'); { const us = uoStatus(); if (us) T(us, 6, 174, UO.state==='off' ? '#ff8b7b' : '#6f7ea8', 3, 'left'); }
+  T('BUILD v123',314,174,'#8fa0cc',4,'right'); { const us = uoStatus(); if (us) T(us, 6, 174, UO.state==='off' ? '#ff8b7b' : '#6f7ea8', 3, 'left'); }
 }
 /* ---------------------------------------------------------------- ULTIMATE TEAM: hub, collection, cards (packs come in the next stage) */
 const UT_KEY = 'blacktop_ut_v1';
@@ -21933,7 +21933,7 @@ function fbLobbyDraw(g){
   T('WHEN THE CPU HAS THE BALL YOU CAN PLAY DEFENSE (OR SKIP IT)',160,167,'#aeb9dc',4.6,'center');
   fbBtn(g,'lobbyback',6,5,76,12,'< BACK TO THE FIELD',{size:4.6});
   fbBtn(g,'party',6,19,76,10,PARTY.on ? 'PARTY  '+PARTY.code.toUpperCase() : 'PLAY WITH A FRIEND',{size:4.4,line:'#7ddc8a',tc:'#c9f7d0'});
-  T('BUILD v122',314,174,'#8fa0cc',4,'right');   // so you can tell which build is live
+  T('BUILD v123',314,174,'#8fa0cc',4,'right');   // so you can tell which build is live
   fbBtn(g,'tut',100,141,58,13,'TUTORIAL',{size:5,line:'#ffd24a',tc:'#ffe9a8'}); fbBtn(g,'howlobby',162,141,58,13,'HOW TO PLAY',{size:4.4,line:'#ffd24a',tc:'#ffe9a8'});
   fbBtn(g,'shop',6,141,90,13,'PLAY SHOP',{size:5.5,line:'#7ddc8a',tc:'#c9f7d0'});
   fbBtn(g,'stats',224,141,90,13,'MY STATS',{size:5.5,line:'#6fd0ff',tc:'#cfeeff'});
@@ -25222,7 +25222,7 @@ function fbHandoffDenied(q){
 const FBN = { on:false, role:null, mode:'coop', room:null, peer:null, offs:[], gk:{}, evq:[], es:0, lastEs:0, gcall:null, gplay:null, hcall:null, hplay:null, rsel:'W1',
               fr:0, sn:0, rn:-1, fxq:[], fxId:0, fxSeen:null, rv:0, rsend:0, dlT:null, lastSc:'', lastRx:0, lastSend:0, mask:-1, gone:false, lost:false, msg:'', kt:0, ea:0 };
 const FBN_SKIP = new Set(['pg','motion','hwg','tab','sel','custom','hover','aim','aimShow','aimOk','aimBehind','charging','charge','chargeF','wantDive','wantJuke','wantStiff','wantTackle','gTackle','defMode','dcall','fourth','fourthSel','tutMode','tut','learnL','dh','lastCpuPlay','cpuScr','phase','utClaimed','utVs','utPaid','utWhy','utXp','utWL','utWager','utGid','paid','gpaid']);   // the guest's own payout state must never be overwritten by the host's
-const FBN_RN = ['uoUntil','uoDur','x','z','vx','vz','face','anim','fall','thT','catchT','jumpT','recoilT','recoilDir','shedT','breakT','lungeT','lungeDir','fallRoll','turn','acc','ri','stun','reachT','fallTo','blk','diveT','hopU','stiffT','secureUntil','landingT','catchRecoveryT','catchDiveT','catchDiveCd','swimCd','burstT','fbHitUntil','fbTackleUntil','fbCatchStopAt','secureWindow','catchDuration','catchJumpDuration','catchJumpHeight','catchJumpCd','catchLandingStumbleT','fxx','fxy','fxz','fxn','fbFxUntil','xfa'];
+const FBN_RN = ['x','z','vx','vz','face','anim','fall','thT','catchT','jumpT','recoilT','recoilDir','shedT','breakT','lungeT','lungeDir','fallRoll','turn','acc','ri','stun','reachT','fallTo','blk','diveT','hopU','stiffT','secureUntil','landingT','catchRecoveryT','catchDiveT','catchDiveCd','swimCd','burstT','fbHitUntil','fbTackleUntil','fbCatchStopAt','secureWindow','catchDuration','catchJumpDuration','catchJumpHeight','catchJumpCd','catchLandingStumbleT','fxx','fxy','fxz','fxn','fbFxUntil','xfa','uoUntil','uoDur'];   // x and z MUST stay first: the replay and the guest read them by index
 const FBN_RS = ['st','tkType','catchKind','cele','fbHitClip','fbTackleClip','fxh','uoK'];
 const FBN_RF = ['carry','hasNoBall','down','tackling','diving','getUp','blockContact','uoHold'];
 const fbnR = v => Math.round(v*100)/100;
