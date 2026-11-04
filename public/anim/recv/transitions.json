@@ -1,0 +1,8175 @@
+{
+ "version": 1,
+ "phases": [
+  "A_movement",
+  "B_ball_recognition (track_ball)",
+  "C_catch_preparation (reach_start)",
+  "D_hand_contact (contact)",
+  "E_outcome (possession | bobble_start..bobble_end | release)",
+  "F_recovery (recovery..complete)"
+ ],
+ "pose_tags": [
+  "airborne",
+  "backpedal",
+  "backpedal_carry",
+  "brace_carry",
+  "cb_ready",
+  "cb_stance",
+  "chop",
+  "contest_stagger",
+  "int_reach",
+  "jog",
+  "jog_carry",
+  "jog_carry_celebrate",
+  "jog_ready",
+  "kneel_carry",
+  "land",
+  "land_brace",
+  "land_carry",
+  "land_carry_stand",
+  "post_cut",
+  "prone",
+  "prone_ball",
+  "reach_after_swat",
+  "ready_jog",
+  "sprint",
+  "sprint_carry",
+  "sprint_carry_brace",
+  "sprint_ready",
+  "stand_carry",
+  "stand_ready",
+  "stand_recover",
+  "swat_follow_through",
+  "truck_entry",
+  "wr_stance"
+ ],
+ "rules": [
+  "Never reset to idle between clips: blend from the end pose into the next clip/state over blend_frames.",
+  "Grounded end poses (prone, prone_ball, kneel_carry) only go to grounded states or BS215; never straight back to sprint.",
+  "MASS:<id> means the existing tackle pair with that id (runner clip). sprint_carry = the exact runner start pose of those pairs (right-arm carry); use the _mirror tackle clips for left-arm carry clips."
+ ],
+ "example_chains": [
+  "SPRINT -> BS003 (track_ball..contact) -> sprint_carry -> run_with_ball",
+  "SPRINT -> BS031 over-the-shoulder -> sprint_carry",
+  "SPRINT -> BS053 single bobble -> secured -> sprint_carry",
+  "SPRINT -> BS054 single bobble -> incomplete -> jog",
+  "SPRINT -> BS063 dive -> prone_ball (grounded possession)",
+  "SPRINT -> BS079 failed dive -> prone -> BS215 get up",
+  "JOG -> BS085 jump -> land_carry -> BS092 style recovery",
+  "SPRINT -> BS101..BS113 contested -> defender swat -> BS216 recover",
+  "catch (sprint_carry) -> MASS R01 rear wrap",
+  "catch (sprint_carry_brace, BS192) -> MASS S11 side wrap",
+  "catch (brace_carry, BS193) -> MASS F21 front wrap",
+  "BS133 interception -> turn upfield -> sprint_carry return",
+  "BS139 release -> BS143 decelerate -> BS144/BS146 cut -> BS164 recover -> sprint",
+  "BS166 backpedal -> BS169 hip flip -> BS171 pursuit -> BS176 prepare -> BS108/BS109 swat"
+ ],
+ "switch_families": [
+  {
+   "family": "in_stride_chest",
+   "clip_ids": [
+    "BS003",
+    "BS053",
+    "BS054",
+    "BS057",
+    "BS058",
+    "BS209",
+    "BS210"
+   ],
+   "switch_until_event": "contact",
+   "blend_frames": 6,
+   "note": "Same contact point and approach timing (receiver side); the game may cross-fade between these clips up to the named event when the outcome becomes known late."
+  },
+  {
+   "family": "in_stride_high",
+   "clip_ids": [
+    "BS015",
+    "BS055",
+    "BS056",
+    "BS211"
+   ],
+   "switch_until_event": "contact",
+   "blend_frames": 6,
+   "note": "Same contact point and approach timing (receiver side); the game may cross-fade between these clips up to the named event when the outcome becomes known late."
+  },
+  {
+   "family": "in_stride_low",
+   "clip_ids": [
+    "BS025",
+    "BS059",
+    "BS060",
+    "BS212"
+   ],
+   "switch_until_event": "contact",
+   "blend_frames": 6,
+   "note": "Same contact point and approach timing (receiver side); the game may cross-fade between these clips up to the named event when the outcome becomes known late."
+  },
+  {
+   "family": "over_shoulder",
+   "clip_ids": [
+    "BS031",
+    "BS039",
+    "BS040"
+   ],
+   "switch_until_event": "contact",
+   "blend_frames": 6,
+   "note": "Same contact point and approach timing (receiver side); the game may cross-fade between these clips up to the named event when the outcome becomes known late."
+  },
+  {
+   "family": "forward_dive",
+   "clip_ids": [
+    "BS063",
+    "BS079",
+    "BS083",
+    "BS084"
+   ],
+   "switch_until_event": "contact",
+   "blend_frames": 6,
+   "note": "Same contact point and approach timing (receiver side); the game may cross-fade between these clips up to the named event when the outcome becomes known late."
+  },
+  {
+   "family": "vertical_jump",
+   "clip_ids": [
+    "BS085",
+    "BS092",
+    "BS093",
+    "BS094",
+    "BS095"
+   ],
+   "switch_until_event": "contact",
+   "blend_frames": 6,
+   "note": "Same contact point and approach timing (receiver side); the game may cross-fade between these clips up to the named event when the outcome becomes known late."
+  },
+  {
+   "family": "contested_receiver_side_left",
+   "clip_ids": [
+    "BS101",
+    "BS102",
+    "BS104",
+    "BS105",
+    "BS106",
+    "BS107",
+    "BS108",
+    "BS109",
+    "BS111",
+    "BS112",
+    "BS113",
+    "BS115",
+    "BS118",
+    "BS119"
+   ],
+   "switch_until_event": "reach_start",
+   "blend_frames": 6,
+   "note": "Same contact point and approach timing (receiver side); the game may cross-fade between these clips up to the named event when the outcome becomes known late."
+  },
+  {
+   "family": "contested_jump_ball",
+   "clip_ids": [
+    "BS114",
+    "BS116",
+    "BS117",
+    "BS120",
+    "BS096",
+    "BS097"
+   ],
+   "switch_until_event": "takeoff",
+   "blend_frames": 6,
+   "note": "Same contact point and approach timing (receiver side); the game may cross-fade between these clips up to the named event when the outcome becomes known late."
+  },
+  {
+   "family": "backpedal_interception",
+   "clip_ids": [
+    "BS124",
+    "BS133",
+    "BS136",
+    "BS137"
+   ],
+   "switch_until_event": "contact",
+   "blend_frames": 6,
+   "note": "Same contact point and approach timing (receiver side); the game may cross-fade between these clips up to the named event when the outcome becomes known late."
+  },
+  {
+   "family": "chest_catch_to_contact",
+   "clip_ids": [
+    "BS191",
+    "BS192",
+    "BS193",
+    "BS188",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS194",
+    "BS195"
+   ],
+   "switch_until_event": "possession",
+   "blend_frames": 6,
+   "note": "Same contact point and approach timing (receiver side); the game may cross-fade between these clips up to the named event when the outcome becomes known late."
+  }
+ ],
+ "edges": [
+  {
+   "from_key": "BS001_stationary_chest_catch",
+   "end_pose": "stand_carry",
+   "to": [
+    "idle_with_ball",
+    "BS182",
+    "MASS:F21",
+    "MASS:S11"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.6666,
+    0.8333
+   ]
+  },
+  {
+   "from_key": "BS001_stationary_chest_catch_mirror",
+   "end_pose": "stand_carry",
+   "to": [
+    "idle_with_ball",
+    "BS182",
+    "MASS:F21",
+    "MASS:S11"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.6666,
+    0.8333
+   ]
+  },
+  {
+   "from_key": "BS002_jog_chest_catch",
+   "end_pose": "jog_carry",
+   "to": [
+    "run_with_ball",
+    "jog_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.6667,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS002_jog_chest_catch_mirror",
+   "end_pose": "jog_carry",
+   "to": [
+    "run_with_ball",
+    "jog_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.6667,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS003_sprint_chest_catch",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.6667,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS003_sprint_chest_catch_mirror",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.6667,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS004_chest_catch_ball_left",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.6667,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS005_chest_catch_ball_right",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.6667,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS006_chest_catch_decelerating",
+   "end_pose": "jog_carry",
+   "to": [
+    "run_with_ball",
+    "jog_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.6667,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS006_chest_catch_decelerating_mirror",
+   "end_pose": "jog_carry",
+   "to": [
+    "run_with_ball",
+    "jog_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.6667,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS007_chest_catch_accelerating",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.6667,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS007_chest_catch_accelerating_mirror",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.6667,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS008_chest_catch_while_turning",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7,
+    0.8333
+   ]
+  },
+  {
+   "from_key": "BS008_chest_catch_while_turning_mirror",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7,
+    0.8333
+   ]
+  },
+  {
+   "from_key": "BS009_chest_catch_moving_diagonally",
+   "end_pose": "jog_carry",
+   "to": [
+    "run_with_ball",
+    "jog_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.6667,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS009_chest_catch_moving_diagonally_mirror",
+   "end_pose": "jog_carry",
+   "to": [
+    "run_with_ball",
+    "jog_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.6667,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS010_chest_catch_into_sprint",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.6667,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS010_chest_catch_into_sprint_mirror",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.6667,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS011_overhead_two_hand_catch",
+   "end_pose": "jog_carry",
+   "to": [
+    "run_with_ball",
+    "jog_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7,
+    0.8333
+   ]
+  },
+  {
+   "from_key": "BS011_overhead_two_hand_catch_mirror",
+   "end_pose": "jog_carry",
+   "to": [
+    "run_with_ball",
+    "jog_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7,
+    0.8333
+   ]
+  },
+  {
+   "from_key": "BS012_high_catch_left",
+   "end_pose": "jog_carry",
+   "to": [
+    "run_with_ball",
+    "jog_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7,
+    0.8333
+   ]
+  },
+  {
+   "from_key": "BS013_high_catch_right",
+   "end_pose": "jog_carry",
+   "to": [
+    "run_with_ball",
+    "jog_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7,
+    0.8333
+   ]
+  },
+  {
+   "from_key": "BS014_shoulder_height_catch",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.6667,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS014_shoulder_height_catch_mirror",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.6667,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS015_high_catch_sprinting",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.6667,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS015_high_catch_sprinting_mirror",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.6667,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS016_high_catch_turning_back",
+   "end_pose": "jog_carry",
+   "to": [
+    "run_with_ball",
+    "jog_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7667,
+    0.9
+   ]
+  },
+  {
+   "from_key": "BS016_high_catch_turning_back_mirror",
+   "end_pose": "jog_carry",
+   "to": [
+    "run_with_ball",
+    "jog_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7667,
+    0.9
+   ]
+  },
+  {
+   "from_key": "BS017_high_catch_short_reach",
+   "end_pose": "jog_carry",
+   "to": [
+    "run_with_ball",
+    "jog_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.6667,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS017_high_catch_short_reach_mirror",
+   "end_pose": "jog_carry",
+   "to": [
+    "run_with_ball",
+    "jog_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.6667,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS018_max_standing_reach",
+   "end_pose": "stand_carry",
+   "to": [
+    "idle_with_ball",
+    "BS182",
+    "MASS:F21",
+    "MASS:S11"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.7,
+    0.8667
+   ]
+  },
+  {
+   "from_key": "BS018_max_standing_reach_mirror",
+   "end_pose": "stand_carry",
+   "to": [
+    "idle_with_ball",
+    "BS182",
+    "MASS:F21",
+    "MASS:S11"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.7,
+    0.8667
+   ]
+  },
+  {
+   "from_key": "BS019_high_catch_into_run",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7,
+    0.8333
+   ]
+  },
+  {
+   "from_key": "BS019_high_catch_into_run_mirror",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7,
+    0.8333
+   ]
+  },
+  {
+   "from_key": "BS020_high_catch_then_stumble",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.9334,
+    1.0667
+   ]
+  },
+  {
+   "from_key": "BS020_high_catch_then_stumble_mirror",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.9334,
+    1.0667
+   ]
+  },
+  {
+   "from_key": "BS021_waist_level_catch",
+   "end_pose": "jog_carry",
+   "to": [
+    "run_with_ball",
+    "jog_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.6667,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS021_waist_level_catch_mirror",
+   "end_pose": "jog_carry",
+   "to": [
+    "run_with_ball",
+    "jog_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.6667,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS022_knee_level_catch",
+   "end_pose": "jog_carry",
+   "to": [
+    "run_with_ball",
+    "jog_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7,
+    0.8333
+   ]
+  },
+  {
+   "from_key": "BS022_knee_level_catch_mirror",
+   "end_pose": "jog_carry",
+   "to": [
+    "run_with_ball",
+    "jog_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7,
+    0.8333
+   ]
+  },
+  {
+   "from_key": "BS023_near_ground_scoop",
+   "end_pose": "jog_carry",
+   "to": [
+    "run_with_ball",
+    "jog_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.8334,
+    0.9667
+   ]
+  },
+  {
+   "from_key": "BS023_near_ground_scoop_mirror",
+   "end_pose": "jog_carry",
+   "to": [
+    "run_with_ball",
+    "jog_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.8334,
+    0.9667
+   ]
+  },
+  {
+   "from_key": "BS024_low_catch_jogging",
+   "end_pose": "jog_carry",
+   "to": [
+    "run_with_ball",
+    "jog_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.6667,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS024_low_catch_jogging_mirror",
+   "end_pose": "jog_carry",
+   "to": [
+    "run_with_ball",
+    "jog_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.6667,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS025_low_catch_sprinting",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.6667,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS025_low_catch_sprinting_mirror",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.6667,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS026_low_catch_left",
+   "end_pose": "jog_carry",
+   "to": [
+    "run_with_ball",
+    "jog_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.6667,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS027_low_catch_right",
+   "end_pose": "jog_carry",
+   "to": [
+    "run_with_ball",
+    "jog_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.6667,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS028_low_catch_slowing",
+   "end_pose": "jog_carry",
+   "to": [
+    "run_with_ball",
+    "jog_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.6667,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS028_low_catch_slowing_mirror",
+   "end_pose": "jog_carry",
+   "to": [
+    "run_with_ball",
+    "jog_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.6667,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS029_low_lunging_catch",
+   "end_pose": "jog_carry",
+   "to": [
+    "run_with_ball",
+    "jog_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.8,
+    0.9333
+   ]
+  },
+  {
+   "from_key": "BS029_low_lunging_catch_mirror",
+   "end_pose": "jog_carry",
+   "to": [
+    "run_with_ball",
+    "jog_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.8,
+    0.9333
+   ]
+  },
+  {
+   "from_key": "BS030_low_catch_balance_recovery",
+   "end_pose": "jog_carry",
+   "to": [
+    "run_with_ball",
+    "jog_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.9,
+    1.0333
+   ]
+  },
+  {
+   "from_key": "BS030_low_catch_balance_recovery_mirror",
+   "end_pose": "jog_carry",
+   "to": [
+    "run_with_ball",
+    "jog_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.9,
+    1.0333
+   ]
+  },
+  {
+   "from_key": "BS031_over_left_shoulder_sprint",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7667,
+    0.9
+   ]
+  },
+  {
+   "from_key": "BS032_over_right_shoulder_sprint",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7667,
+    0.9
+   ]
+  },
+  {
+   "from_key": "BS033_over_left_shoulder_slowing",
+   "end_pose": "jog_carry",
+   "to": [
+    "run_with_ball",
+    "jog_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7667,
+    0.9
+   ]
+  },
+  {
+   "from_key": "BS034_over_right_shoulder_slowing",
+   "end_pose": "jog_carry",
+   "to": [
+    "run_with_ball",
+    "jog_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7667,
+    0.9
+   ]
+  },
+  {
+   "from_key": "BS035_over_shoulder_hands_at_chest",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7667,
+    0.9
+   ]
+  },
+  {
+   "from_key": "BS035_over_shoulder_hands_at_chest_mirror",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7667,
+    0.9
+   ]
+  },
+  {
+   "from_key": "BS036_over_shoulder_arms_extended",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7667,
+    0.9
+   ]
+  },
+  {
+   "from_key": "BS036_over_shoulder_arms_extended_mirror",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7667,
+    0.9
+   ]
+  },
+  {
+   "from_key": "BS037_over_shoulder_reach_behind",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7667,
+    0.9
+   ]
+  },
+  {
+   "from_key": "BS037_over_shoulder_reach_behind_mirror",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7667,
+    0.9
+   ]
+  },
+  {
+   "from_key": "BS038_over_shoulder_defender_trails_receiver",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7667,
+    0.9
+   ]
+  },
+  {
+   "from_key": "BS038_over_shoulder_defender_trails_defender",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7667,
+    0.9
+   ]
+  },
+  {
+   "from_key": "BS038_over_shoulder_defender_trails_receiver_mirror",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7667,
+    0.9
+   ]
+  },
+  {
+   "from_key": "BS038_over_shoulder_defender_trails_defender_mirror",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7667,
+    0.9
+   ]
+  },
+  {
+   "from_key": "BS039_over_shoulder_into_stride",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7667,
+    0.9
+   ]
+  },
+  {
+   "from_key": "BS039_over_shoulder_into_stride_mirror",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7667,
+    0.9
+   ]
+  },
+  {
+   "from_key": "BS040_missed_over_shoulder",
+   "end_pose": "jog",
+   "to": [
+    "jog",
+    "run",
+    "BS218"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.8667,
+    1.0
+   ]
+  },
+  {
+   "from_key": "BS040_missed_over_shoulder_mirror",
+   "end_pose": "jog",
+   "to": [
+    "jog",
+    "run",
+    "BS218"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.8667,
+    1.0
+   ]
+  },
+  {
+   "from_key": "BS041_one_hand_left_reach",
+   "end_pose": "jog_carry",
+   "to": [
+    "run_with_ball",
+    "jog_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.6667,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS042_one_hand_right_reach",
+   "end_pose": "jog_carry",
+   "to": [
+    "run_with_ball",
+    "jog_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.6667,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS043_one_hand_overhead",
+   "end_pose": "jog_carry",
+   "to": [
+    "run_with_ball",
+    "jog_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7,
+    0.8333
+   ]
+  },
+  {
+   "from_key": "BS043_one_hand_overhead_mirror",
+   "end_pose": "jog_carry",
+   "to": [
+    "run_with_ball",
+    "jog_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7,
+    0.8333
+   ]
+  },
+  {
+   "from_key": "BS044_one_hand_left_sideline",
+   "end_pose": "jog_carry",
+   "to": [
+    "run_with_ball",
+    "jog_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.6667,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS045_one_hand_right_sideline",
+   "end_pose": "jog_carry",
+   "to": [
+    "run_with_ball",
+    "jog_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.6667,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS046_one_hand_sprinting",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.6667,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS046_one_hand_sprinting_mirror",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.6667,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS047_one_hand_turning",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7,
+    0.8333
+   ]
+  },
+  {
+   "from_key": "BS047_one_hand_turning_mirror",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7,
+    0.8333
+   ]
+  },
+  {
+   "from_key": "BS048_one_hand_behind_body",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7334,
+    0.8667
+   ]
+  },
+  {
+   "from_key": "BS048_one_hand_behind_body_mirror",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7334,
+    0.8667
+   ]
+  },
+  {
+   "from_key": "BS050_one_hand_secure_tuck",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.6667,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS050_one_hand_secure_tuck_mirror",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.6667,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS051_one_hand_contact_drop",
+   "end_pose": "jog",
+   "to": [
+    "jog",
+    "run",
+    "BS218"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7667,
+    0.9
+   ]
+  },
+  {
+   "from_key": "BS051_one_hand_contact_drop_mirror",
+   "end_pose": "jog",
+   "to": [
+    "jog",
+    "run",
+    "BS218"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7667,
+    0.9
+   ]
+  },
+  {
+   "from_key": "BS052_one_hand_fingertip_miss",
+   "end_pose": "jog",
+   "to": [
+    "jog",
+    "run",
+    "BS218"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7667,
+    0.9
+   ]
+  },
+  {
+   "from_key": "BS052_one_hand_fingertip_miss_mirror",
+   "end_pose": "jog",
+   "to": [
+    "jog",
+    "run",
+    "BS218"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7667,
+    0.9
+   ]
+  },
+  {
+   "from_key": "BS053_chest_bobble_catch",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.8667,
+    1.0
+   ]
+  },
+  {
+   "from_key": "BS053_chest_bobble_catch_mirror",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.8667,
+    1.0
+   ]
+  },
+  {
+   "from_key": "BS054_chest_bobble_drop",
+   "end_pose": "jog",
+   "to": [
+    "jog",
+    "run",
+    "BS218"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.95,
+    1.0833
+   ]
+  },
+  {
+   "from_key": "BS054_chest_bobble_drop_mirror",
+   "end_pose": "jog",
+   "to": [
+    "jog",
+    "run",
+    "BS218"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.95,
+    1.0833
+   ]
+  },
+  {
+   "from_key": "BS055_overhead_bobble_catch",
+   "end_pose": "jog_carry",
+   "to": [
+    "run_with_ball",
+    "jog_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.9167,
+    1.05
+   ]
+  },
+  {
+   "from_key": "BS055_overhead_bobble_catch_mirror",
+   "end_pose": "jog_carry",
+   "to": [
+    "run_with_ball",
+    "jog_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.9167,
+    1.05
+   ]
+  },
+  {
+   "from_key": "BS056_overhead_bobble_drop",
+   "end_pose": "jog",
+   "to": [
+    "jog",
+    "run",
+    "BS218"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    1.0,
+    1.1333
+   ]
+  },
+  {
+   "from_key": "BS056_overhead_bobble_drop_mirror",
+   "end_pose": "jog",
+   "to": [
+    "jog",
+    "run",
+    "BS218"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    1.0,
+    1.1333
+   ]
+  },
+  {
+   "from_key": "BS057_running_bobble_catch",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.8667,
+    1.0
+   ]
+  },
+  {
+   "from_key": "BS057_running_bobble_catch_mirror",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.8667,
+    1.0
+   ]
+  },
+  {
+   "from_key": "BS058_running_bobble_drop",
+   "end_pose": "jog",
+   "to": [
+    "jog",
+    "run",
+    "BS218"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.9667,
+    1.1
+   ]
+  },
+  {
+   "from_key": "BS058_running_bobble_drop_mirror",
+   "end_pose": "jog",
+   "to": [
+    "jog",
+    "run",
+    "BS218"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.9667,
+    1.1
+   ]
+  },
+  {
+   "from_key": "BS059_low_bobble_catch",
+   "end_pose": "jog_carry",
+   "to": [
+    "run_with_ball",
+    "jog_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.9167,
+    1.05
+   ]
+  },
+  {
+   "from_key": "BS059_low_bobble_catch_mirror",
+   "end_pose": "jog_carry",
+   "to": [
+    "run_with_ball",
+    "jog_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.9167,
+    1.05
+   ]
+  },
+  {
+   "from_key": "BS060_low_bobble_drop",
+   "end_pose": "jog",
+   "to": [
+    "jog",
+    "run",
+    "BS218"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    1.0,
+    1.1333
+   ]
+  },
+  {
+   "from_key": "BS060_low_bobble_drop_mirror",
+   "end_pose": "jog",
+   "to": [
+    "jog",
+    "run",
+    "BS218"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    1.0,
+    1.1333
+   ]
+  },
+  {
+   "from_key": "BS061_contested_bobble_catch_receiver",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.9,
+    1.0333
+   ]
+  },
+  {
+   "from_key": "BS061_contested_bobble_catch_defender",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.9,
+    1.0333
+   ]
+  },
+  {
+   "from_key": "BS061_contested_bobble_catch_receiver_mirror",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.9,
+    1.0333
+   ]
+  },
+  {
+   "from_key": "BS061_contested_bobble_catch_defender_mirror",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.9,
+    1.0333
+   ]
+  },
+  {
+   "from_key": "BS062_contested_bobble_breakup_receiver",
+   "end_pose": "jog",
+   "to": [
+    "jog",
+    "run",
+    "BS218"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    1.0,
+    1.1333
+   ]
+  },
+  {
+   "from_key": "BS062_contested_bobble_breakup_defender",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    1.0,
+    1.1333
+   ]
+  },
+  {
+   "from_key": "BS062_contested_bobble_breakup_receiver_mirror",
+   "end_pose": "jog",
+   "to": [
+    "jog",
+    "run",
+    "BS218"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    1.0,
+    1.1333
+   ]
+  },
+  {
+   "from_key": "BS062_contested_bobble_breakup_defender_mirror",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    1.0,
+    1.1333
+   ]
+  },
+  {
+   "from_key": "BS063_forward_dive_catch",
+   "end_pose": "prone_ball",
+   "to": [
+    "grounded_possession (downed)",
+    "MASS downed-player state"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.9,
+    1.0667
+   ]
+  },
+  {
+   "from_key": "BS063_forward_dive_catch_mirror",
+   "end_pose": "prone_ball",
+   "to": [
+    "grounded_possession (downed)",
+    "MASS downed-player state"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.9,
+    1.0667
+   ]
+  },
+  {
+   "from_key": "BS064_left_diagonal_dive",
+   "end_pose": "prone_ball",
+   "to": [
+    "grounded_possession (downed)",
+    "MASS downed-player state"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.9,
+    1.0667
+   ]
+  },
+  {
+   "from_key": "BS065_right_diagonal_dive",
+   "end_pose": "prone_ball",
+   "to": [
+    "grounded_possession (downed)",
+    "MASS downed-player state"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.9,
+    1.0667
+   ]
+  },
+  {
+   "from_key": "BS066_low_forward_dive",
+   "end_pose": "prone_ball",
+   "to": [
+    "grounded_possession (downed)",
+    "MASS downed-player state"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.9,
+    1.0667
+   ]
+  },
+  {
+   "from_key": "BS066_low_forward_dive_mirror",
+   "end_pose": "prone_ball",
+   "to": [
+    "grounded_possession (downed)",
+    "MASS downed-player state"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.9,
+    1.0667
+   ]
+  },
+  {
+   "from_key": "BS067_overthrown_dive_catch",
+   "end_pose": "prone_ball",
+   "to": [
+    "grounded_possession (downed)",
+    "MASS downed-player state"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.9,
+    1.0667
+   ]
+  },
+  {
+   "from_key": "BS067_overthrown_dive_catch_mirror",
+   "end_pose": "prone_ball",
+   "to": [
+    "grounded_possession (downed)",
+    "MASS downed-player state"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.9,
+    1.0667
+   ]
+  },
+  {
+   "from_key": "BS068_sprinting_dive_catch",
+   "end_pose": "prone_ball",
+   "to": [
+    "grounded_possession (downed)",
+    "MASS downed-player state"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.9,
+    1.0667
+   ]
+  },
+  {
+   "from_key": "BS068_sprinting_dive_catch_mirror",
+   "end_pose": "prone_ball",
+   "to": [
+    "grounded_possession (downed)",
+    "MASS downed-player state"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.9,
+    1.0667
+   ]
+  },
+  {
+   "from_key": "BS069_slow_run_dive_catch",
+   "end_pose": "prone_ball",
+   "to": [
+    "grounded_possession (downed)",
+    "MASS downed-player state"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.9333,
+    1.1
+   ]
+  },
+  {
+   "from_key": "BS069_slow_run_dive_catch_mirror",
+   "end_pose": "prone_ball",
+   "to": [
+    "grounded_possession (downed)",
+    "MASS downed-player state"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.9333,
+    1.1
+   ]
+  },
+  {
+   "from_key": "BS070_left_sideline_dive",
+   "end_pose": "prone_ball",
+   "to": [
+    "grounded_possession (downed)",
+    "MASS downed-player state"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.9,
+    1.0667
+   ]
+  },
+  {
+   "from_key": "BS071_right_sideline_dive",
+   "end_pose": "prone_ball",
+   "to": [
+    "grounded_possession (downed)",
+    "MASS downed-player state"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.9,
+    1.0667
+   ]
+  },
+  {
+   "from_key": "BS072_end_zone_dive",
+   "end_pose": "prone_ball",
+   "to": [
+    "grounded_possession (downed)",
+    "MASS downed-player state"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.9,
+    1.0667
+   ]
+  },
+  {
+   "from_key": "BS072_end_zone_dive_mirror",
+   "end_pose": "prone_ball",
+   "to": [
+    "grounded_possession (downed)",
+    "MASS downed-player state"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.9,
+    1.0667
+   ]
+  },
+  {
+   "from_key": "BS073_dive_defender_trails_receiver",
+   "end_pose": "prone_ball",
+   "to": [
+    "grounded_possession (downed)",
+    "MASS downed-player state"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.9,
+    1.0667
+   ]
+  },
+  {
+   "from_key": "BS073_dive_defender_trails_defender",
+   "end_pose": "jog",
+   "to": [
+    "jog",
+    "run",
+    "BS218"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.9334,
+    1.0667
+   ]
+  },
+  {
+   "from_key": "BS073_dive_defender_trails_receiver_mirror",
+   "end_pose": "prone_ball",
+   "to": [
+    "grounded_possession (downed)",
+    "MASS downed-player state"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.9,
+    1.0667
+   ]
+  },
+  {
+   "from_key": "BS073_dive_defender_trails_defender_mirror",
+   "end_pose": "jog",
+   "to": [
+    "jog",
+    "run",
+    "BS218"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.9334,
+    1.0667
+   ]
+  },
+  {
+   "from_key": "BS074_dive_defender_from_side_receiver",
+   "end_pose": "prone_ball",
+   "to": [
+    "grounded_possession (downed)",
+    "MASS downed-player state"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.9,
+    1.0667
+   ]
+  },
+  {
+   "from_key": "BS074_dive_defender_from_side_defender",
+   "end_pose": "stand_recover",
+   "to": [
+    "stand_recover"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.9,
+    1.0667
+   ]
+  },
+  {
+   "from_key": "BS074_dive_defender_from_side_receiver_mirror",
+   "end_pose": "prone_ball",
+   "to": [
+    "grounded_possession (downed)",
+    "MASS downed-player state"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.9,
+    1.0667
+   ]
+  },
+  {
+   "from_key": "BS074_dive_defender_from_side_defender_mirror",
+   "end_pose": "stand_recover",
+   "to": [
+    "stand_recover"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.9,
+    1.0667
+   ]
+  },
+  {
+   "from_key": "BS075_one_hand_dive_catch",
+   "end_pose": "prone_ball",
+   "to": [
+    "grounded_possession (downed)",
+    "MASS downed-player state"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.9,
+    1.0667
+   ]
+  },
+  {
+   "from_key": "BS075_one_hand_dive_catch_mirror",
+   "end_pose": "prone_ball",
+   "to": [
+    "grounded_possession (downed)",
+    "MASS downed-player state"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.9,
+    1.0667
+   ]
+  },
+  {
+   "from_key": "BS076_two_hand_dive_catch",
+   "end_pose": "prone_ball",
+   "to": [
+    "grounded_possession (downed)",
+    "MASS downed-player state"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.9,
+    1.0667
+   ]
+  },
+  {
+   "from_key": "BS076_two_hand_dive_catch_mirror",
+   "end_pose": "prone_ball",
+   "to": [
+    "grounded_possession (downed)",
+    "MASS downed-player state"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.9,
+    1.0667
+   ]
+  },
+  {
+   "from_key": "BS077_chest_level_dive_catch",
+   "end_pose": "prone_ball",
+   "to": [
+    "grounded_possession (downed)",
+    "MASS downed-player state"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.9,
+    1.0667
+   ]
+  },
+  {
+   "from_key": "BS077_chest_level_dive_catch_mirror",
+   "end_pose": "prone_ball",
+   "to": [
+    "grounded_possession (downed)",
+    "MASS downed-player state"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.9,
+    1.0667
+   ]
+  },
+  {
+   "from_key": "BS078_low_dive_catch",
+   "end_pose": "prone_ball",
+   "to": [
+    "grounded_possession (downed)",
+    "MASS downed-player state"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.9,
+    1.0667
+   ]
+  },
+  {
+   "from_key": "BS078_low_dive_catch_mirror",
+   "end_pose": "prone_ball",
+   "to": [
+    "grounded_possession (downed)",
+    "MASS downed-player state"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.9,
+    1.0667
+   ]
+  },
+  {
+   "from_key": "BS079_failed_forward_dive",
+   "end_pose": "prone",
+   "to": [
+    "BS215",
+    "grounded_recovery"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.9,
+    1.0667
+   ]
+  },
+  {
+   "from_key": "BS079_failed_forward_dive_mirror",
+   "end_pose": "prone",
+   "to": [
+    "BS215",
+    "grounded_recovery"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.9,
+    1.0667
+   ]
+  },
+  {
+   "from_key": "BS080_failed_left_dive",
+   "end_pose": "prone",
+   "to": [
+    "BS215",
+    "grounded_recovery"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.9,
+    1.0667
+   ]
+  },
+  {
+   "from_key": "BS081_failed_right_dive",
+   "end_pose": "prone",
+   "to": [
+    "BS215",
+    "grounded_recovery"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.9,
+    1.0667
+   ]
+  },
+  {
+   "from_key": "BS082_dive_defender_swat_receiver",
+   "end_pose": "prone",
+   "to": [
+    "BS215",
+    "grounded_recovery"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.9,
+    1.0667
+   ]
+  },
+  {
+   "from_key": "BS082_dive_defender_swat_defender",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.9334,
+    1.0667
+   ]
+  },
+  {
+   "from_key": "BS082_dive_defender_swat_receiver_mirror",
+   "end_pose": "prone",
+   "to": [
+    "BS215",
+    "grounded_recovery"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.9,
+    1.0667
+   ]
+  },
+  {
+   "from_key": "BS082_dive_defender_swat_defender_mirror",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.9334,
+    1.0667
+   ]
+  },
+  {
+   "from_key": "BS083_dive_glancing_contact",
+   "end_pose": "prone",
+   "to": [
+    "BS215",
+    "grounded_recovery"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.9,
+    1.0667
+   ]
+  },
+  {
+   "from_key": "BS083_dive_glancing_contact_mirror",
+   "end_pose": "prone",
+   "to": [
+    "BS215",
+    "grounded_recovery"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.9,
+    1.0667
+   ]
+  },
+  {
+   "from_key": "BS084_dive_grounded_possession",
+   "end_pose": "prone_ball",
+   "to": [
+    "grounded_possession (downed)",
+    "MASS downed-player state"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    1.3,
+    1.4667
+   ]
+  },
+  {
+   "from_key": "BS084_dive_grounded_possession_mirror",
+   "end_pose": "prone_ball",
+   "to": [
+    "grounded_possession (downed)",
+    "MASS downed-player state"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    1.3,
+    1.4667
+   ]
+  },
+  {
+   "from_key": "BS085_vertical_jump_catch",
+   "end_pose": "land_carry",
+   "to": [
+    "run_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    1.05,
+    1.2167
+   ]
+  },
+  {
+   "from_key": "BS085_vertical_jump_catch_mirror",
+   "end_pose": "land_carry",
+   "to": [
+    "run_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    1.05,
+    1.2167
+   ]
+  },
+  {
+   "from_key": "BS086_jump_catch_reach_left",
+   "end_pose": "land_carry",
+   "to": [
+    "run_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    1.05,
+    1.2167
+   ]
+  },
+  {
+   "from_key": "BS087_jump_catch_reach_right",
+   "end_pose": "land_carry",
+   "to": [
+    "run_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    1.05,
+    1.2167
+   ]
+  },
+  {
+   "from_key": "BS088_jump_catch_slightly_behind",
+   "end_pose": "land_carry",
+   "to": [
+    "run_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    1.05,
+    1.2167
+   ]
+  },
+  {
+   "from_key": "BS088_jump_catch_slightly_behind_mirror",
+   "end_pose": "land_carry",
+   "to": [
+    "run_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    1.05,
+    1.2167
+   ]
+  },
+  {
+   "from_key": "BS089_sprinting_jump_catch",
+   "end_pose": "land_carry",
+   "to": [
+    "run_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    1.05,
+    1.2167
+   ]
+  },
+  {
+   "from_key": "BS089_sprinting_jump_catch_mirror",
+   "end_pose": "land_carry",
+   "to": [
+    "run_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    1.05,
+    1.2167
+   ]
+  },
+  {
+   "from_key": "BS090_turning_jump_catch",
+   "end_pose": "land_carry",
+   "to": [
+    "run_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    1.05,
+    1.2167
+   ]
+  },
+  {
+   "from_key": "BS090_turning_jump_catch_mirror",
+   "end_pose": "land_carry",
+   "to": [
+    "run_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    1.05,
+    1.2167
+   ]
+  },
+  {
+   "from_key": "BS091_high_point_over_defender_receiver",
+   "end_pose": "land_carry",
+   "to": [
+    "run_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    1.05,
+    1.2167
+   ]
+  },
+  {
+   "from_key": "BS091_high_point_over_defender_defender",
+   "end_pose": "stand_recover",
+   "to": [
+    "stand_recover"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    1.05,
+    1.2167
+   ]
+  },
+  {
+   "from_key": "BS091_high_point_over_defender_receiver_mirror",
+   "end_pose": "land_carry",
+   "to": [
+    "run_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    1.05,
+    1.2167
+   ]
+  },
+  {
+   "from_key": "BS091_high_point_over_defender_defender_mirror",
+   "end_pose": "stand_recover",
+   "to": [
+    "stand_recover"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    1.05,
+    1.2167
+   ]
+  },
+  {
+   "from_key": "BS092_jump_catch_balanced_landing",
+   "end_pose": "land_carry_stand",
+   "to": [
+    "idle_with_ball",
+    "run_with_ball"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    1.05,
+    1.2167
+   ]
+  },
+  {
+   "from_key": "BS092_jump_catch_balanced_landing_mirror",
+   "end_pose": "land_carry_stand",
+   "to": [
+    "idle_with_ball",
+    "run_with_ball"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    1.05,
+    1.2167
+   ]
+  },
+  {
+   "from_key": "BS093_jump_catch_unstable_landing",
+   "end_pose": "land_carry",
+   "to": [
+    "run_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    1.05,
+    1.2167
+   ]
+  },
+  {
+   "from_key": "BS093_jump_catch_unstable_landing_mirror",
+   "end_pose": "land_carry",
+   "to": [
+    "run_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    1.05,
+    1.2167
+   ]
+  },
+  {
+   "from_key": "BS094_jump_catch_immediate_contact",
+   "end_pose": "land_brace",
+   "to": [
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:L82"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    1.05,
+    1.2167
+   ]
+  },
+  {
+   "from_key": "BS094_jump_catch_immediate_contact_mirror",
+   "end_pose": "land_brace",
+   "to": [
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:L82"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    1.05,
+    1.2167
+   ]
+  },
+  {
+   "from_key": "BS095_failed_jump_catch",
+   "end_pose": "land",
+   "to": [
+    "jog",
+    "BS216",
+    "BS218"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    1.05,
+    1.2167
+   ]
+  },
+  {
+   "from_key": "BS095_failed_jump_catch_mirror",
+   "end_pose": "land",
+   "to": [
+    "jog",
+    "BS216",
+    "BS218"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    1.05,
+    1.2167
+   ]
+  },
+  {
+   "from_key": "BS096_defender_wins_high_point_receiver",
+   "end_pose": "land",
+   "to": [
+    "jog",
+    "BS216",
+    "BS218"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    1.05,
+    1.2167
+   ]
+  },
+  {
+   "from_key": "BS096_defender_wins_high_point_defender",
+   "end_pose": "land",
+   "to": [
+    "jog",
+    "BS216",
+    "BS218"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    1.05,
+    1.2167
+   ]
+  },
+  {
+   "from_key": "BS096_defender_wins_high_point_receiver_mirror",
+   "end_pose": "land",
+   "to": [
+    "jog",
+    "BS216",
+    "BS218"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    1.05,
+    1.2167
+   ]
+  },
+  {
+   "from_key": "BS096_defender_wins_high_point_defender_mirror",
+   "end_pose": "land",
+   "to": [
+    "jog",
+    "BS216",
+    "BS218"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    1.05,
+    1.2167
+   ]
+  },
+  {
+   "from_key": "BS097_simultaneous_jump_contest_receiver",
+   "end_pose": "land",
+   "to": [
+    "jog",
+    "BS216",
+    "BS218"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    1.05,
+    1.2167
+   ]
+  },
+  {
+   "from_key": "BS097_simultaneous_jump_contest_defender",
+   "end_pose": "land",
+   "to": [
+    "jog",
+    "BS216",
+    "BS218"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    1.05,
+    1.2167
+   ]
+  },
+  {
+   "from_key": "BS097_simultaneous_jump_contest_receiver_mirror",
+   "end_pose": "land",
+   "to": [
+    "jog",
+    "BS216",
+    "BS218"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    1.05,
+    1.2167
+   ]
+  },
+  {
+   "from_key": "BS097_simultaneous_jump_contest_defender_mirror",
+   "end_pose": "land",
+   "to": [
+    "jog",
+    "BS216",
+    "BS218"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    1.05,
+    1.2167
+   ]
+  },
+  {
+   "from_key": "BS098_jumping_one_hand_catch",
+   "end_pose": "land_carry",
+   "to": [
+    "run_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    1.05,
+    1.2167
+   ]
+  },
+  {
+   "from_key": "BS098_jumping_one_hand_catch_mirror",
+   "end_pose": "land_carry",
+   "to": [
+    "run_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    1.05,
+    1.2167
+   ]
+  },
+  {
+   "from_key": "BS099_jumping_interception_attempt",
+   "end_pose": "land",
+   "to": [
+    "jog",
+    "BS216",
+    "BS218"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    1.05,
+    1.2167
+   ]
+  },
+  {
+   "from_key": "BS099_jumping_interception_attempt_mirror",
+   "end_pose": "land",
+   "to": [
+    "jog",
+    "BS216",
+    "BS218"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    1.05,
+    1.2167
+   ]
+  },
+  {
+   "from_key": "BS100_jumping_tip_attempt",
+   "end_pose": "land",
+   "to": [
+    "jog",
+    "BS216",
+    "BS218"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    1.05,
+    1.2167
+   ]
+  },
+  {
+   "from_key": "BS100_jumping_tip_attempt_mirror",
+   "end_pose": "land",
+   "to": [
+    "jog",
+    "BS216",
+    "BS218"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    1.05,
+    1.2167
+   ]
+  },
+  {
+   "from_key": "BS049_one_hand_diving_reach",
+   "end_pose": "prone_ball",
+   "to": [
+    "grounded_possession (downed)",
+    "MASS downed-player state"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.9,
+    1.0667
+   ]
+  },
+  {
+   "from_key": "BS049_one_hand_diving_reach_mirror",
+   "end_pose": "prone_ball",
+   "to": [
+    "grounded_possession (downed)",
+    "MASS downed-player state"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.9,
+    1.0667
+   ]
+  },
+  {
+   "from_key": "BS101_catch_cb_behind_receiver",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7,
+    0.8333
+   ]
+  },
+  {
+   "from_key": "BS101_catch_cb_behind_defender",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7,
+    0.8333
+   ]
+  },
+  {
+   "from_key": "BS101_catch_cb_behind_receiver_mirror",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7,
+    0.8333
+   ]
+  },
+  {
+   "from_key": "BS101_catch_cb_behind_defender_mirror",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7,
+    0.8333
+   ]
+  },
+  {
+   "from_key": "BS102_catch_cb_alongside_left_receiver",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7,
+    0.8333
+   ]
+  },
+  {
+   "from_key": "BS102_catch_cb_alongside_left_defender",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7,
+    0.8333
+   ]
+  },
+  {
+   "from_key": "BS103_catch_cb_alongside_right_receiver",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7,
+    0.8333
+   ]
+  },
+  {
+   "from_key": "BS103_catch_cb_alongside_right_defender",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7,
+    0.8333
+   ]
+  },
+  {
+   "from_key": "BS104_catch_defender_reaching_across_receiver",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7,
+    0.8333
+   ]
+  },
+  {
+   "from_key": "BS104_catch_defender_reaching_across_defender",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7,
+    0.8333
+   ]
+  },
+  {
+   "from_key": "BS104_catch_defender_reaching_across_receiver_mirror",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7,
+    0.8333
+   ]
+  },
+  {
+   "from_key": "BS104_catch_defender_reaching_across_defender_mirror",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7,
+    0.8333
+   ]
+  },
+  {
+   "from_key": "BS105_catch_through_light_contact_receiver",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7,
+    0.8333
+   ]
+  },
+  {
+   "from_key": "BS105_catch_through_light_contact_defender",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7,
+    0.8333
+   ]
+  },
+  {
+   "from_key": "BS105_catch_through_light_contact_receiver_mirror",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7,
+    0.8333
+   ]
+  },
+  {
+   "from_key": "BS105_catch_through_light_contact_defender_mirror",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7,
+    0.8333
+   ]
+  },
+  {
+   "from_key": "BS106_catch_through_heavy_contact_receiver",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7,
+    0.8333
+   ]
+  },
+  {
+   "from_key": "BS106_catch_through_heavy_contact_defender",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7,
+    0.8333
+   ]
+  },
+  {
+   "from_key": "BS106_catch_through_heavy_contact_receiver_mirror",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7,
+    0.8333
+   ]
+  },
+  {
+   "from_key": "BS106_catch_through_heavy_contact_defender_mirror",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7,
+    0.8333
+   ]
+  },
+  {
+   "from_key": "BS107_drop_after_heavy_contact_receiver",
+   "end_pose": "jog",
+   "to": [
+    "jog",
+    "run",
+    "BS218"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.8,
+    0.9333
+   ]
+  },
+  {
+   "from_key": "BS107_drop_after_heavy_contact_defender",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.8,
+    0.9333
+   ]
+  },
+  {
+   "from_key": "BS107_drop_after_heavy_contact_receiver_mirror",
+   "end_pose": "jog",
+   "to": [
+    "jog",
+    "run",
+    "BS218"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.8,
+    0.9333
+   ]
+  },
+  {
+   "from_key": "BS107_drop_after_heavy_contact_defender_mirror",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.8,
+    0.9333
+   ]
+  },
+  {
+   "from_key": "BS108_defender_swat_from_behind_receiver",
+   "end_pose": "jog",
+   "to": [
+    "jog",
+    "run",
+    "BS218"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.8,
+    0.9333
+   ]
+  },
+  {
+   "from_key": "BS108_defender_swat_from_behind_defender",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.8,
+    0.9333
+   ]
+  },
+  {
+   "from_key": "BS108_defender_swat_from_behind_receiver_mirror",
+   "end_pose": "jog",
+   "to": [
+    "jog",
+    "run",
+    "BS218"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.8,
+    0.9333
+   ]
+  },
+  {
+   "from_key": "BS108_defender_swat_from_behind_defender_mirror",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.8,
+    0.9333
+   ]
+  },
+  {
+   "from_key": "BS109_defender_swat_from_left_receiver",
+   "end_pose": "jog",
+   "to": [
+    "jog",
+    "run",
+    "BS218"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.8,
+    0.9333
+   ]
+  },
+  {
+   "from_key": "BS109_defender_swat_from_left_defender",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.8,
+    0.9333
+   ]
+  },
+  {
+   "from_key": "BS110_defender_swat_from_right_receiver",
+   "end_pose": "jog",
+   "to": [
+    "jog",
+    "run",
+    "BS218"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.8,
+    0.9333
+   ]
+  },
+  {
+   "from_key": "BS110_defender_swat_from_right_defender",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.8,
+    0.9333
+   ]
+  },
+  {
+   "from_key": "BS111_defender_tip_up_receiver",
+   "end_pose": "jog",
+   "to": [
+    "jog",
+    "run",
+    "BS218"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.8,
+    0.9333
+   ]
+  },
+  {
+   "from_key": "BS111_defender_tip_up_defender",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.8,
+    0.9333
+   ]
+  },
+  {
+   "from_key": "BS111_defender_tip_up_receiver_mirror",
+   "end_pose": "jog",
+   "to": [
+    "jog",
+    "run",
+    "BS218"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.8,
+    0.9333
+   ]
+  },
+  {
+   "from_key": "BS111_defender_tip_up_defender_mirror",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.8,
+    0.9333
+   ]
+  },
+  {
+   "from_key": "BS112_defender_tip_down_receiver",
+   "end_pose": "jog",
+   "to": [
+    "jog",
+    "run",
+    "BS218"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.8,
+    0.9333
+   ]
+  },
+  {
+   "from_key": "BS112_defender_tip_down_defender",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.8,
+    0.9333
+   ]
+  },
+  {
+   "from_key": "BS112_defender_tip_down_receiver_mirror",
+   "end_pose": "jog",
+   "to": [
+    "jog",
+    "run",
+    "BS218"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.8,
+    0.9333
+   ]
+  },
+  {
+   "from_key": "BS112_defender_tip_down_defender_mirror",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.8,
+    0.9333
+   ]
+  },
+  {
+   "from_key": "BS113_defender_tip_sideways_receiver",
+   "end_pose": "jog",
+   "to": [
+    "jog",
+    "run",
+    "BS218"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.8,
+    0.9333
+   ]
+  },
+  {
+   "from_key": "BS113_defender_tip_sideways_defender",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.8,
+    0.9333
+   ]
+  },
+  {
+   "from_key": "BS113_defender_tip_sideways_receiver_mirror",
+   "end_pose": "jog",
+   "to": [
+    "jog",
+    "run",
+    "BS218"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.8,
+    0.9333
+   ]
+  },
+  {
+   "from_key": "BS113_defender_tip_sideways_defender_mirror",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.8,
+    0.9333
+   ]
+  },
+  {
+   "from_key": "BS114_simultaneous_high_point_receiver",
+   "end_pose": "land_carry",
+   "to": [
+    "run_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    1.05,
+    1.2167
+   ]
+  },
+  {
+   "from_key": "BS114_simultaneous_high_point_defender",
+   "end_pose": "land",
+   "to": [
+    "jog",
+    "BS216",
+    "BS218"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    1.05,
+    1.2167
+   ]
+  },
+  {
+   "from_key": "BS114_simultaneous_high_point_receiver_mirror",
+   "end_pose": "land_carry",
+   "to": [
+    "run_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    1.05,
+    1.2167
+   ]
+  },
+  {
+   "from_key": "BS114_simultaneous_high_point_defender_mirror",
+   "end_pose": "land",
+   "to": [
+    "jog",
+    "BS216",
+    "BS218"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    1.05,
+    1.2167
+   ]
+  },
+  {
+   "from_key": "BS115_defender_center_contact_wins_receiver",
+   "end_pose": "jog",
+   "to": [
+    "jog",
+    "run",
+    "BS218"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.8,
+    0.9333
+   ]
+  },
+  {
+   "from_key": "BS115_defender_center_contact_wins_defender",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.8,
+    0.9333
+   ]
+  },
+  {
+   "from_key": "BS115_defender_center_contact_wins_receiver_mirror",
+   "end_pose": "jog",
+   "to": [
+    "jog",
+    "run",
+    "BS218"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.8,
+    0.9333
+   ]
+  },
+  {
+   "from_key": "BS115_defender_center_contact_wins_defender_mirror",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.8,
+    0.9333
+   ]
+  },
+  {
+   "from_key": "BS116_defender_two_hand_interception_receiver",
+   "end_pose": "land",
+   "to": [
+    "jog",
+    "BS216",
+    "BS218"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    1.05,
+    1.2167
+   ]
+  },
+  {
+   "from_key": "BS116_defender_two_hand_interception_defender",
+   "end_pose": "land_carry",
+   "to": [
+    "run_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    1.05,
+    1.2167
+   ]
+  },
+  {
+   "from_key": "BS116_defender_two_hand_interception_receiver_mirror",
+   "end_pose": "land",
+   "to": [
+    "jog",
+    "BS216",
+    "BS218"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    1.05,
+    1.2167
+   ]
+  },
+  {
+   "from_key": "BS116_defender_two_hand_interception_defender_mirror",
+   "end_pose": "land_carry",
+   "to": [
+    "run_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    1.05,
+    1.2167
+   ]
+  },
+  {
+   "from_key": "BS117_receiver_punch_out_attempt_receiver",
+   "end_pose": "land",
+   "to": [
+    "jog",
+    "BS216",
+    "BS218"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    1.05,
+    1.2167
+   ]
+  },
+  {
+   "from_key": "BS117_receiver_punch_out_attempt_defender",
+   "end_pose": "land_carry",
+   "to": [
+    "run_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    1.05,
+    1.2167
+   ]
+  },
+  {
+   "from_key": "BS117_receiver_punch_out_attempt_receiver_mirror",
+   "end_pose": "land",
+   "to": [
+    "jog",
+    "BS216",
+    "BS218"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    1.05,
+    1.2167
+   ]
+  },
+  {
+   "from_key": "BS117_receiver_punch_out_attempt_defender_mirror",
+   "end_pose": "land_carry",
+   "to": [
+    "run_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    1.05,
+    1.2167
+   ]
+  },
+  {
+   "from_key": "BS118_receiver_loses_balance_contest_receiver",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.9667,
+    1.1
+   ]
+  },
+  {
+   "from_key": "BS118_receiver_loses_balance_contest_defender",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.9667,
+    1.1
+   ]
+  },
+  {
+   "from_key": "BS118_receiver_loses_balance_contest_receiver_mirror",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.9667,
+    1.1
+   ]
+  },
+  {
+   "from_key": "BS118_receiver_loses_balance_contest_defender_mirror",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.9667,
+    1.1
+   ]
+  },
+  {
+   "from_key": "BS119_defender_loses_balance_contest_receiver",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.9667,
+    1.1
+   ]
+  },
+  {
+   "from_key": "BS119_defender_loses_balance_contest_defender",
+   "end_pose": "prone",
+   "to": [
+    "BS215",
+    "grounded_recovery"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.9333,
+    1.1
+   ]
+  },
+  {
+   "from_key": "BS119_defender_loses_balance_contest_receiver_mirror",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.9667,
+    1.1
+   ]
+  },
+  {
+   "from_key": "BS119_defender_loses_balance_contest_defender_mirror",
+   "end_pose": "prone",
+   "to": [
+    "BS215",
+    "grounded_recovery"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.9333,
+    1.1
+   ]
+  },
+  {
+   "from_key": "BS120_both_land_after_contest_receiver",
+   "end_pose": "land",
+   "to": [
+    "jog",
+    "BS216",
+    "BS218"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    1.05,
+    1.2167
+   ]
+  },
+  {
+   "from_key": "BS120_both_land_after_contest_defender",
+   "end_pose": "land",
+   "to": [
+    "jog",
+    "BS216",
+    "BS218"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    1.05,
+    1.2167
+   ]
+  },
+  {
+   "from_key": "BS120_both_land_after_contest_receiver_mirror",
+   "end_pose": "land",
+   "to": [
+    "jog",
+    "BS216",
+    "BS218"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    1.05,
+    1.2167
+   ]
+  },
+  {
+   "from_key": "BS120_both_land_after_contest_defender_mirror",
+   "end_pose": "land",
+   "to": [
+    "jog",
+    "BS216",
+    "BS218"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    1.05,
+    1.2167
+   ]
+  },
+  {
+   "from_key": "BS121_chest_interception",
+   "end_pose": "stand_carry",
+   "to": [
+    "idle_with_ball",
+    "BS182",
+    "MASS:F21",
+    "MASS:S11"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.6666,
+    0.8333
+   ]
+  },
+  {
+   "from_key": "BS121_chest_interception_mirror",
+   "end_pose": "stand_carry",
+   "to": [
+    "idle_with_ball",
+    "BS182",
+    "MASS:F21",
+    "MASS:S11"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.6666,
+    0.8333
+   ]
+  },
+  {
+   "from_key": "BS122_overhead_interception",
+   "end_pose": "stand_carry",
+   "to": [
+    "idle_with_ball",
+    "BS182",
+    "MASS:F21",
+    "MASS:S11"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.6666,
+    0.8333
+   ]
+  },
+  {
+   "from_key": "BS122_overhead_interception_mirror",
+   "end_pose": "stand_carry",
+   "to": [
+    "idle_with_ball",
+    "BS182",
+    "MASS:F21",
+    "MASS:S11"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.6666,
+    0.8333
+   ]
+  },
+  {
+   "from_key": "BS123_sprinting_interception",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7667,
+    0.9
+   ]
+  },
+  {
+   "from_key": "BS123_sprinting_interception_mirror",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7667,
+    0.9
+   ]
+  },
+  {
+   "from_key": "BS124_backpedal_interception",
+   "end_pose": "backpedal_carry",
+   "to": [
+    "BS133",
+    "BS182"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.6666,
+    0.8333
+   ]
+  },
+  {
+   "from_key": "BS124_backpedal_interception_mirror",
+   "end_pose": "backpedal_carry",
+   "to": [
+    "BS133",
+    "BS182"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.6666,
+    0.8333
+   ]
+  },
+  {
+   "from_key": "BS125_interception_after_hip_turn",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.9334,
+    1.0667
+   ]
+  },
+  {
+   "from_key": "BS125_interception_after_hip_turn_mirror",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.9334,
+    1.0667
+   ]
+  },
+  {
+   "from_key": "BS126_jumping_interception",
+   "end_pose": "land_carry",
+   "to": [
+    "run_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    1.05,
+    1.2167
+   ]
+  },
+  {
+   "from_key": "BS126_jumping_interception_mirror",
+   "end_pose": "land_carry",
+   "to": [
+    "run_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    1.05,
+    1.2167
+   ]
+  },
+  {
+   "from_key": "BS127_one_hand_interception",
+   "end_pose": "jog_carry",
+   "to": [
+    "run_with_ball",
+    "jog_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.6667,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS127_one_hand_interception_mirror",
+   "end_pose": "jog_carry",
+   "to": [
+    "run_with_ball",
+    "jog_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.6667,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS128_two_hand_undercut_interception",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.6667,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS128_two_hand_undercut_interception_mirror",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.6667,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS129_diving_interception",
+   "end_pose": "prone_ball",
+   "to": [
+    "grounded_possession (downed)",
+    "MASS downed-player state"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.9,
+    1.0667
+   ]
+  },
+  {
+   "from_key": "BS129_diving_interception_mirror",
+   "end_pose": "prone_ball",
+   "to": [
+    "grounded_possession (downed)",
+    "MASS downed-player state"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.9,
+    1.0667
+   ]
+  },
+  {
+   "from_key": "BS130_left_sideline_interception",
+   "end_pose": "jog_carry",
+   "to": [
+    "run_with_ball",
+    "jog_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7,
+    0.8333
+   ]
+  },
+  {
+   "from_key": "BS131_right_sideline_interception",
+   "end_pose": "jog_carry",
+   "to": [
+    "run_with_ball",
+    "jog_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7,
+    0.8333
+   ]
+  },
+  {
+   "from_key": "BS132_end_zone_interception_kneel",
+   "end_pose": "kneel_carry",
+   "to": [
+    "downed (touchback)"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.9,
+    1.0667
+   ]
+  },
+  {
+   "from_key": "BS132_end_zone_interception_kneel_mirror",
+   "end_pose": "kneel_carry",
+   "to": [
+    "downed (touchback)"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.9,
+    1.0667
+   ]
+  },
+  {
+   "from_key": "BS133_interception_turn_upfield",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    1.0334,
+    1.1667
+   ]
+  },
+  {
+   "from_key": "BS133_interception_turn_upfield_mirror",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    1.0334,
+    1.1667
+   ]
+  },
+  {
+   "from_key": "BS134_interception_into_acceleration",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.6667,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS134_interception_into_acceleration_mirror",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.6667,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS135_interception_immediate_tackle",
+   "end_pose": "brace_carry",
+   "to": [
+    "MASS:F21",
+    "MASS:F22",
+    "MASS:S11",
+    "MASS:R01",
+    "run_with_ball"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.6333,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS135_interception_immediate_tackle_mirror",
+   "end_pose": "brace_carry",
+   "to": [
+    "MASS:F21",
+    "MASS:F22",
+    "MASS:S11",
+    "MASS:R01",
+    "run_with_ball"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.6333,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS136_failed_interception",
+   "end_pose": "backpedal",
+   "to": [
+    "BS166",
+    "BS169",
+    "BS170",
+    "BS172",
+    "BS219",
+    "BS121",
+    "BS124"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.7666,
+    0.9333
+   ]
+  },
+  {
+   "from_key": "BS136_failed_interception_mirror",
+   "end_pose": "backpedal",
+   "to": [
+    "BS166",
+    "BS169",
+    "BS170",
+    "BS172",
+    "BS219",
+    "BS121",
+    "BS124"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.7666,
+    0.9333
+   ]
+  },
+  {
+   "from_key": "BS137_interception_attempt_tip",
+   "end_pose": "backpedal",
+   "to": [
+    "BS166",
+    "BS169",
+    "BS170",
+    "BS172",
+    "BS219",
+    "BS121",
+    "BS124"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.7666,
+    0.9333
+   ]
+  },
+  {
+   "from_key": "BS137_interception_attempt_tip_mirror",
+   "end_pose": "backpedal",
+   "to": [
+    "BS166",
+    "BS169",
+    "BS170",
+    "BS172",
+    "BS219",
+    "BS121",
+    "BS124"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.7666,
+    0.9333
+   ]
+  },
+  {
+   "from_key": "BS138_interception_attempt_miss",
+   "end_pose": "backpedal",
+   "to": [
+    "BS166",
+    "BS169",
+    "BS170",
+    "BS172",
+    "BS219",
+    "BS121",
+    "BS124"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.7666,
+    0.9333
+   ]
+  },
+  {
+   "from_key": "BS138_interception_attempt_miss_mirror",
+   "end_pose": "backpedal",
+   "to": [
+    "BS166",
+    "BS169",
+    "BS170",
+    "BS172",
+    "BS219",
+    "BS121",
+    "BS124"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.7666,
+    0.9333
+   ]
+  },
+  {
+   "from_key": "BS139_release_from_stance",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.6667,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS139_release_from_stance_mirror",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.6667,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS140_jog_release",
+   "end_pose": "jog",
+   "to": [
+    "jog",
+    "run",
+    "BS218"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.6667,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS140_jog_release_mirror",
+   "end_pose": "jog",
+   "to": [
+    "jog",
+    "run",
+    "BS218"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.6667,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS141_sprint_release",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.6667,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS141_sprint_release_mirror",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.6667,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS142_accelerate_into_route",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.6667,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS142_accelerate_into_route_mirror",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.6667,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS143_decelerate_before_break",
+   "end_pose": "chop",
+   "to": [
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS151",
+    "BS152",
+    "BS153",
+    "BS154"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.5,
+    0.6667
+   ]
+  },
+  {
+   "from_key": "BS143_decelerate_before_break_mirror",
+   "end_pose": "chop",
+   "to": [
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS151",
+    "BS152",
+    "BS153",
+    "BS154"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.5,
+    0.6667
+   ]
+  },
+  {
+   "from_key": "BS144_left_45_cut",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7,
+    0.8333
+   ]
+  },
+  {
+   "from_key": "BS145_right_45_cut",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7,
+    0.8333
+   ]
+  },
+  {
+   "from_key": "BS146_left_90_cut",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7,
+    0.8333
+   ]
+  },
+  {
+   "from_key": "BS147_right_90_cut",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7,
+    0.8333
+   ]
+  },
+  {
+   "from_key": "BS148_slant_cut",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7,
+    0.8333
+   ]
+  },
+  {
+   "from_key": "BS148_slant_cut_mirror",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7,
+    0.8333
+   ]
+  },
+  {
+   "from_key": "BS149_post_cut",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7,
+    0.8333
+   ]
+  },
+  {
+   "from_key": "BS149_post_cut_mirror",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7,
+    0.8333
+   ]
+  },
+  {
+   "from_key": "BS150_corner_cut",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7,
+    0.8333
+   ]
+  },
+  {
+   "from_key": "BS150_corner_cut_mirror",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7,
+    0.8333
+   ]
+  },
+  {
+   "from_key": "BS151_out_cut",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7,
+    0.8333
+   ]
+  },
+  {
+   "from_key": "BS151_out_cut_mirror",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7,
+    0.8333
+   ]
+  },
+  {
+   "from_key": "BS152_in_cut",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7,
+    0.8333
+   ]
+  },
+  {
+   "from_key": "BS152_in_cut_mirror",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7,
+    0.8333
+   ]
+  },
+  {
+   "from_key": "BS153_comeback_stop_turn",
+   "end_pose": "ready_jog",
+   "to": [
+    "BS001",
+    "BS002",
+    "BS021",
+    "BS189",
+    "BS184"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.7333,
+    0.9
+   ]
+  },
+  {
+   "from_key": "BS153_comeback_stop_turn_mirror",
+   "end_pose": "ready_jog",
+   "to": [
+    "BS001",
+    "BS002",
+    "BS021",
+    "BS189",
+    "BS184"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.7333,
+    0.9
+   ]
+  },
+  {
+   "from_key": "BS154_curl_stop_face_qb",
+   "end_pose": "stand_ready",
+   "to": [
+    "BS001",
+    "BS011",
+    "BS018",
+    "BS184",
+    "BS189"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.7333,
+    0.9
+   ]
+  },
+  {
+   "from_key": "BS154_curl_stop_face_qb_mirror",
+   "end_pose": "stand_ready",
+   "to": [
+    "BS001",
+    "BS011",
+    "BS018",
+    "BS184",
+    "BS189"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.7333,
+    0.9
+   ]
+  },
+  {
+   "from_key": "BS155_stutter_release",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7667,
+    0.9
+   ]
+  },
+  {
+   "from_key": "BS155_stutter_release_mirror",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7667,
+    0.9
+   ]
+  },
+  {
+   "from_key": "BS156_hesitation_release",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7667,
+    0.9
+   ]
+  },
+  {
+   "from_key": "BS156_hesitation_release_mirror",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7667,
+    0.9
+   ]
+  },
+  {
+   "from_key": "BS157_left_shoulder_fake",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.6,
+    0.7333
+   ]
+  },
+  {
+   "from_key": "BS158_right_shoulder_fake",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.6,
+    0.7333
+   ]
+  },
+  {
+   "from_key": "BS159_look_over_left_shoulder",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.6667,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS160_look_over_right_shoulder",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.6667,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS161_turn_toward_qb",
+   "end_pose": "jog",
+   "to": [
+    "jog",
+    "run",
+    "BS218"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.6667,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS161_turn_toward_qb_mirror",
+   "end_pose": "jog",
+   "to": [
+    "jog",
+    "run",
+    "BS218"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.6667,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS162_slow_for_underthrow",
+   "end_pose": "jog_ready",
+   "to": [
+    "BS002",
+    "BS006",
+    "BS028",
+    "BS021"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.7,
+    0.8667
+   ]
+  },
+  {
+   "from_key": "BS162_slow_for_underthrow_mirror",
+   "end_pose": "jog_ready",
+   "to": [
+    "BS002",
+    "BS006",
+    "BS028",
+    "BS021"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.7,
+    0.8667
+   ]
+  },
+  {
+   "from_key": "BS163_adjust_to_overthrow",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7334,
+    0.8667
+   ]
+  },
+  {
+   "from_key": "BS163_adjust_to_overthrow_mirror",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7334,
+    0.8667
+   ]
+  },
+  {
+   "from_key": "BS164_recover_after_cut",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.5334,
+    0.6667
+   ]
+  },
+  {
+   "from_key": "BS164_recover_after_cut_mirror",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.5334,
+    0.6667
+   ]
+  },
+  {
+   "from_key": "BS165_cb_balanced_stance",
+   "end_pose": "cb_stance",
+   "to": [
+    "BS166",
+    "BS179",
+    "BS180",
+    "BS165"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.8333,
+    1.0
+   ]
+  },
+  {
+   "from_key": "BS165_cb_balanced_stance_mirror",
+   "end_pose": "cb_stance",
+   "to": [
+    "BS166",
+    "BS179",
+    "BS180",
+    "BS165"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.8333,
+    1.0
+   ]
+  },
+  {
+   "from_key": "BS166_backpedal",
+   "end_pose": "backpedal",
+   "to": [
+    "BS166",
+    "BS169",
+    "BS170",
+    "BS172",
+    "BS219",
+    "BS121",
+    "BS124"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.7,
+    0.8667
+   ]
+  },
+  {
+   "from_key": "BS166_backpedal_mirror",
+   "end_pose": "backpedal",
+   "to": [
+    "BS166",
+    "BS169",
+    "BS170",
+    "BS172",
+    "BS219",
+    "BS121",
+    "BS124"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.7,
+    0.8667
+   ]
+  },
+  {
+   "from_key": "BS167_backpedal_turn_left",
+   "end_pose": "backpedal",
+   "to": [
+    "BS166",
+    "BS169",
+    "BS170",
+    "BS172",
+    "BS219",
+    "BS121",
+    "BS124"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.7,
+    0.8667
+   ]
+  },
+  {
+   "from_key": "BS168_backpedal_turn_right",
+   "end_pose": "backpedal",
+   "to": [
+    "BS166",
+    "BS169",
+    "BS170",
+    "BS172",
+    "BS219",
+    "BS121",
+    "BS124"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.7,
+    0.8667
+   ]
+  },
+  {
+   "from_key": "BS169_hip_flip_left",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7334,
+    0.8667
+   ]
+  },
+  {
+   "from_key": "BS170_hip_flip_right",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7334,
+    0.8667
+   ]
+  },
+  {
+   "from_key": "BS171_defender_sprint_pursuit",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7334,
+    0.8667
+   ]
+  },
+  {
+   "from_key": "BS171_defender_sprint_pursuit_mirror",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7334,
+    0.8667
+   ]
+  },
+  {
+   "from_key": "BS172_mirror_route_break",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7,
+    0.8333
+   ]
+  },
+  {
+   "from_key": "BS172_mirror_route_break_mirror",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7,
+    0.8333
+   ]
+  },
+  {
+   "from_key": "BS173_recover_after_wrong_read",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.9334,
+    1.0667
+   ]
+  },
+  {
+   "from_key": "BS173_recover_after_wrong_read_mirror",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.9334,
+    1.0667
+   ]
+  },
+  {
+   "from_key": "BS174_defender_look_over_shoulder",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.6667,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS174_defender_look_over_shoulder_mirror",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.6667,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS175_track_qb_read_step",
+   "end_pose": "cb_stance",
+   "to": [
+    "BS166",
+    "BS179",
+    "BS180",
+    "BS165"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.7666,
+    0.9333
+   ]
+  },
+  {
+   "from_key": "BS175_track_qb_read_step_mirror",
+   "end_pose": "cb_stance",
+   "to": [
+    "BS166",
+    "BS179",
+    "BS180",
+    "BS165"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.7666,
+    0.9333
+   ]
+  },
+  {
+   "from_key": "BS176_prepare_for_contest",
+   "end_pose": "sprint_ready",
+   "to": [
+    "BS101",
+    "BS108",
+    "BS114",
+    "BS126",
+    "BS123"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.6333,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS176_prepare_for_contest_mirror",
+   "end_pose": "sprint_ready",
+   "to": [
+    "BS101",
+    "BS108",
+    "BS114",
+    "BS126",
+    "BS123"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.6333,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS177_reach_for_swat",
+   "end_pose": "jog",
+   "to": [
+    "jog",
+    "run",
+    "BS218"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7667,
+    0.9
+   ]
+  },
+  {
+   "from_key": "BS177_reach_for_swat_mirror",
+   "end_pose": "jog",
+   "to": [
+    "jog",
+    "run",
+    "BS218"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7667,
+    0.9
+   ]
+  },
+  {
+   "from_key": "BS178_recover_after_failed_swat",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.6667,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS178_recover_after_failed_swat_mirror",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.6667,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS179_press_hand_engagement",
+   "end_pose": "cb_stance",
+   "to": [
+    "BS166",
+    "BS179",
+    "BS180",
+    "BS165"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.5666,
+    0.7333
+   ]
+  },
+  {
+   "from_key": "BS179_press_hand_engagement_mirror",
+   "end_pose": "cb_stance",
+   "to": [
+    "BS166",
+    "BS179",
+    "BS180",
+    "BS165"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.5666,
+    0.7333
+   ]
+  },
+  {
+   "from_key": "BS180_press_release_turn",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7334,
+    0.8667
+   ]
+  },
+  {
+   "from_key": "BS180_press_release_turn_mirror",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7334,
+    0.8667
+   ]
+  },
+  {
+   "from_key": "BS181_recover_lost_separation",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.6667,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS181_recover_lost_separation_mirror",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.6667,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS182_turn_into_interception_return",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.8,
+    0.9333
+   ]
+  },
+  {
+   "from_key": "BS182_turn_into_interception_return_mirror",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.8,
+    0.9333
+   ]
+  },
+  {
+   "from_key": "BS184_chest_catch_turn_upfield",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    1.0334,
+    1.1667
+   ]
+  },
+  {
+   "from_key": "BS184_chest_catch_turn_upfield_mirror",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    1.0334,
+    1.1667
+   ]
+  },
+  {
+   "from_key": "BS185_catch_left_cut",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.9,
+    1.0333
+   ]
+  },
+  {
+   "from_key": "BS186_catch_right_cut",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.9,
+    1.0333
+   ]
+  },
+  {
+   "from_key": "BS187_catch_juke",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.9334,
+    1.0667
+   ]
+  },
+  {
+   "from_key": "BS187_catch_juke_mirror",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.9334,
+    1.0667
+   ]
+  },
+  {
+   "from_key": "BS188_catch_truck_prep",
+   "end_pose": "truck_entry",
+   "to": [
+    "MASS:T46",
+    "MASS:T47",
+    "MASS:A56",
+    "run_with_ball"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.7666,
+    0.9333
+   ]
+  },
+  {
+   "from_key": "BS188_catch_truck_prep_mirror",
+   "end_pose": "truck_entry",
+   "to": [
+    "MASS:T46",
+    "MASS:T47",
+    "MASS:A56",
+    "run_with_ball"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.7666,
+    0.9333
+   ]
+  },
+  {
+   "from_key": "BS189_catch_explode_accelerate",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.8,
+    0.9333
+   ]
+  },
+  {
+   "from_key": "BS189_catch_explode_accelerate_mirror",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.8,
+    0.9333
+   ]
+  },
+  {
+   "from_key": "BS190_catch_sudden_slowdown",
+   "end_pose": "stand_carry",
+   "to": [
+    "idle_with_ball",
+    "BS182",
+    "MASS:F21",
+    "MASS:S11"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.7666,
+    0.9333
+   ]
+  },
+  {
+   "from_key": "BS190_catch_sudden_slowdown_mirror",
+   "end_pose": "stand_carry",
+   "to": [
+    "idle_with_ball",
+    "BS182",
+    "MASS:F21",
+    "MASS:S11"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.7666,
+    0.9333
+   ]
+  },
+  {
+   "from_key": "BS191_catch_rear_wrap_entry",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.6667,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS191_catch_rear_wrap_entry_mirror",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.6667,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS192_catch_side_wrap_entry",
+   "end_pose": "sprint_carry_brace",
+   "to": [
+    "MASS:S11",
+    "MASS:S13",
+    "MASS:S14",
+    "MASS:S18",
+    "run_with_ball"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.6333,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS192_catch_side_wrap_entry_mirror",
+   "end_pose": "sprint_carry_brace",
+   "to": [
+    "MASS:S11",
+    "MASS:S13",
+    "MASS:S14",
+    "MASS:S18",
+    "run_with_ball"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.6333,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS193_catch_front_wrap_entry",
+   "end_pose": "brace_carry",
+   "to": [
+    "MASS:F21",
+    "MASS:F22",
+    "MASS:S11",
+    "MASS:R01",
+    "run_with_ball"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.6333,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS193_catch_front_wrap_entry_mirror",
+   "end_pose": "brace_carry",
+   "to": [
+    "MASS:F21",
+    "MASS:F22",
+    "MASS:S11",
+    "MASS:R01",
+    "run_with_ball"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.6333,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS194_catch_broken_tackle_recovery",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.9334,
+    1.0667
+   ]
+  },
+  {
+   "from_key": "BS194_catch_broken_tackle_recovery_mirror",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.9334,
+    1.0667
+   ]
+  },
+  {
+   "from_key": "BS195_catch_stumble",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    1.0334,
+    1.1667
+   ]
+  },
+  {
+   "from_key": "BS195_catch_stumble_mirror",
+   "end_pose": "sprint_carry",
+   "to": [
+    "run_with_ball",
+    "BS185",
+    "BS186",
+    "BS187",
+    "BS188",
+    "BS196",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21",
+    "MASS:B31",
+    "MASS:T46",
+    "MASS:A56"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    1.0334,
+    1.1667
+   ]
+  },
+  {
+   "from_key": "BS196_catch_sideline_exit",
+   "end_pose": "jog_carry",
+   "to": [
+    "run_with_ball",
+    "jog_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.8667,
+    1.0
+   ]
+  },
+  {
+   "from_key": "BS196_catch_sideline_exit_mirror",
+   "end_pose": "jog_carry",
+   "to": [
+    "run_with_ball",
+    "jog_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.8667,
+    1.0
+   ]
+  },
+  {
+   "from_key": "BS197_catch_touchdown_continuation",
+   "end_pose": "jog_carry_celebrate",
+   "to": [
+    "idle_with_ball"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    1.0,
+    1.1667
+   ]
+  },
+  {
+   "from_key": "BS197_catch_touchdown_continuation_mirror",
+   "end_pose": "jog_carry_celebrate",
+   "to": [
+    "idle_with_ball"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    1.0,
+    1.1667
+   ]
+  },
+  {
+   "from_key": "BS199_left_sideline_catch",
+   "end_pose": "jog_carry",
+   "to": [
+    "run_with_ball",
+    "jog_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7,
+    0.8333
+   ]
+  },
+  {
+   "from_key": "BS200_right_sideline_catch",
+   "end_pose": "jog_carry",
+   "to": [
+    "run_with_ball",
+    "jog_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7,
+    0.8333
+   ]
+  },
+  {
+   "from_key": "BS201_sideline_catch_lean_in",
+   "end_pose": "jog_carry",
+   "to": [
+    "run_with_ball",
+    "jog_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7,
+    0.8333
+   ]
+  },
+  {
+   "from_key": "BS201_sideline_catch_lean_in_mirror",
+   "end_pose": "jog_carry",
+   "to": [
+    "run_with_ball",
+    "jog_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7,
+    0.8333
+   ]
+  },
+  {
+   "from_key": "BS202_sideline_catch_lean_out",
+   "end_pose": "jog_carry",
+   "to": [
+    "run_with_ball",
+    "jog_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7,
+    0.8333
+   ]
+  },
+  {
+   "from_key": "BS202_sideline_catch_lean_out_mirror",
+   "end_pose": "jog_carry",
+   "to": [
+    "run_with_ball",
+    "jog_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7,
+    0.8333
+   ]
+  },
+  {
+   "from_key": "BS203_sideline_jump_catch",
+   "end_pose": "land_carry",
+   "to": [
+    "run_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    1.05,
+    1.2167
+   ]
+  },
+  {
+   "from_key": "BS203_sideline_jump_catch_mirror",
+   "end_pose": "land_carry",
+   "to": [
+    "run_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    1.05,
+    1.2167
+   ]
+  },
+  {
+   "from_key": "BS206_catch_step_out_of_bounds",
+   "end_pose": "jog_carry",
+   "to": [
+    "run_with_ball",
+    "jog_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.8,
+    0.9333
+   ]
+  },
+  {
+   "from_key": "BS206_catch_step_out_of_bounds_mirror",
+   "end_pose": "jog_carry",
+   "to": [
+    "run_with_ball",
+    "jog_with_ball",
+    "MASS:R01",
+    "MASS:S11",
+    "MASS:F21"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.8,
+    0.9333
+   ]
+  },
+  {
+   "from_key": "BS207_sideline_controlled_slowdown",
+   "end_pose": "stand_carry",
+   "to": [
+    "idle_with_ball",
+    "BS182",
+    "MASS:F21",
+    "MASS:S11"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.8333,
+    1.0
+   ]
+  },
+  {
+   "from_key": "BS207_sideline_controlled_slowdown_mirror",
+   "end_pose": "stand_carry",
+   "to": [
+    "idle_with_ball",
+    "BS182",
+    "MASS:F21",
+    "MASS:S11"
+   ],
+   "blend_frames": 10,
+   "blend_window_s": [
+    0.8333,
+    1.0
+   ]
+  },
+  {
+   "from_key": "BS208_failed_sideline_catch",
+   "end_pose": "jog",
+   "to": [
+    "jog",
+    "run",
+    "BS218"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.8,
+    0.9333
+   ]
+  },
+  {
+   "from_key": "BS208_failed_sideline_catch_mirror",
+   "end_pose": "jog",
+   "to": [
+    "jog",
+    "run",
+    "BS218"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.8,
+    0.9333
+   ]
+  },
+  {
+   "from_key": "BS209_reach_and_miss",
+   "end_pose": "jog",
+   "to": [
+    "jog",
+    "run",
+    "BS218"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7667,
+    0.9
+   ]
+  },
+  {
+   "from_key": "BS209_reach_and_miss_mirror",
+   "end_pose": "jog",
+   "to": [
+    "jog",
+    "run",
+    "BS218"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7667,
+    0.9
+   ]
+  },
+  {
+   "from_key": "BS210_drop_chest_pass",
+   "end_pose": "jog",
+   "to": [
+    "jog",
+    "run",
+    "BS218"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7667,
+    0.9
+   ]
+  },
+  {
+   "from_key": "BS210_drop_chest_pass_mirror",
+   "end_pose": "jog",
+   "to": [
+    "jog",
+    "run",
+    "BS218"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7667,
+    0.9
+   ]
+  },
+  {
+   "from_key": "BS211_drop_high_pass",
+   "end_pose": "jog",
+   "to": [
+    "jog",
+    "run",
+    "BS218"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7667,
+    0.9
+   ]
+  },
+  {
+   "from_key": "BS211_drop_high_pass_mirror",
+   "end_pose": "jog",
+   "to": [
+    "jog",
+    "run",
+    "BS218"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7667,
+    0.9
+   ]
+  },
+  {
+   "from_key": "BS212_drop_low_pass",
+   "end_pose": "jog",
+   "to": [
+    "jog",
+    "run",
+    "BS218"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7667,
+    0.9
+   ]
+  },
+  {
+   "from_key": "BS212_drop_low_pass_mirror",
+   "end_pose": "jog",
+   "to": [
+    "jog",
+    "run",
+    "BS218"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7667,
+    0.9
+   ]
+  },
+  {
+   "from_key": "BS214_land_after_failed_jump",
+   "end_pose": "jog",
+   "to": [
+    "jog",
+    "run",
+    "BS218"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.6667,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS214_land_after_failed_jump_mirror",
+   "end_pose": "jog",
+   "to": [
+    "jog",
+    "run",
+    "BS218"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.6667,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS215_get_up_after_failed_dive",
+   "end_pose": "jog",
+   "to": [
+    "jog",
+    "run",
+    "BS218"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.8667,
+    1.0
+   ]
+  },
+  {
+   "from_key": "BS215_get_up_after_failed_dive_mirror",
+   "end_pose": "jog",
+   "to": [
+    "jog",
+    "run",
+    "BS218"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.8667,
+    1.0
+   ]
+  },
+  {
+   "from_key": "BS216_recover_after_swat",
+   "end_pose": "jog",
+   "to": [
+    "jog",
+    "run",
+    "BS218"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.6667,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS216_recover_after_swat_mirror",
+   "end_pose": "jog",
+   "to": [
+    "jog",
+    "run",
+    "BS218"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.6667,
+    0.8
+   ]
+  },
+  {
+   "from_key": "BS217_recover_after_contested_incompletion",
+   "end_pose": "jog",
+   "to": [
+    "jog",
+    "run",
+    "BS218"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.8667,
+    1.0
+   ]
+  },
+  {
+   "from_key": "BS217_recover_after_contested_incompletion_mirror",
+   "end_pose": "jog",
+   "to": [
+    "jog",
+    "run",
+    "BS218"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.8667,
+    1.0
+   ]
+  },
+  {
+   "from_key": "BS218_slow_after_uncatchable",
+   "end_pose": "jog",
+   "to": [
+    "jog",
+    "run",
+    "BS218"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.8,
+    0.9333
+   ]
+  },
+  {
+   "from_key": "BS218_slow_after_uncatchable_mirror",
+   "end_pose": "jog",
+   "to": [
+    "jog",
+    "run",
+    "BS218"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.8,
+    0.9333
+   ]
+  },
+  {
+   "from_key": "BS219_defender_recover_failed_interception",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.8667,
+    1.0
+   ]
+  },
+  {
+   "from_key": "BS219_defender_recover_failed_interception_mirror",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.8667,
+    1.0
+   ]
+  },
+  {
+   "from_key": "BS220_defender_recover_after_breakup",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7334,
+    0.8667
+   ]
+  },
+  {
+   "from_key": "BS220_defender_recover_after_breakup_mirror",
+   "end_pose": "sprint",
+   "to": [
+    "run",
+    "sprint",
+    "BS144",
+    "BS145",
+    "BS146",
+    "BS147",
+    "BS148",
+    "BS149",
+    "BS150",
+    "BS151",
+    "BS152",
+    "BS159",
+    "BS160"
+   ],
+   "blend_frames": 8,
+   "blend_window_s": [
+    0.7334,
+    0.8667
+   ]
+  }
+ ]
+}
