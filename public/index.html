@@ -17908,6 +17908,7 @@ function uoInit(){                                     // the library lives next
     UO.man=m; m.clips.forEach(c=>{ (UO.byId[c.id]=UO.byId[c.id]||[]).push(c); }); UO.total=m.clips.length; UO.state='ready';
     try { urInit(); } catch(e){ console.warn('receiving library', e); }
     try { dmInit(); } catch(e){ console.warn('defensive movement library', e); }
+    try { qbtLibInit(); } catch(e){ console.warn('QB throw library', e); }
     UO_CORE.forEach(id=>(UO.byId[id]||[]).forEach(c=>uoLoad(c.path).catch(()=>{})));          // the common tackles right away
     m.clips.forEach(c=>{ if(!UO_CORE.includes(c.id)) UO.q.push(c.path); }); uoPump();          // then everything else, slowly, in the background
   }).catch(e=>{ UO.state='off'; UO.err=String(e&&e.message||e); console.warn('tackle animation library unavailable:', UO.err); });
@@ -18277,6 +18278,7 @@ function fbChoosePlayerAnimation(p,P){
   if(p.diveT>0||p.slid)return p.slid?'slide':'dive';
   if(p.diving)return 'dive';
   if(p.jumpT>0)return 'catch';
+  if(p.role==='QB'&&(p.qbPh||0)>0&&!p.carry)return qbtAnimKey(p);       // v139: cock / whip / follow-through of the QB throw library (or the qbPass throw)
   if(p.st==='throw')return 'qbPass';
   if(p.st==='point')return 'point';
   if(p.st==='block'&&fbHasBlockingContact(p))return FB_MODEL.clips&&FB_MODEL.clips.push?'push':'offenseIdle';
@@ -18324,6 +18326,7 @@ function fbTickPlayerAnimation(p,dt){
     rg.fbCurrent=key;
   }
   if(key.slice(0,3)==='dm:')action.setEffectiveTimeScale(p.dmTs||1);
+  if(p.role==='QB'&&(p.qbPh||0)>0&&(key===QB_THROW.legacy.key||(p.qbClip&&key==='dm:'+p.qbClip.path))){action.setEffectiveTimeScale(0);action.time=qbtClipTime(p,action.getClip().duration);}   // the clip follows the throw phase frame by frame
   try{dmAdditive(p,rg,nowS);}catch(e){}
   rg.fbMixer.update(dt);
   if(rg.fbPoseTransition){const tr=rg.fbPoseTransition;tr.time+=dt;const u=Math.min(1,tr.time/.12),w=u*u*(3-2*u);tr.bones.forEach(v=>v.bone.quaternion.slerpQuaternions(v.q,v.bone.quaternion.clone(),w));if(u>=1)rg.fbPoseTransition=null;}
@@ -18529,7 +18532,7 @@ function fbRender(){
     else if (b.mode==='pitch') { fbBall.position.set(b.x,b.y,b.z); fbBall.rotation.set(s.t*14,0,0.3); }
     else fbBall.visible = false;
     fbAim.visible = !!s.aimShow || !!(s.thrown && s.tcirc && s.tgtShow && !(fbVs() && s.defMode)); if (!s.aimShow && s.thrown && s.tcirc && fbAim.visible) { fbAim.position.set(s.tcirc.x,0.08,s.tcirc.z); fbAim.material.color.set('#ffffff'); fbAim.rotation.y = s.tcirc.ang; fbAim.scale.set(s.tcirc.a, s.tcirc.c, 1); }
-    if (s.aimShow) { const C = fbThrowCircle(s.aim.x, s.aim.z); fbAim.position.set(s.aim.x + (C ? C.ox : 0),0.08,s.aim.z + (C ? C.oz : 0)); fbAim.material.color.set(!s.aimOk?'#ff4d4d':s.aimBehind?'#ffb020':'#ffffff'); if (C) { fbAim.rotation.y = C.ang; fbAim.scale.set(C.a, C.c, 1); } else fbAim.scale.set(1,1,1); }
+    if (s.aimShow) { const C = fbThrowCircle(s.aim.x, s.aim.z); fbAim.position.set(s.aim.x + (C ? C.ox : 0),0.08,s.aim.z + (C ? C.oz : 0)); fbAim.material.color.set(!s.aimOk?'#ff4d4d':s.aimBehind?'#ffb020':s.aimShort?'#ff8c3a':'#ffffff'); if (C) { fbAim.rotation.y = C.ang; fbAim.scale.set(C.a, C.c, 1); } else fbAim.scale.set(1,1,1); }
     const tgVis = !!s.tgtShow && !(fbVs() && s.defMode);   // V46 (23g): 1v1 - the thrower sees where his ball lands, the defender does not (same rule on both screens)
     const bxOn = tgVis && !!s.thrown && !!s.bxCol && b.mode==='fly' && !b.dropped;
     fbTgt.visible = tgVis && !bxOn && !!s.tgt; if (fbTgt.visible) fbTgt.position.set(s.tgt.x,0.09,s.tgt.z);
@@ -18717,7 +18720,7 @@ function fbRouteFor(p, play, los){
 }
 function fbSetup(play){
   try { utApplyTeams(); } catch(e){}
-  const s = FB.s, los = s.los; s.play = play; s.audPend = null; FB.hot = null; s.xfCat = null; fbRigs.forEach(p => { p.xfBeat = false; p.bullUsed = false; }); s.t = 0; s.live = false; s.thrown = false; s.caught = false; s.targetMan = null; s.turn = false; s.ctl = null; s.carrier = null; s.aimShow = false; s.tgtShow = false; s.charge = 0; s.pastLos = false; s.eng = [];
+  const s = FB.s, los = s.los; s.play = play; s.audPend = null; FB.hot = null; s.xfCat = null; fbRigs.forEach(p => { p.xfBeat = false; p.bullUsed = false; }); s.t = 0; s.live = false; s.throwPend = null; fbRigs.forEach(p => { p.qbPh = 0; p.qbCk = 0; p.qbPump = 0; p.qbt = null; }); s.thrown = false; s.caught = false; s.targetMan = null; s.turn = false; s.ctl = null; s.carrier = null; s.aimShow = false; s.tgtShow = false; s.charge = 0; s.pastLos = false; s.eng = [];
   const run = play.t==='run', F = FB_FORM[run ? 'ifm' : 'shot'];
   const oq = fbBy('QB');
   fbOff().forEach(p => {
@@ -18949,7 +18952,7 @@ function fbLive(dt){
   fbRigs.forEach(p => { ['catchT','jumpT','recoilT','shedT','breakT','lungeT','tkWin','tkLock','chuckT','chuckCd'].forEach(k => { if (p[k] > 0) p[k] -= dt; }); });
   // ---- ball snap
   if (s.ball.mode==='snapfly') { const b = s.ball; b.t += dt; const u = Math.min(1,b.t/b.dur); b.x = lerp(s.los,q.x,u); b.z = lerp(0,q.z,u); b.y = 0.9+Math.sin(u*Math.PI)*0.7; b.vx = b.vy = b.vz = 0; if (u>=1) s.ball = { mode:'held', h:q }; }
-  if (q.throwAnim > 0) { q.throwAnim -= dt; q.thT = clamp(1-q.throwAnim/0.35,0,1); q.st = 'throw'; if (q.throwAnim <= 0) { q.thT = 0; q.st = 'ready'; } }
+  try { qbtStep(dt); } catch(e){ console.error('qbt', e); }
   // ---- handoff
   if (play.t==='run' && !play.sneak && !s.handed && s.t > 0.5) {
     s.handed = true; const rb = fbBy('RB');
@@ -19285,46 +19288,161 @@ function fbAimBehind(aim){                              // aiming within 2 yd of
   if (!aim) return false;
   return fbOff().some(o => ['W1','W2','W3','TE','RB'].includes(o.role) && !o.down && Math.hypot(o.vx||0,o.vz||0) > 6 && Math.hypot(o.x-aim.x, o.z-aim.z) < 2);
 }
-function fbThrowCircle(ax, az){      // where the ball CAN land: radius grows with distance and shrinks with QB accuracy; it stretches the way a bad QB is moving
+/* ====================================================================================================
+   QB THROWING (v139). One continuous power curve (how long you hold), the QB's arm (Throw Power) and body (planted, stepping in,
+   rolling, sprinting, backpedaling, jumping back, off balance, pressure) shape release SPEED and ACCURACY separately.
+   The throw is a real motion: the arm cocks while you hold, whips forward when you let go, and the ball leaves the hand on the
+   release frame. The flight itself is the same projectile as before (same arcs, same landing math, same catching).
+   ANIMATION INTERFACE for the QB animation library: QB_THROW below (events, categories, manifest) - spec in QB_THROW_ANIMATION_SPEC.md
+   ==================================================================================================== */
+const QB_THROW = {
+  cfg: { dead:0.05, full:0.85, exp:1.25,             // hold seconds -> power 0..1: dead zone, full power, ease-in (a medium throw is a real medium hold)
+         vMin:[13.5,15.5], vMax:[30,40], arm:[0.85,1.2], // release speed (yd/s): the softest dish (12-15 yd) .. a full bullet, weak arm -> strong arm (Throw Power)
+         rel:[0.09,0.17], relArm:0.05,              // button up -> ball out of the hand (s): a dish is quick, a full throw has a real whip; a strong arm is a hair quicker
+         fol:0.26, cockS:0.28, cockMaxSpd:2.6,       // follow-through (s); the arm cocks over 0.28 s of hold; above 2.6 yd/s he keeps running and cocks on release
+         cpuRel:0.6 },                               // the CPU QB's whip is a bit quicker (it already decided)
+  CATS: ['qb_quick_dish','qb_short','qb_medium','qb_full_power','qb_medium_roll_left','qb_medium_roll_right','qb_medium_step_forward','qb_medium_jump_back','qb_sprint_left','qb_sprint_right','qb_backpedal','qb_off_balance'],
+  legacy: { key:'qbPass', ev:{ windup_start:5.07, cocked:5.30, release:5.45, follow_through_end:5.72 }, blend_in_s:0.12 },   // the embedded 7.7 s qbPass clip: its one real throw, measured from the hand path
+  lib: { state:'idle', clips:[], byCat:{} },
+  subs: [], last: null, seq: 0,
+  on(fn){ this.subs.push(fn); return () => { this.subs = this.subs.filter(f => f !== fn); }; }      // QB_THROW.on((event, state, qb) => ...): start / release / complete / interrupted
+};
+window.QB_THROW = QB_THROW;
+function qbtEmit(type, q){ const A = q && q.qbt; if (!A) return; A.state = type === 'start' ? 'windup_forward' : type === 'release' ? 'follow_through' : type;
+  QB_THROW.last = Object.assign({ event:type }, A); QB_THROW.subs.forEach(f => { try { f(type, A, q); } catch(e){} }); }
+function qbtLibInit(){                                       // the QB animation library (anim/qb/manifest.json) when it is there; until then the embedded qbPass throw serves every category
+  const L = QB_THROW.lib; if (L.state !== 'idle' || typeof fetch !== 'function' || typeof UO === 'undefined' || UO.state !== 'ready') return; L.state = 'loading';
+  fetch(UO.base + 'qb/manifest.json').then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).then(m => {
+    (m.clips || []).forEach(c => { if (!c || !c.id || !c.file || !QB_THROW.CATS.includes(c.category) || !c.events || !(c.events.release > 0)) return; c.path = 'qb/' + c.file; L.clips.push(c); (L.byCat[c.category] = L.byCat[c.category] || []).push(c); uoLoad(c.path).catch(() => {}); });
+    L.state = 'ready'; }).catch(() => { L.state = 'off'; });
+}
+function qbtClipFor(cat, pw){ const L = QB_THROW.lib; if (L.state !== 'ready') return null; const pool = (L.byCat[cat] || []).filter(c => uoHas(c.path)); if (!pool.length) return null;
+  const dist = c => { const r = c.power_range || [0, 1]; return pw < r[0] ? r[0] - pw : pw > r[1] ? pw - r[1] : 0; }; return pool.slice().sort((a, b) => dist(a) - dist(b))[0]; }
+function qbtPower(holdS){ const C = QB_THROW.cfg, u = clamp(((+holdS || 0) - C.dead)/(C.full - C.dead), 0, 1); return Math.pow(u, C.exp); }
+function qbtArmN(q){ const C = QB_THROW.cfg, tp = q && q.ur && q.ur.thrPow ? q.ur.thrPow : 1; return clamp((tp - C.arm[0])/(C.arm[1] - C.arm[0]), 0, 1); }
+function qbtAccN(q){ const ta = q && q.ur && q.ur.thrAcc ? q.ur.thrAcc : 1; return clamp((ta - 0.7)/0.8, 0, 1); }
+function qbtVCap(q, pw, mv){ const C = QB_THROW.cfg, a = qbtArmN(q), lo = C.vMin[0] + (C.vMin[1] - C.vMin[0])*a, hi = C.vMax[0] + (C.vMax[1] - C.vMax[0])*a; return (lo + (hi - lo)*clamp(pw, 0, 1))*(mv || 1); }
+function qbtPowEff(pw, mv){ return clamp(Math.max(pw + (mv - 1)*1.2, pw*0.45), 0, 1); }   // the body's share: a good base adds a little, a bad one costs up to about half
+function qbtLabel(pw){ return pw < 0.12 ? 'TOUCH' : pw < 0.35 ? 'SHORT' : pw < 0.6 ? 'MEDIUM' : pw < 0.85 ? 'FIRM' : 'BULLET'; }
+function qbtBody(q, aim, pw){                                // what his body is doing at the release: velocity factor, accuracy factor (separate), the motion category
+  const vx = q.vx || 0, vz = q.vz || 0, sp = Math.hypot(vx, vz), ax = aim.x - q.x, az = aim.z - q.z, L = Math.hypot(ax, az) || 1, ux = ax/L, uz = az/L;
+  const sm = (x, a, b) => clamp((x - a)/(b - a), 0, 1), along = vx*ux + vz*uz, fwd = vx;
+  const step = sm(along, 0.4, 2.6)*(1 - sm(sp, 5, 7.5));                                   // a controlled step INTO the throw
+  const back = sm(-fwd, 0.8, 4.5);                                                         // retreating (backpedal -> jumping back)
+  const side = sm(Math.abs(vz), 1.2, 6.5)*(1 - 0.5*back);                                  // moving across the field
+  const sprint = sm(sp, 5, 8);
+  const across = (vz*uz < 0) ? sm(Math.abs(vz), 1.5, 5)*sm(Math.abs(uz), 0.3, 0.9) : 0;    // rolling one way, throwing back the other way: across his body
+  const air = (q.jumpT > 0 || q.diving || (q.fall || 0) < -0.25) ? 1 : 0;
+  const off = clamp((q.stun > 0 ? 0.8 : 0) + (q.recoilT > 0 ? 0.6 : 0) + 0.6*air, 0, 1);
+  let near = 99; try { fbDef().forEach(d => { if (!d.down && !(d.eng && !d.free) && d.rusher) near = Math.min(near, fbDist(d, q)); }); } catch(e){}
+  const press = 1 - sm(near, 1.0, 3.3), soft = 1 - 0.45*qbtAccN(q);                       // a good passer loses less to his body
+  const mv = clamp(1 + 0.05*step - 0.16*back - 0.05*side - 0.06*sprint*(1 - step) - 0.07*across - 0.22*off - 0.05*press, 0.6, 1.06);
+  const ma = clamp(1 + (0.45*back + 0.22*side + 0.25*sprint + 0.30*across + 0.6*off + 0.15*press - 0.06*step)*soft, 0.9, 2.4);
+  const maC = clamp(1 + (0.45*back + 0.30*across + 0.6*off + 0.10*side - 0.06*step)*soft, 0.9, 2.2);    // what the throwing circle adds (it already widens for pressure and stretches when he runs)
+  const P = pw == null ? 0.5 : pw; let cat;
+  if (off > 0.45 && !(air && fwd < -0.5)) cat = 'qb_off_balance';
+  else if ((air && fwd < -0.5) || back > 0.8) cat = 'qb_medium_jump_back';
+  else if (back > 0.25) cat = 'qb_backpedal';
+  else if (sprint > 0.4 && Math.abs(vz) > Math.abs(vx)) cat = vz > 0 ? 'qb_sprint_right' : 'qb_sprint_left';
+  else if (Math.abs(vz) > 2 && Math.abs(vz) > Math.abs(vx)) cat = vz > 0 ? 'qb_medium_roll_right' : 'qb_medium_roll_left';
+  else if ((step > 0.35 || (fwd > 2 && fwd > Math.abs(vz))) && P >= 0.25) cat = 'qb_medium_step_forward';
+  else cat = P < 0.15 ? (L < 10 ? 'qb_quick_dish' : 'qb_short') : P < 0.4 ? 'qb_short' : P < 0.78 ? 'qb_medium' : 'qb_full_power';
+  return { mv, ma, maC, cat, sp, step, back, side, sprint, across, off, press, air, dx:sp > 0.2 ? vx/sp : 0, dz:sp > 0.2 ? vz/sp : 0 };
+}
+function qbtRelTime(q, pw, B, cpu){ const C = QB_THROW.cfg; let t = (C.rel[0] + (C.rel[1] - C.rel[0])*pw)*(1 + C.relArm*(0.5 - qbtArmN(q))); if (B.cat === 'qb_off_balance') t *= 0.85; return cpu ? t*C.cpuRel : t; }
+function qbtFlightT(d, pw, thrPow){                          // the old touch arc at no power, the old bullet at full power, a real blend in between
+  const tb = fbFlightT(d, 0, 'pass'), tl = Math.min(tb*1.35 + 0.5*clamp(d/25, 0.2, 1), 3.6), k = pw*pw*(3 - 2*pw);
+  return (tl + (tb - tl)*k)/(thrPow || 1);
+}
+function qbtV(d, t, y0){ const vh = d/t, vy = (0.45 - y0 + 0.5*FB_G*t*t)/t; return Math.hypot(vh, vy); }
+function qbtTMin(d, y0){ let a = 0.12, b = 6; for (let i = 0; i < 36; i++) { const m1 = a + (b - a)*0.382, m2 = a + (b - a)*0.618; if (qbtV(d, m1, y0) < qbtV(d, m2, y0)) b = m2; else a = m1; } return (a + b)/2; }   // the flight time that needs the least arm
+function qbtReach(y0, vCap){ let lo = 1.5, hi = 120; for (let i = 0; i < 26; i++) { const m = (lo + hi)/2; if (qbtV(m, qbtTMin(m, y0), y0) <= vCap) lo = m; else hi = m; } return lo; }     // the farthest he can get it at this speed
+function qbtSolve(sx, sz, y0, tx, tz, tDes, vCap){          // keep the wanted flight time when the arm can make it; else more air; out of range = it comes down short on the same line
+  const d = Math.hypot(tx - sx, tz - sz), tm = qbtTMin(d, y0);
+  if (qbtV(d, tm, y0) > vCap) { const R = qbtReach(y0, vCap), k = R/d; return { t:qbtTMin(R, y0), tx:sx + (tx - sx)*k, tz:sz + (tz - sz)*k, short:true, reach:R }; }
+  if (qbtV(d, tDes, y0) <= vCap) return { t:tDes, tx, tz, short:false };
+  let bad = tDes, good = tm; for (let i = 0; i < 28; i++) { const m = (bad + good)/2; if (qbtV(d, m, y0) <= vCap) good = m; else bad = m; } return { t:good, tx, tz, short:false };
+}
+function qbtCanReach(q, aim, pw){ if (!q || !aim) return true; const B = qbtBody(q, aim, pw), d = Math.hypot(aim.x - q.x, aim.z - q.z); return qbtReach(2.2, qbtVCap(q, qbtPowEff(pw, B.mv), 1)) >= d - 0.5; }
+function qbtStep(dt){                                        // every live frame: the cock while you hold, the forward whip to the release frame, the follow-through
+  const s = FB.s, q = fbBy('QB'); if (!q) return; const C = QB_THROW.cfg, P = s.throwPend, A = q.qbt;
+  if (s.charging && s.ctl === q && !P && !s.thrown && s.ball.mode === 'held') {
+    const want = Math.hypot(q.vx || 0, q.vz || 0) < C.cockMaxSpd ? clamp((s.chargeF || 0)/60/C.cockS, 0, 1) : 0;
+    q.qbCk = want; q.qbPh = want; q.qbCat = q.qbCat || 'qb_medium';
+    if (s.aim) s.aimShort = !qbtCanReach(q, s.aim, qbtPower((s.chargeF || 0)/60));
+  } else if (!s.charging) s.aimShort = false;
+  if (P) {
+    if (q.down || q.tackling || q.carry || s.ball.mode !== 'held' || s.ball.h !== q) { s.throwPend = null; qbtEmit('interrupted', q); q.qbPh = 0; q.qbCk = 0; q.throwAnim = 0; q.thT = 0; if (!q.down && !q.tackling && !q.carry) q.st = 'ready'; return; }   // sacked or stripped mid-motion: nothing leaves his hand
+    q.qbPh = 1 + clamp(1 - (P.at - s.t)/Math.max(0.001, P.rel), 0, 1);
+    if (s.t >= P.at - 1e-6) qbtRelease();
+  } else if (q.qbPump > 0) { const e = 0.3 - Math.max(0, q.throwAnim || 0); q.qbPh = e < 0.15 ? 1 + 0.55*(e/0.15) : Math.max(0, 1.55*(1 - (e - 0.15)/0.15)); }   // a pump: forward half way, then back
+  else if (q.throwAnim > 0 && A && A.state === 'follow_through') q.qbPh = 2 + clamp(1 - q.throwAnim/C.fol, 0, 1);
+  else if (q.throwAnim > 0 && !A) q.qbPh = 1 + 2*clamp(1 - q.throwAnim/0.35, 0, 1);      // spikes and other quick motions: the whole throw
+  if (q.throwAnim > 0) {
+    q.throwAnim -= dt; q.st = 'throw'; const ph = q.qbPh || 0; q.thT = ph < 2 ? 0.5*clamp(ph/2, 0, 1) : 0.5 + 0.5*clamp(ph - 2, 0, 1);   // the old procedural pose follows the same phase
+    if (q.throwAnim <= 0) { q.throwAnim = 0; q.thT = 0; q.st = 'ready'; q.qbPh = 0; q.qbCk = 0; q.qbPump = 0; if (A && A.state === 'follow_through') qbtEmit('complete', q); }
+  } else if (!(s.charging && s.ctl === q) && !P) { q.qbPh = 0; q.qbCk = 0; q.qbPump = 0; }
+}
+function qbtRelease(){                                       // the release frame: the ball leaves his hand, on the path the passing game expects
+  const s = FB.s, P = s.throwPend; s.throwPend = null; if (!P) return; const q = fbBy('QB'), A = q && q.qbt;
+  if (!q || q.carry || q.down || s.thrown || s.ball.mode !== 'held' || s.ball.h !== q) { if (A) qbtEmit('interrupted', q); return; }
+  if (q.x > s.los + 0.25 || s.pastLos) { fbMsg('PAST THE LINE - NO THROW', '#ff6b6b', 70); q.throwAnim = 0; q.qbPh = 0; if (A) qbtEmit('interrupted', q); return; }
+  let aim = P.aim; if (!P.cpu && (!s.defMode || fbVs())) { const j = fbPulseJit(); aim = { x:aim.x + j.dx, z:aim.z + j.dz }; }   // the stadium pulse moves the ball off your spot
+  const B = qbtBody(q, aim, P.pw);                                                           // his body AT the release (he may have moved during the whip)
+  let sx = q.x + 0.4, sz = q.z, y0 = 2.35;                                                   // where the ball really is: in his throwing hand on this frame
+  try { const hp = fbBall.position; if (hp && Math.hypot(hp.x - q.x, hp.z - q.z) < 2.2 && hp.y > 1.1 && hp.y < 3.6) { sx = hp.x; sz = hp.z; y0 = hp.y; } } catch(e){}
+  let tx = aim.x, tz = aim.z; const d0 = Math.hypot(tx - sx, tz - sz); if (d0 < 1.0) { tx = sx + 1.5; }
+  const pwE = qbtPowEff(P.pw, B.mv);                                          // his body changes what the same input becomes: stepping in adds zip, retreating takes it off
+  const thrPow = q.ur ? q.ur.thrPow : 1, vCap = qbtVCap(q, pwE, 1), tDes = qbtFlightT(Math.hypot(tx - sx, tz - sz), pwE, thrPow);
+  const S = qbtSolve(sx, sz, y0, tx, tz, tDes, vCap); tx = S.tx; tz = S.tz; const t = S.t, d = Math.hypot(tx - sx, tz - sz);
+  { const C = fbThrowCircle(tx, tz, P.pw); s.tcirc = C ? { x:tx + C.ox, z:tz + C.oz, a:C.a, c:C.c, ang:C.ang } : null;
+    if (C) { const th = Math.random()*6.283, rr = Math.sqrt(Math.random()), ex = Math.cos(th)*rr*C.a, ez = Math.sin(th)*rr*C.c; tx += C.ox + ex*C.ux - ez*C.uz; tz += C.oz + ex*C.uz + ez*C.ux; } }   // the ball lands inside the circle
+  const vh = Math.hypot(tx - sx, tz - sz)/t, vy = (0.45 - y0 + 0.5*FB_G*t*t)/t, kind = P.pw < 0.35 ? 'lob' : 'pass';
+  s.ball = { mode:'fly', x:sx, y:y0, z:sz, vx:(tx - sx)/t, vy, vz:(tz - sz)/t, vh, D:d, t0:s.t, thrower:q, mom:0, passId:++s.passSequence, tipCount:0, contactIgnore:{}, hang:t, kind, pw:P.pw, v0:Math.hypot(vh, vy) };
+  q.hasNoBall = true; s.ctl = null; s.charging = false; s.thrown = true; s.throwT = s.t; s.land = { x:tx, z:tz }; s.tgt = { x:tx, z:tz }; s.tgtShow = fbVs() ? true : (!s.defMode || FB.diff===0 || t > 2.4); s.tutSpd = Math.hypot(q.vx, q.vz); s.aimShow = false;
+  q.st = 'throw'; q.throwAnim = QB_THROW.cfg.fol; q.qbPh = 2; q.carry = false;
+  if (A) Object.assign(A, { power_effective:pwE, factors:{ velocity:B.mv, accuracy:B.ma }, released_at:s.t, release_pos:{ x:sx, y:y0, z:sz }, v0:s.ball.v0, flight_t:t, short:S.short });
+  fbThrowCine(sx, sz, y0, vy); s.bxLbl = 'PASS';
+  let best = null, bd = 1e9;                                                                 // the target man (for coverage convergence) = nearest receiver to the landing spot
+  fbOff().forEach(o => { if (['QB','OL1','OL2','OL3','OL4','OL5'].includes(o.role) || o.down) return; const dd = Math.hypot(o.x - s.land.x, o.z - s.land.z); if (dd < bd) { bd = dd; best = o; } });
+  s.targetMan = best;
+  if (!P.cpu && !s.defMode) { (s.thist || (s.thist = [])).push({ x:tx - s.los, z:tz, who:best ? best.role : null, play:s.play ? s.play.n : '', ss:s.osig || '' }); if (s.thist.length > 8) s.thist.shift(); }
+  if (S.short && !P.cpu) fbMsg('NOT ENOUGH ON IT - IT DIES SHORT', '#ffb74a', 60);
+  fbSfx('throw'); qbtEmit('release', q);
+}
+function qbtAnimKey(p){ const c = qbtClipFor(p.qbCat || 'qb_medium', p.qbt ? p.qbt.power : 0.5); p.qbClip = c; return c ? 'dm:' + c.path : QB_THROW.legacy.key; }
+function qbtClipTime(p, dur){                                // phase 0..1 windup (cock), 1..2 forward whip, 2 = RELEASE, 2..3 follow-through -> clip time from the clip's own events
+  const c = p.qbClip, E = c ? c.events : QB_THROW.legacy.ev, ph = clamp(p.qbPh || 0, 0, 3), w0 = E.windup_start || 0, wr = E.release;
+  const wc = E.cocked != null ? E.cocked : w0 + (wr - w0)*0.6, we = E.follow_through_end != null ? E.follow_through_end : Math.min(dur, wr + 0.3);
+  return clamp(ph <= 1 ? w0 + (wc - w0)*ph : ph <= 2 ? wc + (wr - wc)*(ph - 1) : wr + (we - wr)*(ph - 2), 0, dur - 0.001);
+}
+function fbThrowCircle(ax, az, pw){      // where the ball CAN land: radius grows with distance and shrinks with QB accuracy; it stretches the way a bad QB is moving
   const s = FB.s, q = s && s.ctl; if (!q || q.role!=='QB') return null;
   if (xfHas(q, 'unshakable')) return { r:0.1, a:0.1, c:0.1, ux:1, uz:0, ox:0, oz:0, ang:0 };      // UNSHAKABLE: no warp, no spread - the circle is a dot on the spot
   const d = Math.hypot(ax-q.x, az-q.z), ovr = q.ur && q.ur.ovr!=null ? q.ur.ovr : 80, acc = clamp((ovr-50)/40, 0, 1);
   const press = fbDef().some(p => !p.down && !(p.eng && !p.free) && p.rusher && fbDist(p,q) < 3.3);
   let r = (2.6 - 2.35*acc + (0.115 - 0.105*acc)*d) * (press ? 1.6 : 1);                 // 60 OVR: huge at any range, wider the deeper he goes. 99 OVR: tiny short and deep.
   const sp = Math.hypot(q.vx||0, q.vz||0), w = clamp(sp/7, 0, 1.3) * (1 - 0.7*acc) * 1.8;   // throwing on the run: bad QBs get a stretched, shifted circle
+  { const P0 = pw != null ? pw : (s.charging ? qbtPower((s.chargeF||0)/60) : 0.5), Bq = qbtBody(q, { x:ax, z:az }, P0); r *= Bq.maC*(1 + 0.12*P0*(1 - qbtAccN(q))); }   // v139: his body and how hard he lets it go
   const ux = sp > 0.3 ? q.vx/sp : 1, uz = sp > 0.3 ? q.vz/sp : 0;
   return { r, a:r*(1+w), c:r*(1+0.15*w), ux, uz, ox:ux*r*w*0.5, oz:uz*r*w*0.5, ang:Math.atan2(-uz, ux) };
 }
-function fbThrow(aim, power, cpu, kind){
+function fbThrow(aim, power, cpu, kind, opt){              // v139: starts the throwing motion; qbtRelease() lets the ball go on the release frame
   if (FB.esc) return;
   const s = FB.s, q = s.ctl;
-  if (!q || q.role!=='QB' || q.carry || q.down || s.thrown || s.ball.mode!=='held') return;
+  if (!q || q.role!=='QB' || q.carry || q.down || s.thrown || s.throwPend || s.ball.mode!=='held') return;
   if (q.x > s.los + 0.25 || s.pastLos) { fbMsg('PAST THE LINE - NO THROW', '#ff6b6b', 70); return; }
-  s.pumpT = 0;
-  if (!cpu && (!s.defMode || fbVs())) { const j = fbPulseJit(); aim = { x:aim.x + j.dx, z:aim.z + j.dz }; }   // V46 (23h): both humans in 1v1   // the stadium pulse moves the ball off your spot                                    // a throw cuts a pump short
-  const sx = q.x, sz = q.z, y0 = 2.35;
-  let tx = aim.x, tz = aim.z, d = Math.hypot(tx-sx, tz-sz);
-  if (d < 1.5) { fbMsg('TOO CLOSE', '#ff6b6b', 40); return; }
-  kind = fbThrowKind(kind, power);                // touch (click) / bullet (hold) / lob (hold + Shift): the CPU and both humans use the same three throws
-  let t = fbFlightT(d, power, kind) / (q.ur ? q.ur.thrPow : 1);   // Ultimate Team: arm strength              // the ball always lands exactly where you aimed; the throw type only changes flight time and arc
-  let vh = d/t;
-  // accuracy: pressure and distance
-  const press = fbDef().filter(p => !p.down && !(p.eng && !p.free)).some(p => p.rusher && fbDist(p,q) < 3.3);
-  const D = FBD[FB.diff], sg = ((0.010 + 0.0035*FB.diff)*d*(press ? 1.8 : 1) + (press ? 0.4 : 0.15)) / (q.ur ? q.ur.thrAcc : 1);   // Ultimate Team: QB accuracy
-  { const C = fbThrowCircle(aim.x, aim.z); s.tcirc = C ? { x:aim.x+C.ox, z:aim.z+C.oz, a:C.a, c:C.c, ang:C.ang } : null; if (C) { const th = Math.random()*6.283, rr = Math.sqrt(Math.random()), ex = Math.cos(th)*rr*C.a, ez = Math.sin(th)*rr*C.c; tx += C.ox + ex*C.ux - ez*C.uz; tz += C.oz + ex*C.uz + ez*C.ux; } }   // the ball lands somewhere inside the circle the player sees
-  
-  const yt = 0.45, vy = (yt-y0 + 0.5*FB_G*t*t)/t, vxz = d>0 ? 1/d : 0;
-  const mvx = 0, mvz = 0;                                    // lead the receiver yourself: no momentum carry, the ball lands exactly on the aim (s.land === s.tgt)
-  s.ball = { mode:'fly', x:sx+0.4, y:y0, z:sz, vx:(tx-sx)/t+mvx, vy, vz:(tz-sz)/t+mvz, vh, D:d, t0:s.t, thrower:q, mom:Math.hypot(mvx,mvz), passId:++s.passSequence, tipCount:0, contactIgnore:{}, hang:t, kind };
-  q.hasNoBall = true; s.ctl = null; s.charging = false; s.thrown = true; s.throwT = s.t; s.land = { x:tx+mvx*t, z:tz+mvz*t }; s.tgt = { x:tx, z:tz }; s.tgtShow = fbVs() ? true : (!s.defMode || FB.diff===0 || t > 2.4); s.tutSpd = Math.hypot(q.vx,q.vz); s.aimShow = false;
-  q.thT = 0; q.st = 'throw'; q.throwAnim = 0.35; q.carry = false;
-  fbThrowCine(sx, sz, y0, vy); s.bxLbl = 'PASS';
-  // the target man (for coverage convergence) = nearest receiver to the landing spot
-  let best = null, bd = 1e9;
-  fbOff().forEach(o => { if (['QB','OL1','OL2','OL3','OL4','OL5'].includes(o.role) || o.down) return; const dd = Math.hypot(o.x-s.land.x, o.z-s.land.z); if (dd < bd) { bd = dd; best = o; } });
-  s.targetMan = best;
-  if (!cpu && !s.defMode) { (s.thist || (s.thist = [])).push({ x:tx-s.los, z:tz, who:best ? best.role : null, play:s.play ? s.play.n : '', ss:s.osig||'' }); if (s.thist.length > 8) s.thist.shift(); }
-  fbSfx('throw');
+  if (Math.hypot(aim.x - q.x, aim.z - q.z) < 1.5) { fbMsg('TOO CLOSE', '#ff6b6b', 40); return; }
+  s.pumpT = 0; q.qbPump = 0;
+  const pw = cpu ? (kind === 'away' ? 0.7 : 1) : clamp(+power || 0, 0, 1), B = qbtBody(q, aim, pw), now = !!(opt && opt.now), rel = now ? 0 : qbtRelTime(q, pw, B, cpu);
+  const ck = q.qbCk || 0, legacy = QB_THROW.legacy;
+  q.qbCat = B.cat; q.qbt = { id:++QB_THROW.seq, category:B.cat, state:'windup_forward', power:pw, label:qbtLabel(pw), move:{ x:B.dx, z:B.dz, speed:B.sp }, factors:{ velocity:B.mv, accuracy:B.ma },
+    release_t:rel, release_norm:null, blend_s:legacy.blend_in_s, root:{ dx:(q.vx||0)*(rel + QB_THROW.cfg.fol), dz:(q.vz||0)*(rel + QB_THROW.cfg.fol) }, cock:ck, t0:s.t, cpu:!!cpu };
+  q.qbt.release_norm = (rel + 1e-6)/(rel + QB_THROW.cfg.fol);
+  s.throwPend = { aim:{ x:aim.x, z:aim.z }, pw, cpu:!!cpu, at:s.t + rel, rel };
+  q.st = 'throw'; q.throwAnim = rel + QB_THROW.cfg.fol; q.qbPh = Math.max(1, ck); q.thT = 0;
+  qbtEmit('start', q);
+  if (now) qbtRelease();
 }
 function fbBallStep(dt){
   const s = FB.s, b = s.ball, D = FBD[FB.diff];
@@ -20502,7 +20620,7 @@ function fbLobbyWalkDraw(g){
 
   if (PV2.state==='ready') T('MODELS: PLAYER BLAKEALLEN25 - HELMET EXODUSKS - CLEATS LISENHAO - TROPHY G_BORY32 (SKETCHFAB, CC BY 4.0)', 160, 176.6, '#5d6a8f', 2.1, 'center');
   try { onlPanelDraw(g); } catch(e){ console.error('onl', e); }
-  T('BUILD v138',314,174,'#8fa0cc',4,'right'); { const us = uoStatus(); if (us) T(us, 6, 174, UO.state==='off' ? '#ff8b7b' : '#6f7ea8', 3, 'left'); }
+  T('BUILD v139',314,174,'#8fa0cc',4,'right'); { const us = uoStatus(); if (us) T(us, 6, 174, UO.state==='off' ? '#ff8b7b' : '#6f7ea8', 3, 'left'); }
 }
 /* ===================== WHO'S ONLINE: a live list in the lobby (signed-in players + what they are doing), chat and party invites.
    Anything sent to you pops up as a small red note in the top corner, wherever you are in the game. ===================== */
@@ -22141,8 +22259,8 @@ function fbFoulWatch(dt){                                // off: no roughing cal
   if (Math.random() < 0.22) { s.foul = { n:'ROUGHING THE PASSER', on:'D', yds:15, autoFirst:true, keepResult:true, info:'15 YARDS  -  AUTOMATIC FIRST DOWN', by:d.role }; q.stun = 0.5; q.recoilT = 0.35; q.recoilDir = d.z > q.z ? -1 : 1; s.shake = 4; fbSfx('hit'); fbMsg('LATE HIT ON THE QB!', '#ffd24a', 50); }
 }
 function fbPumpFake(){                                   // a quick tap / double click / R: a pump. Zone defenders near the fake bite for a beat, less each time
-  const s = FB.s, q = s.ctl; if (FB.scr!=='live' || !q || q.role!=='QB' || q.carry || s.thrown || s.ball.mode!=='held' || s.pumpT > 0 || s.pastLos) return;
-  s.pumpT = 0.42; q.throwAnim = 0.3; q.st = 'throw'; q.thT = 0; s.pumpN = (s.pumpN|0) + 1; fbSfx('tick');
+  const s = FB.s, q = s.ctl; if (FB.scr!=='live' || !q || q.role!=='QB' || q.carry || s.thrown || s.throwPend || s.ball.mode!=='held' || s.pumpT > 0 || s.pastLos) return;
+  s.pumpT = 0.42; q.throwAnim = 0.3; q.st = 'throw'; q.thT = 0; q.qbPump = 1; q.qbt = null; q.qbCat = 'qb_medium'; s.pumpN = (s.pumpN|0) + 1; fbSfx('tick');
   const aim = s.aim || { x:q.x+15, z:q.z }; let bit = 0;
   fbDef().forEach(d => { if (d.down || d.rusher || d.pumped || (d.eng && !d.free)) return; const cv = d.cover; if (!cv || (cv.man && Math.random() < 0.6)) return;
     if (Math.hypot(aim.x-d.x, aim.z-d.z) > 14) return;
@@ -22176,7 +22294,7 @@ function fbThrowAway(){                                  // X: get rid of it. Fr
   if (inPocket && !nearRec) {                                                          // FIX: grounding from the pocket = a sack (the only flag in this game stays delay of game)
     s.thrown = true; s.ctl = null; s.charging = false; q.throwAnim = 0.35; q.st = 'throw'; q.thT = 0;
     fbEnd({ type:'sack', x:q.x, label:'INTENTIONAL GROUNDING  -  LOSS OF '+Math.max(0,Math.round(s.los-q.x))+' YARDS' }); return; }
-  fbThrow({ x:tx, z:tz }, 0.55);
+  fbThrow({ x:tx, z:tz }, 0.7, false, 'away', { now:true });
   if (!s.thrown) return;
   fbMsg('THROWN AWAY', '#ffd24a', 60);
 }
@@ -22809,8 +22927,8 @@ function fbStep(){
   else if (sc==='live' && s.intFz > 0) { s.intFz -= 1/60; if (s.intFz <= 0) s.intFz = 0; fbRigs.forEach(p => { p.anim += 0.01; }); }
   else if (sc==='live') {
     // charging a throw
-    if (s.charging) { s.chargeF = (s.chargeF||0)+1; s.charge = clamp(0.12 + s.chargeF/75, 0, 1); }
-    if (FB.tapPending && !FB.tapPending.guest && performance.now() - FB.tapPending.at >= 260) { const tp = FB.tapPending; FB.tapPending = null; if (!s.thrown && !s.charging) fbThrow(tp.p, 0.6, false, 'lob'); }   // the short click: the lob goes
+    if (s.charging) { s.chargeF = (s.chargeF||0)+1; s.charge = qbtPower(s.chargeF/60); }
+    if (FB.tapPending && !FB.tapPending.guest && performance.now() - FB.tapPending.at >= 200) { const tp = FB.tapPending; FB.tapPending = null; if (!s.thrown && !s.charging) fbThrow(tp.p, qbtPower(tp.h||0), false, 'lob'); }   // the short click: the lob goes
     if (s.tutMode) fbTutTick();
     if (!s.defMode && s.ctl && s.ctl.role==='QB' && !s.thrown && s.hover) {
       const g = fbRay(s.hover.px, s.hover.py, 0.01);
@@ -23084,7 +23202,7 @@ function fbLobbyDraw(g){
   if (PARTY.npc && !PARTY.on) T(PARTY.npc.name+' SUITS UP AS YOUR W1',160,55,'#7ddc8a',5,'center');
   fbBtn(g,'lobbyback',6,5,76,12,'< BACK TO THE FIELD',{size:4.6});
   fbBtn(g,'party',6,19,76,10,PARTY.on ? 'PARTY  '+PARTY.code.toUpperCase() : 'PLAY WITH A FRIEND',{size:4.4,line:'#7ddc8a',tc:'#c9f7d0'});
-  T('BUILD v138',314,174,'#8fa0cc',4,'right');   // so you can tell which build is live
+  T('BUILD v139',314,174,'#8fa0cc',4,'right');   // so you can tell which build is live
   fbBtn(g,'tut',100,141,58,13,'TUTORIAL',{size:5,line:'#ffd24a',tc:'#ffe9a8'}); fbBtn(g,'howlobby',162,141,58,13,'HOW TO PLAY',{size:4.4,line:'#ffd24a',tc:'#ffe9a8'});
   fbBtn(g,'shop',6,141,90,13,'PLAY SHOP',{size:5.5,line:'#7ddc8a',tc:'#c9f7d0'});
   fbBtn(g,'stats',224,141,90,13,'MY STATS',{size:5.5,line:'#6fd0ff',tc:'#cfeeff'});
@@ -23154,7 +23272,7 @@ function fbLiveDraw(g){
       const mx = hov.px*W, my = hov.py*H;
       fbPanel(g,mx+8,my-14,6,28,0.7);
       const f = s.charging ? s.charge : 0; g.fillStyle = f>0.8 ? '#ff5a4a' : f>0.5 ? '#ffd24a' : '#7ddc8a'; g.fillRect(mx+9,my+13-26*f,4,26*f);
-      T(s.aimBehind ? 'BEHIND HIM' : 'PASS',mx+17,my-3,s.aimBehind ? '#ffb020' : '#fff',5,'left');
+      T(s.aimBehind ? 'BEHIND HIM' : s.charging ? (s.aimShort ? 'MORE POWER' : qbtLabel(s.charge||0)) : 'PASS',mx+17,my-3,s.aimBehind || s.aimShort ? '#ffb020' : '#fff',5,'left');
     }
 
   } else if (s.ctl && s.ctl.carry) {
@@ -23440,7 +23558,7 @@ document.getElementById('game').addEventListener('pointerdown', e => {
     s.hover = { px, py };
     if (s.ctl && s.ctl.role==='QB' && !s.thrown && !s.ctl.carry) {
       if (s.pastLos) { fbMsg('PAST THE LINE - NO THROW','#ff6b6b',60); return; }
-      if (FB.tapPending && performance.now() - FB.tapPending.at < 260) { FB.tapPending = null; fbPumpFake(); return; }   // a double click: pump fake
+      if (FB.tapPending && performance.now() - FB.tapPending.at < 200) { FB.tapPending = null; fbPumpFake(); return; }   // a double click: pump fake
       s.charging = true; s.chargeF = 0; s.charge = 0; s.aimShow = true;
     }
   }
@@ -23463,7 +23581,7 @@ window.addEventListener('pointerup', e => {
   if (FBN.on && FBN.role==='guest') { fbnGuestUp(); return; }
   if (FB.scr==='live' && s.charging) {
     s.charging = false; const p = s.hover ? fbRay(s.hover.px, s.hover.py, 1.0) : null;
-    if (p) { if ((s.chargeF||0) < 12) FB.tapPending = { p, at:performance.now() }; else fbThrow(p, 0.6, false, 'pass'); } s.aimShow = false;   // a short click lobs it (after a beat, in case a second click makes it a pump fake)
+    const hS = (s.chargeF||0)/60; if (p) { if ((s.chargeF||0) < 12) FB.tapPending = { p, at:performance.now(), h:hS }; else fbThrow(p, qbtPower(hS), false, 'pass'); } s.aimShow = false;   // v139: how long you held = how hard he throws it   // a short click lobs it (after a beat, in case a second click makes it a pump fake)
   }
 }, true);
 function fbDrawPt(x,y){
@@ -24340,7 +24458,7 @@ function fbCpuQB(q, dt){
     fbThrow({ x:best.pred.x + fbGauss()*nz, z:best.pred.z + fbGauss()*nz }, best.P, true);
   } else if (pd < 2.3 || (timeUp && s.t > (qk ? 2.2 : 3.0)) || (pressured && sacked > 0)) {
     const sd = q.z >= 0 ? 1 : -1;
-    fbThrow({ x:q.x+4, z:sd*(FB_Z+3) }, 0.4, true);                               // throw it away
+    fbThrow({ x:q.x+4, z:sd*(FB_Z+3) }, 0.4, true, 'away');                               // throw it away
   }
   return out;
 }
@@ -26295,7 +26413,7 @@ function fbBallInHands(h){
     }
   }
   const A=rg&&rg.arms;if(!A||!A[0]||!A[0].el)return;rg.root.updateMatrixWorld(true);const S=rg.S||0.47;A[0].el.localToWorld(_fbH1.set(0,-0.84,0));
-  const two=(h.role==='QB'&&!h.carry&&h.st!=='throw')||h.catchT>0;if(two){A[1].el.localToWorld(_fbH2.set(0,-0.84,0));fbBall.position.copy(_fbH1).add(_fbH2).multiplyScalar(0.5);fbBall.rotation.set(0,h.face,0.15);return;}
+  const two=(h.role==='QB'&&!h.carry&&h.st!=='throw'&&!(h.qbPh>0))||h.catchT>0;if(two){A[1].el.localToWorld(_fbH2.set(0,-0.84,0));fbBall.position.copy(_fbH1).add(_fbH2).multiplyScalar(0.5);fbBall.rotation.set(0,h.face,0.15);return;}
   A[0].el.localToWorld(_fbE.set(0,-0.2,0));const dir=_fbH1.clone().sub(_fbE);dir.normalize();if(h.st==='throw'){fbBall.position.copy(_fbH1).addScaledVector(dir,0.06*S/0.47);fbBall.rotation.set(0,h.face,0.9);return;}fbBall.position.copy(_fbH1).addScaledVector(dir,-0.16*S/0.47);_fbQ.setFromUnitVectors(_fbX,dir);fbBall.quaternion.copy(_fbQ);
 }
 // ---- the CPU learns your plays (route jumping) and your pass rush (keeps backs in to block)
@@ -26616,8 +26734,8 @@ function fbHandoffDenied(q){
 const FBN = { on:false, role:null, mode:'coop', room:null, peer:null, offs:[], gk:{}, evq:[], es:0, lastEs:0, gcall:null, gplay:null, hcall:null, hplay:null, rsel:'W1',
               fr:0, sn:0, rn:-1, fxq:[], fxId:0, fxSeen:null, rv:0, rsend:0, dlT:null, lastSc:'', lastRx:0, lastSend:0, mask:-1, gone:false, lost:false, msg:'', kt:0, ea:0 };
 const FBN_SKIP = new Set(['pg','motion','hwg','tab','sel','custom','hover','aim','aimShow','aimOk','aimBehind','charging','charge','chargeF','wantDive','wantJuke','wantStiff','wantTackle','gTackle','defMode','dcall','fourth','fourthSel','tutMode','tut','learnL','dh','lastCpuPlay','cpuScr','phase','utClaimed','utVs','utPaid','utWhy','utXp','utWL','utWager','utGid','paid','gpaid']);   // the guest's own payout state must never be overwritten by the host's
-const FBN_RN = ['x','z','vx','vz','face','anim','fall','thT','catchT','jumpT','recoilT','recoilDir','shedT','breakT','lungeT','lungeDir','fallRoll','turn','acc','ri','stun','reachT','fallTo','blk','diveT','hopU','stiffT','secureUntil','landingT','catchRecoveryT','catchDiveT','catchDiveCd','swimCd','burstT','fbHitUntil','fbTackleUntil','fbCatchStopAt','secureWindow','catchDuration','catchJumpDuration','catchJumpHeight','catchJumpCd','catchLandingStumbleT','fxx','fxy','fxz','fxn','fbFxUntil','xfa','uoUntil','uoDur'];   // x and z MUST stay first: the replay and the guest read them by index
-const FBN_RS = ['st','tkType','catchKind','cele','fbHitClip','fbTackleClip','fxh','uoK'];
+const FBN_RN = ['x','z','vx','vz','face','anim','fall','thT','catchT','jumpT','recoilT','recoilDir','shedT','breakT','lungeT','lungeDir','fallRoll','turn','acc','ri','stun','reachT','fallTo','blk','diveT','hopU','stiffT','secureUntil','landingT','catchRecoveryT','catchDiveT','catchDiveCd','swimCd','burstT','fbHitUntil','fbTackleUntil','fbCatchStopAt','secureWindow','catchDuration','catchJumpDuration','catchJumpHeight','catchJumpCd','catchLandingStumbleT','fxx','fxy','fxz','fxn','fbFxUntil','xfa','uoUntil','uoDur','qbPh'];   // x and z MUST stay first: the replay and the guest read them by index
+const FBN_RS = ['st','tkType','catchKind','cele','fbHitClip','fbTackleClip','fxh','uoK','qbCat'];
 const FBN_RF = ['carry','hasNoBall','down','tackling','diving','getUp','blockContact','uoHold'];
 const fbnR = v => Math.round(v*100)/100;
 const fbnBy = r => r ? fbBy(r) : null;
@@ -26625,7 +26743,7 @@ const fbnIsHost = () => FBN.on && FBN.role==='host';
 const fbnIsGuest = () => FBN.on && FBN.role==='guest';
 function fbMain(){ if (FBN.on && FBN.role==='guest') fbnGuestStep(); else { fbStep(); if (FBN.on) fbnHostTick(); } }
 function fbVs(){ return !!(FBN.on && FBN.mode==='vs'); }
-function fbFlip(){ return false; }     // v138: one camera for everyone - behind the offense, on offense AND defense, solo, co-op and online (the same view the online 1v1 uses)
+function fbFlip(){ return false; }     // v139: one camera for everyone - behind the offense, on offense AND defense, solo, co-op and online (the same view the online 1v1 uses)
 function fbDirNow(){ const s = FB.s; return (fbFlip() || (s && s.turn)) ? -1 : 1; }      // after a turnover everyone sees the field from the other end
 function fbVsFix(t){                                                          // drive-screen text is written once (tokens) and read per player
   if (typeof t!=='string' || t.indexOf('{')<0) return t; const g = FBN.role==='guest', on = fbnOtherName();
@@ -26767,7 +26885,7 @@ function fbnHostEv(e){
   else if (e.n==='pick') { const d = fbBy(e.r); if (d && d.side==='D' && d!==s.dctl && !d.down && (s.gdc || FBN.mode)) { if (s.gdc) { s.gdc.tkWin = 0; s.gdc.dashT = 0; } s.gdc = d; d.tkWin = 0; d.dashT = 0; } }
   else if (e.n==='pickO') { const p = fbBy(e.r); if (fbnGuestOff() && sc==='live' && s.turn && p && p.side==='O' && !p.down) { s.ctl = p; p.auto = false; p.route = null; } }
   else if (e.n==='cd') { if (fbnGuestOff() && sc==='live' && s.ctl && s.ctl.role==='QB' && !s.thrown && !s.ctl.carry) { if (s.pastLos) fbMsg('PAST THE LINE - NO THROW','#ff6b6b',60); else { s.charging = true; s.chargeF = 0; s.charge = 0; } } }
-  else if (e.n==='cu') { if (s.charging && fbnGuestOff()) { s.charging = false; fbThrow({ x:e.x, z:e.z }, 0.6, false, e.k === 'touch' ? 'lob' : 'pass'); } }   // the guest's throws: a tap lobs, a hold is the bullet: hold time is still measured here (cd -> cu)
+  else if (e.n==='cu') { if (s.charging && fbnGuestOff()) { const hS = (typeof e.h === 'number' && isFinite(e.h)) ? clamp(e.h, 0, 3) : (s.chargeF||0)/60; s.charging = false; fbThrow({ x:e.x, z:e.z }, qbtPower(hS), false, e.k === 'touch' ? 'lob' : 'pass'); } }   // the guest's throws: a tap lobs, a hold is the bullet: hold time is still measured here (cd -> cu)
   else if (e.n==='toss') { if (fbnGuestOff() && sc==='live') { s.charging = false; fbThrowAway(); } }
   else if (e.n==='pump') { if (fbnGuestOff() && sc==='live') { s.charging = false; if (typeof e.x==='number' && typeof e.z==='number') s.aim = { x:e.x, z:e.z }; fbPumpFake(); } }
   else if (e.n==='act') fbnHostAct(e);
@@ -26959,8 +27077,8 @@ function fbnGuestStep(){
   if (b && b.mode==='fly') { b.x += b.vx/60; b.y += b.vy/60; b.z += b.vz/60; b.vy -= FB_G*(b.tipped?FB_TIP_G:1)/60; }
   if (sc==='pre') s.preT += 1/60; else if (sc==='drive' || sc==='half') s.driveT = (s.driveT||0)+1; else if (sc==='over') s.overT = (s.overT||0)+1;
   if (sc==='live') {
-    if (s.charging) { s.chargeF = (s.chargeF||0)+1; s.charge = clamp(0.12 + s.chargeF/75, 0, 1); }
-    if (FB.tapPending && FB.tapPending.guest && performance.now() - FB.tapPending.at >= 260) { const tp = FB.tapPending; FB.tapPending = null; fbnEv({ n:'cu', x:fbnR(tp.p.x), z:fbnR(tp.p.z), k:'touch' }); }   // the guest's short click: the touch pass goes
+    if (s.charging) { s.chargeF = (s.chargeF||0)+1; s.charge = qbtPower(s.chargeF/60); }
+    if (FB.tapPending && FB.tapPending.guest && performance.now() - FB.tapPending.at >= 200) { const tp = FB.tapPending; FB.tapPending = null; fbnEv({ n:'cu', x:fbnR(tp.p.x), z:fbnR(tp.p.z), k:'touch', h:fbnR(tp.h||0) }); }   // the guest's short click: the touch pass goes
     if (!s.defMode && FBN.mode==='vs' && s.ctl && s.ctl.role==='QB' && !s.thrown && s.hover) {
       const g = fbRay(s.hover.px, s.hover.py, 0.01);
       if (g) { s.aim = g; s.aimShow = !s.carrier || !s.carrier.carry; s.aimOk = !s.pastLos && s.ctl.x <= s.los+0.25; s.aimBehind = fbAimBehind(s.aim); }
@@ -27047,7 +27165,7 @@ function fbnGuestPtr(px,py,sc){
     if (s.defMode) { fbDefPickAt(px,py); return; }
     if (FBN.mode==='vs' && s.ctl && s.ctl.role==='QB' && !s.thrown && !s.ctl.carry) {
       if (s.pastLos) { fbMsg('PAST THE LINE - NO THROW','#ff6b6b',60); return; }
-      if (FB.tapPending && FB.tapPending.guest && performance.now() - FB.tapPending.at < 260) { const tp = FB.tapPending; FB.tapPending = null; fbnEv({ n:'pump', x:fbnR(tp.p.x), z:fbnR(tp.p.z) }); return; }   // a double click: pump fake
+      if (FB.tapPending && FB.tapPending.guest && performance.now() - FB.tapPending.at < 200) { const tp = FB.tapPending; FB.tapPending = null; fbnEv({ n:'pump', x:fbnR(tp.p.x), z:fbnR(tp.p.z) }); return; }   // a double click: pump fake
       s.charging = true; s.chargeF = 0; s.charge = 0; s.aimShow = true; fbnEv({ n:'cd' });
     }
   }
@@ -27055,7 +27173,7 @@ function fbnGuestPtr(px,py,sc){
 function fbnGuestUp(){
   const s = FB.s; if (FB.scr!=='live' || !s.charging) return;
   s.charging = false; const p = s.hover ? fbRay(s.hover.px, s.hover.py, 1.0) : null; s.aimShow = false;
-  if (p) { if ((s.chargeF||0) < 12) FB.tapPending = { p, at:performance.now(), guest:true }; else fbnEv({ n:'cu', x:fbnR(p.x), z:fbnR(p.z), k:'pass' }); }   // a short click waits a beat (a second click makes it a pump fake), a hold is a bullet, hold + Shift a lob
+  const hS = (s.chargeF||0)/60; if (p) { if ((s.chargeF||0) < 12) FB.tapPending = { p, at:performance.now(), guest:true, h:hS }; else fbnEv({ n:'cu', x:fbnR(p.x), z:fbnR(p.z), k:'pass', h:fbnR(hS) }); }   // v139: the hold time goes with it (the host turns it into power)   // a short click waits a beat (a second click makes it a pump fake), a hold is a bullet, hold + Shift a lob
 }
 
 /* ---------------------------------------------------------------- shared */
