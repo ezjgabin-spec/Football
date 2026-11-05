@@ -19429,10 +19429,10 @@ function fbTackleStep(dt){
   // scoring / bounds
   if (!turn) {
     if (car.x >= FB_GOAL) { fbEnd({ type:'td', x:FB_GOAL }); return; }
-    if (Math.abs(car.z) >= FB_Z-0.1 && car.x > s.los-8) { fbEnd({ type:'oob', x:car.x }); return; }
+    if (Math.abs(car.z) >= FB_Z-0.25 && car.x > s.los-8) { fbEnd({ type:'oob', x:car.x }); return; }   // a foot on the white sideline = out
   } else {
     if (car.x <= 10) { fbEnd({ type:'pick6', x:10 }); return; }
-    if (Math.abs(car.z) >= FB_Z-0.1) { fbEnd({ type:'turnoob', x:car.x }); return; }
+    if (Math.abs(car.z) >= FB_Z-0.25) { fbEnd({ type:'turnoob', x:car.x }); return; }
   }
   if (car.possT > 0) { fbPossStep(car, dt); return; }
   if (car.slid && car.diveT > 0) return;                         // a sliding QB gave himself up
@@ -20227,16 +20227,16 @@ function fbLobbyWalkDraw(g){
   const av = FB.lobbyAv; if (!av) return; const t = performance.now()/1000;
   g.fillStyle = 'rgba(4,8,18,.5)'; g.fillRect(0,0,W,28);
   uiMark(g,'ULTIMATE FOOTBALL',160,10,12,'#ffffff','center',-0.04);
-  T('WALK ONTO A PAD TO GO',160,22,'#ffd24a',4,'center');
+
   if (PARTY.on) { fbPanel(g,4,4,86,12,0.7); T('PARTY  '+PARTY.code.toUpperCase()+(PARTY.other ? '  WITH '+fbnOtherName() : '  WAITING'),8,7.4,'#7ddc8a',3.6,'left'); }
   const list = FB_LPADS.map(d => { const [px,py,pz] = fbProj(d.x, 0.5, d.z); return { d, px, py, pz, dist:Math.hypot(av.x-d.x, av.z-d.z) }; }).filter(o => o.pz < 1 && o.px > -30 && o.px < W+30).sort((a,b) => b.pz - a.pz);
   list.forEach(o => { const d = o.d, ok = fbLobbyPadOk(d), near = FB.lobbyNear===d.id, sub = (near || o.dist < 13) ? fbLobbyPadSub(d) : '', w = Math.max(d.name.length*4.1, sub.length*3.1) + 10, h = sub ? 17 : 11, x = clamp(o.px - w/2, 2, W-w-2), y = clamp(o.py - h - 5 - (near ? 2 : 0), 32, H-30);
     g.globalAlpha = ok ? 1 : 0.6; uiPanel(g,x,y,w,h,{ r:3, line:ok ? d.col : '#5b6485' });
     T(d.name, x+w/2, y+2.4, ok ? '#ffffff' : '#9aa3bd', 4.6, 'center'); if (sub) T(sub, x+w/2, y+10, ok ? d.col : '#7a82a0', 3.1, 'center'); g.globalAlpha = 1; });
   if (FB.lobbyDwell > 0 && FB.lobbyNear) { const d = FB_LPADS.find(q => q.id===FB.lobbyNear); if (d) { fbPanel(g,100,150,120,12,0.8); g.fillStyle = 'rgba(255,255,255,.18)'; g.fillRect(104,159,112,2); g.fillStyle = d.col; g.fillRect(104,159,112*clamp(FB.lobbyDwell/0.55,0,1),2); T('GOING TO  '+d.name,160,152.4,'#ffffff',4.2,'center'); } }
-  fbPanel(g,56,164,208,12,0.6); T('WASD WALK     SHIFT RUN     STEP ON A GLOWING PAD',160,167,'#cfd8f4',4.4,'center');
+
   if (PV2.state==='ready') T('MODELS: PLAYER BLAKEALLEN25 - HELMET EXODUSKS - CLEATS LISENHAO - TROPHY G_BORY32 (SKETCHFAB, CC BY 4.0)', 160, 176.6, '#5d6a8f', 2.1, 'center');
-  T('BUILD v130',314,174,'#8fa0cc',4,'right'); { const us = uoStatus(); if (us) T(us, 6, 174, UO.state==='off' ? '#ff8b7b' : '#6f7ea8', 3, 'left'); }
+  T('BUILD v131',314,174,'#8fa0cc',4,'right'); { const us = uoStatus(); if (us) T(us, 6, 174, UO.state==='off' ? '#ff8b7b' : '#6f7ea8', 3, 'left'); }
 }
 /* ---------------------------------------------------------------- ULTIMATE TEAM: hub, collection, cards (packs come in the next stage) */
 const UT_KEY = 'blacktop_ut_v1';
@@ -21111,7 +21111,7 @@ function utStats(g,x){
   T('RARITY  '+UT_RARS.map(r => r.slice(0,3)+' '+(rc[r]||0)).join('  '), x+8, 64, '#cfd8f4', 3.3, 'left');
   T('TIERS  '+UT_TIER.slice(1).map(t => t+' '+(tc[t]||0)).join('  '), x+8, 76, '#cfd8f4', 3.3, 'left');
   { const st = utSrv.stats || { wins:0, losses:0, ties:0, pf:0, pa:0 }; T('ONLINE  W '+st.wins+'  L '+st.losses+'  T '+st.ties+'   PF '+st.pf+'  PA '+st.pa, x+8, 82, '#cfd8f4', 3.3, 'left'); }
-  T('COINS  '+utSrv.coins, x+8, 88, '#ffd24a', 4, 'left'); T('ACCOUNT  '+(utSrv.user||'').toUpperCase(), x+8, 100, '#cfd8f4', 3.6, 'left'); if (fbDevOn()) { fbCheck(g, x+8+(9+String(utSrv.user||'').length)*2.35+4, 101.8, 2.6); T('DEV', x+8, 107, '#8fd0ff', 2.8, 'left'); }
+  T('COINS  '+utSrv.coins, x+8, 88, '#ffd24a', 4, 'left'); T('ACCOUNT  '+(utSrv.user||'').toUpperCase(), x+8, 100, '#cfd8f4', 3.6, 'left'); if (fbDevOn()) { fbCheck(g, x+8+(9+String(utSrv.user||'').length)*3.6+4, 101.8, 2.6); T('DEV', x+8, 107, '#8fd0ff', 2.8, 'left'); }
   fbBtn(g,'utsignout',x+8,130,97,13,'SIGN OUT',{size:4.2,line:'#ff6b6b'});
 }
 function utCollection(g,x){
@@ -21234,9 +21234,11 @@ function utLgTeamOvr(id, div){ const ti = UT_LG.teams.findIndex(t => t[0] === id
 function utLgName(id){ return id === 'YOU' ? String(utSrv.user || 'YOU').toUpperCase().slice(0,8) : id; }
 function utLgFull(id){ const t = UT_LG.teams.find(q => q[0] === id); return t ? t[1]+' '+t[2] : String(utSrv.user || 'YOU').toUpperCase(); }
 function utLgGauss(){ return (Math.random()+Math.random()+Math.random()+Math.random()-2)*1.7; }
-function utLgSim(oa, ob){
-  let a = Math.round(23 + (oa-ob)*1.3 + utLgGauss()*7), b = Math.round(23 - (oa-ob)*1.3 + utLgGauss()*7); a = Math.max(0, Math.min(63, a)); b = Math.max(0, Math.min(63, b));
-  if (a === b) { if (oa >= ob) a += 3; else b += 3; } return [a, b];
+function utWinProb(oa, ob){ return 1/(1 + Math.exp(-(oa-ob)/7)); }           // a 7-point rating gap is about a 73% favourite, 15 points about 89%
+function utLgSim(oa, ob, frac){                                    // one game (or the rest of one, frac = how much of it is left): each side's scoring rate comes from the rating gap
+  const f = frac == null ? 1 : Math.max(0, Math.min(1, frac)), mu = 23*f, sd = 7*Math.sqrt(f);
+  let a = Math.round(mu + (oa-ob)*1.3*f + utLgGauss()*sd), b = Math.round(mu - (oa-ob)*1.3*f + utLgGauss()*sd); a = Math.max(0, Math.min(63, a)); b = Math.max(0, Math.min(63, b));
+  if (frac == null && a === b) { if (Math.random() < utWinProb(oa, ob)) a += 3; else b += 3; } return [a, b];
 }
 function utLgRounds(ids){            // the circle method: every team plays a different team every week
   const n = ids.length, arr = ids.slice(), rounds = [];
@@ -21356,6 +21358,11 @@ function utLgSnap(id, div){      // a league team as a saved-team snapshot, so t
   const ti = UT_LG.teams.findIndex(t => t[0] === id), R = utLgRoster(ti, div), lineup = {}, lines = {}; Object.keys(R).forEach(sl => { if (R[sl].line) lines[sl] = R[sl].line; else lineup[sl] = R[sl]; });
   return { user:id, lineup, lines, jersey:id, xf:{} };
 }
+function utSeasonSimWeek(){                             // SIM instead of playing: your team's rating against theirs decides it, same odds as every other game in the league
+  const S = utSeasonGet(); if (!S || (FB.ut && FB.ut.busy)) return; const opp = utSeasonOpp(S); if (!opp) return;
+  const [pf, pa] = utLgSim(utLgYouOvr(), utLgTeamOvr(opp, S.div)); utSeasonApply(S, pf > pa, pf, pa); utSeasonSave(S).then(() => { try { utSeasonRewards(S); } catch(e){} });
+  if (FB.ut) { FB.ut.msg = 'SIMMED: '+(pf > pa ? 'WIN ' : 'LOSS ')+pf+'-'+pa+' VS '+opp; FB.ut.msgT = 0; }
+}
 function utSeasonPlay(){
   const S = utSeasonGet(); if (!S) return; const opp = utSeasonOpp(S); if (!opp) return;
   if (FB.ut && FB.ut.busy) return; FB.seasonNext = { opp, div:S.div, no:S.no }; fbUtClose(); fbAct('play');
@@ -21377,7 +21384,7 @@ function utSeasonScreen(g){
   rows.forEach(([id,i0], i) => { const r = S.rec[id], y = 32.5 + i*8, me = id === 'YOU', inPo = po && S.po && S.po.games.some(q => q.a === id || q.b === id);
     if (me) { g.fillStyle = 'rgba(255,138,216,.25)'; g.fillRect(6, y-1, 164, 7.4); }
     if (i0 === UT_LG.playoffTeams) { g.fillStyle = 'rgba(255,255,255,.5)'; g.fillRect(6, y-1.6, 164, 0.6); }
-    T(String(i0+1), 8, y, i0 < UT_LG.playoffTeams ? '#ffffff' : '#7fa6c4', 2.6, 'left'); T(utLgName(id), 18, y, me ? '#ff8ad8' : '#ffffff', 2.6, 'left'); if (me && fbDevOn()) fbCheck(g, 18+utLgName(id).length*1.9+3, y+1.6, 1.9); T(r.w+'-'+r.l+(r.t ? '-'+r.t : ''), 98, y, '#ffffff', 2.6, 'left'); T(r.pf+'-'+r.pa, 168, y, '#cfd8f4', 2.4, 'right'); });
+    T(String(i0+1), 8, y, i0 < UT_LG.playoffTeams ? '#ffffff' : '#7fa6c4', 2.6, 'left'); T(utLgName(id), 18, y, me ? '#ff8ad8' : '#ffffff', 2.6, 'left'); if (me && fbDevOn()) fbCheck(g, 18+utLgName(id).length*2.6+2.4, y+1.6, 1.9); T(r.w+'-'+r.l+(r.t ? '-'+r.t : ''), 98, y, '#ffffff', 2.6, 'left'); T(r.pf+'-'+r.pa, 168, y, '#cfd8f4', 2.4, 'right'); });
   const ox = 178, opp = utSeasonOpp(S);
   uiPanel(g,ox,24,138,70,{ r:3 });
   if (done) { T(S.champ === 'YOU' ? 'SUPER BOWL CHAMPIONS!' : 'CHAMPIONS', ox+69, 28, '#ffd24a', 3.6, 'center'); T(utLgFull(S.champ), ox+69, 37, '#ffffff', 3.2, 'center');
@@ -21386,7 +21393,7 @@ function utSeasonScreen(g){
   else if (opp) { const yo = utLgYouOvr(), oo = utLgTeamOvr(opp, S.div);
     T(po ? utPoRound(S) : 'WEEK '+(S.week+1), ox+69, 28, '#ffd0f0', 3.4, 'center'); T('VS '+utLgFull(opp), ox+69, 36, '#ffffff', 3, 'center');
     T('YOU '+yo, ox+34, 46, '#9ee8ff', 4, 'center'); T('THEM '+oo, ox+104, 46, oo > yo ? '#ff8b7b' : '#9ee8ff', 4, 'center');
-    fbBtn(g,'utsplay',ox+9,58,120,16,po ? 'PLAY '+utPoRound(S) : 'PLAY WEEK '+(S.week+1),{size:4.6,on:true,col:'#ff8ad8'});
+    fbBtn(g,'utsplay',ox+9,58,76,16,po ? 'PLAY '+utPoRound(S) : 'PLAY WEEK '+(S.week+1),{size:3.8,on:true,col:'#ff8ad8'}); fbBtn(g,'utssimw',ox+89,58,40,16,'SIM  '+Math.round(utWinProb(yo, oo)*100)+'%',{size:3.2,col:'#9ee8ff'});
     { const st = fbStyleOf(opp); T('SCOUTING '+opp+':', ox+69, 77, '#9ed3ee', 2.6, 'center'); utWrap(utStyleLabel(st), 34).slice(0,2).forEach((ln,i) => T(ln, ox+69, 82.5+i*4.6, '#ffd0f0', 2.5, 'center')); } }
   else { T('YOU ARE OUT', ox+69, 32, '#ff8b7b', 4, 'center'); fbBtn(g,'utssim',ox+9,50,120,14,'SIM THE REST',{size:4.2,col:'#ff8ad8'}); }
   uiPanel(g,ox,98,138,66,{ r:3 }); T(po ? 'BRACKET' : 'YOUR GAMES', ox+6, 100.5, '#9ed3ee', 2.8, 'left');
@@ -21445,7 +21452,7 @@ function utLbScreen(g){
   else if (!D.top.length) T(D.err ? String(D.err).toUpperCase() : 'NO ONE ON THE BOARD YET - BE THE FIRST', 160, 85, '#9ed3ee', 3.6, 'center');
   else D.top.forEach((r,i) => { const y = 32 + i*12.4, me = r.user === utSrv.user;
     if (me) { g.fillStyle = 'rgba(255,138,216,.22)'; rrect(g,10,y-1,300,11.5,2); g.fill(); }
-    T('#'+(i+1), 16, y+1.2, i < 3 ? '#ffd0f0' : '#9ed3ee', 3.6, 'left'); T(String(r.user).toUpperCase(), 46, y+1.2, me ? '#ff8ad8' : '#ffffff', 3.6, 'left'); if (me && fbDevOn()) fbCheck(g, 46+String(r.user).length*2.3+4, y+3.5, 2.4); T(String(r.v), 304, y+1.2, '#ffffff', 3.8, 'right'); });
+    T('#'+(i+1), 16, y+1.2, i < 3 ? '#ffd0f0' : '#9ed3ee', 3.6, 'left'); T(String(r.user).toUpperCase(), 46, y+1.2, me ? '#ff8ad8' : '#ffffff', 3.6, 'left'); if (me && fbDevOn()) fbCheck(g, 46+String(r.user).length*3.6+4, y+3.5, 2.4); T(String(r.v), 304, y+1.2, '#ffffff', 3.8, 'right'); });
   if (D && D.me) T(D.me.rank ? 'YOU: #'+D.me.rank+'  ('+D.me.v+')' : 'YOU ARE NOT ON THIS BOARD YET', 160, 161, '#ffd0f0', 3.4, 'center');
   T(sel === 'std_week' ? 'SOLO NUMBERS ARE SELF-REPORTED. ONLINE WINS ARE CHECKED BY BOTH PLAYERS.' : 'ONLINE WINS ARE CHECKED BY BOTH PLAYERS.', 160, 170, '#7fa6c4', 2.4, 'center');
 }
@@ -21594,6 +21601,7 @@ function fbUtAct(id){
   if (/^utdp\d$/.test(id)) { if (U.busy || !U.draft) return true; U.busy = true; U.err = ''; utApi('draftpick', { i:+id.slice(4) }).then(d => { U.busy = false; if (d && d.ok) { const keep = utSrv.season; utApply(d); utSrv.season = keep; U.draft = null; U.rev = { pulled:d.pulled, pack:'draft', stage:'spread', t0:performance.now() }; utRevInit(U.rev); } else U.err = (d && d.err) || 'failed'; }); return true; }
   if (id==='utsnext') { const S = utSeasonGet(); if (S) { utSeasonSave(utSeasonNew(S.champ === 'YOU' ? Math.max(1, S.div-1) : S.div, S.no+1)); FB.ut.rewAsk = 0; FB.ut.msg = ''; fbSfx('tick'); } return true; }
   if (id==='utsplay') { utSeasonPlay(); return true; }
+  if (id==='utssimw') { utSeasonSimWeek(); return true; }
   if (id==='utssim') { const S = utSeasonGet(); if (S) { utPoFinish(S); utSeasonSave(S).then(() => utSeasonRewards(S)); } return true; }
   if (id==='utxf') { U.xfo = { pg:0 }; U.err = ''; return true; }
   if (id==='utxfx') { U.xfo = null; return true; }
@@ -22353,17 +22361,27 @@ async function fbEscAct(id){
   const s = FB.s, wag = !!(FBN.on && FBN.wagered);
   if (id==='eres') { FB.esc = false; FB.paused = false; return; }
   if (id==='esave') { const ok = fbSaveGame(); fbDoExit(); fbMsg(ok ? 'GAME SAVED - RESUME IT FROM ULTIMATE TEAM > PLAY' : 'COULD NOT SAVE','#ffd24a',160); return; }
+  if (id==='esimr') { fbSimRest(); return; }
   if ((id==='eclaim' || id==='edel') && FB.seasonGame) { try { utSeasonForfeit(); } catch(e){} }      // walking out of a season game is a loss
   if (id==='eclaim') { let got = 0; try { got = await utClaimEarly(); } catch(e){} fbDoExit(); fbMsg(got ? 'CLAIMED '+got+' COINS (YARDS AND PLAYS ONLY)' : 'NOTHING TO CLAIM','#ffd24a',160); return; }
   if (id==='edel') { if (wag && FBN.mid) { try { await utApi('mforfeit', { mid:FBN.mid }); } catch(e){} } fbDoExit(); return; }
 }
+function fbSimRest(){                                  // escape menu: sim out the rest of a season game from the current score
+  const s = FB.s, G = FB.seasonGame; if (!s || !G || FBN.on || s.tutMode) return false;
+  const total = Math.max(1, 4*fbQL()), left = Math.max(0, Math.min(total, (4 - Math.min(4, s.q|0))*fbQL() + Math.max(0, s.clock)));
+  const yo = utLgYouOvr(), oo = utLgTeamOvr(G.opp, G.div), [ya, ca] = utLgSim(yo, oo, left/total);
+  s.you = (s.you|0) + ya; s.cpu = (s.cpu|0) + ca; if (s.you === s.cpu) { if (Math.random() < utWinProb(yo, oo)) s.you += 3; else s.cpu += 3; }
+  FB.esc = false; FB.paused = false; s.clock = 0; s.clockRun = false; s.thrown = false; fbMsg('SIMMED THE REST: '+s.you+' - '+s.cpu, '#ffd24a', 140);
+  try { fbOver(); } catch(e){ console.error('simrest', e); } return true;
+}
 function fbEscDraw(g){
   const s = FB.s, online = !!FBN.on, can = !online && utSrv.token && s && s.utGid && !s.utClaimed, save = !online && !(s && s.tutMode) && !FB.training;
-  g.fillStyle = 'rgba(2,5,14,.78)'; g.fillRect(0,0,W,H); uiPanel(g,50,20,220,138,{ r:8, fill:'rgba(10,15,30,.97)' });
-  T('ESCAPE',160,26,'#ffd24a',9,'center');
-  let y = 46;
+  g.fillStyle = 'rgba(2,5,14,.78)'; g.fillRect(0,0,W,H); uiPanel(g,50,6,220,168,{ r:8, fill:'rgba(10,15,30,.97)' });
+  T('ESCAPE',160,10,'#ffd24a',8,'center');
+  let y = 24;
   if (save) { fbBtn(g,'esave',64,y,192,16,'SAVE AND QUIT',{size:5.4,col:'#7ddc8a'}); T('KEEP THE SCORE, DOWN AND CLOCK. RESUME LATER.',160,y+17,'#9fb0dc',2.8,'center'); y += 29; }
   if (can) { const est = utEstEarly(s.cst || {}); fbBtn(g,'eclaim',64,y,192,16,'LEAVE AND CLAIM COINS  (~'+est+')',{size:4.6,col:'#ffd24a'}); T('YARDS AND PLAYS ONLY - NO COMPLETION BONUS, NO WIN BONUS.',160,y+17,'#9fb0dc',2.8,'center'); y += 29; }
+  if (!online && FB.seasonGame && s && !s.tutMode) { fbBtn(g,'esimr',64,y,192,16,'SIM THE REST OF THE GAME',{size:4.8,col:'#9ee8ff'}); T('SAME ODDS AS A SEASON SIM, FROM THE SCORE RIGHT NOW. YOUR POINTS COUNT.',160,y+17,'#9fb0dc',2.8,'center'); y += 29; }
   fbBtn(g,'edel',64,y,192,16,online ? (FBN.wagered ? 'LEAVE (FORFEITS THE WAGER)' : 'LEAVE THE GAME') : 'LEAVE AND DELETE THE MATCH',{size:4.8,col:'#ff8b7b'}); T(online ? 'THE OTHER PLAYER IS TOLD YOU LEFT.' : 'NO COINS, NO SAVE.',160,y+17,'#9fb0dc',2.8,'center'); y += 29;
   fbBtn(g,'eres',64,y,192,14,'KEEP PLAYING',{size:5});
 }
@@ -22602,10 +22620,9 @@ function fbOverlay(){
   else if (sc==='pre' && s.defMode) fbDefPreDraw(g);
   else if (sc==='pre') {
     fbRoutes(g,0.9); fbLabels(g); fbYardLabels(g);
-    fbvCapsule(g,56,149,208,26,null,null); T((s.play.n||'PLAY')+' - '+(s.dmode==='blitz' && !fbVs() ?'WATCH FOR THE BLITZ':'READ THE DEFENSE'),160,153.5,'#ffc82e',5.5,'center');
+    T((s.play.n||'PLAY')+(s.dmode==='blitz' && !fbVs() ? ' - BLITZ!' : ''),160,154.5,'#ffc82e',5,'center');
     if (FBN.on && FBN.role==='guest') T(FBN.mode==='coop' ? 'YOU ARE '+(s.rctl?s.rctl.role:'W1')+'  -  1 2 3 4 = W1 W2 W3 TE' : 'SPACE OR CLICK = SNAP',160,164,'#e8ecf8',6,'center');
     else { const mv = fbOff().some(p => p.mto); T(mv ? (s.shiftGo ? 'GETTING SET...  WAIT' : 'SPACE = "HERE WE GO" (EVERYONE SHIFTS)') : (fbDefenseSet() ? 'SPACE OR CLICK = SNAP' : (s.hurry ? 'EVERYONE IS GETTING SET...' : 'DEFENSE IS SETTING UP...')),160,164,mv && s.shiftGo ? '#ffd24a' : '#e8ecf8',6,'center'); }
-    if (!s.tutMode && !s.defMode && !(FBN.on && FBN.role==='guest' && FBN.mode==='coop')) T('V AUDIBLE (3 A DRIVE)   R HOT ROUTE   M MOTION   7/8 READ: FLIP ROUTES   9 SLIDE   0 BACK IN   T TIMEOUT',160,170.5,'#ffe9a8',3.6,'center');
     if (!s.tutMode && !s.defMode) { const pc = Math.max(0, Math.ceil(s.pcT||0)); fbPanel(g,268,117,46,15,0.75); T('PLAY CLOCK',291,119.5,'#aeb9dc',3.8,'center'); T(String(pc),291,125,pc <= 5 ? '#ff6b6b' : '#ffffff',6.5,'center'); }
     if (!FBN.on) fbBtn(g,'back',4,25,52,11,'< PLAYS',{size:5});
     if (fbAudCanO()) {   // V46 (11/12): READ the safeties, flip the routes, slide the line, keep the back in
@@ -22657,11 +22674,9 @@ function fbLobbyDraw(g){
   if (FBN.on || PARTY.on) fbnLobbyDraw(g); else fbBtn(g,'play',100,114,120,24,'PLAY',{on:true,col:'#7ddc8a',size:10});
   fbBtn(g,'lookOpen',224,114,72,24,'PLAYER LOOK',{size:5.5,line:'#6fd0ff',tc:'#cfeeff'});
   if (PARTY.npc && !PARTY.on) T(PARTY.npc.name+' SUITS UP AS YOUR W1',160,55,'#7ddc8a',5,'center');
-  T('WASD MOVE  SHIFT / RIGHT CLICK SPRINT  CLICK + HOLD = THROW  SPACE = DIVE  E = JUKE  F = TRUCK  (ON D: F = CHUCK)',160,158,'#aeb9dc',4.6,'center');
-  T('WHEN THE CPU HAS THE BALL YOU CAN PLAY DEFENSE (OR SKIP IT)',160,167,'#aeb9dc',4.6,'center');
   fbBtn(g,'lobbyback',6,5,76,12,'< BACK TO THE FIELD',{size:4.6});
   fbBtn(g,'party',6,19,76,10,PARTY.on ? 'PARTY  '+PARTY.code.toUpperCase() : 'PLAY WITH A FRIEND',{size:4.4,line:'#7ddc8a',tc:'#c9f7d0'});
-  T('BUILD v130',314,174,'#8fa0cc',4,'right');   // so you can tell which build is live
+  T('BUILD v131',314,174,'#8fa0cc',4,'right');   // so you can tell which build is live
   fbBtn(g,'tut',100,141,58,13,'TUTORIAL',{size:5,line:'#ffd24a',tc:'#ffe9a8'}); fbBtn(g,'howlobby',162,141,58,13,'HOW TO PLAY',{size:4.4,line:'#ffd24a',tc:'#ffe9a8'});
   fbBtn(g,'shop',6,141,90,13,'PLAY SHOP',{size:5.5,line:'#7ddc8a',tc:'#c9f7d0'});
   fbBtn(g,'stats',224,141,90,13,'MY STATS',{size:5.5,line:'#6fd0ff',tc:'#cfeeff'});
@@ -22729,11 +22744,11 @@ function fbLiveDraw(g){
       const f = s.charging ? s.charge : 0; g.fillStyle = f>0.8 ? '#ff5a4a' : f>0.5 ? '#ffd24a' : '#7ddc8a'; g.fillRect(mx+9,my+13-26*f,4,26*f);
       T(s.aimBehind ? 'BEHIND HIM' : 'PASS',mx+17,my-3,s.aimBehind ? '#ffb020' : '#fff',5,'left');
     }
-    if (!FB.full) fbvCapsule(g,36,158,248,18,'CLICK = THROW THE BALL TO THE RING','DOUBLE CLICK / R = PUMP FAKE   |   X = THROW AWAY   |   WASD MOVE   |   SHIFT = SPRINT   |   AMBER RING = BEHIND HIM');
+
   } else if (s.ctl && s.ctl.carry) {
-    if (!FB.full) fbvCapsule(g,50,160,220,16,'WASD = RUN','SHIFT SPRINT   |   SPACE DIVE   |   E JUKE   |   F TRUCK');
+
   } else if (s.turn) {
-    if (!FB.full) fbvCapsule(g,70,160,180,16,'CHASE HIM DOWN!','WASD + SHIFT');
+
   }
 }
 function fbKickDraw(g){
@@ -23246,7 +23261,7 @@ function fbvFieldTex(){
     g.fillRect(10*PX-0.22*PX, 0, 0.3*PX, h); g.fillRect(110*PX-0.08*PX, 0, 0.3*PX, h);
     for (let y=11;y<110;y++) { if (y%5===0) continue; [[0.5*PX, TK],[h-0.5*PX-TK, TK],[h/2-HZ-TK/2, TK],[h/2+HZ-TK/2, TK]].forEach(([yy,ln]) => g.fillRect(y*PX-LW/2, yy, LW, ln)); }
     for (let y=15;y<=105;y+=5) [h/2-HZ-TK/2, h/2+HZ-TK/2].forEach(yy => g.fillRect(y*PX-LW*1.2, yy, LW*2.4, TK));
-    g.lineWidth = 0.5*PX; g.strokeStyle = white; g.strokeRect(0.25*PX, 0.25*PX, w-0.5*PX, h-0.5*PX);
+    g.fillRect(0, 0, 0.3*PX, h); g.fillRect(w-0.3*PX, 0, 0.3*PX, h);                                   // end lines (the sidelines are painted just outside the field of play)
     const num = (yd, zc, rot) => { const n = String(Math.min(yd-10, 110-yd)); g.save(); g.translate(yd*PX, Z(zc)); g.rotate(rot); g.font = fbvFont(2.75*PX); g.textAlign='center'; g.textBaseline='middle';
       g.save(); g.scale(0.9,1); g.fillStyle = white; if (n.length===2) { g.fillText(n[0], -0.98*PX, 0); g.fillText(n[1], 0.98*PX, 0); } else g.fillText(n,0,0); g.restore();
       if (yd!==60) { const d = (yd < 60 ? -1 : 1) * (rot ? -1 : 1); g.beginPath(); g.moveTo(d*2.35*PX, -0.95*PX); g.lineTo(d*3.15*PX, -0.55*PX); g.lineTo(d*2.35*PX, -0.15*PX); g.closePath(); g.fill(); }
@@ -23267,7 +23282,8 @@ function fbvApronTex(){
     const fx = x => (x+90)*PX, fz = z => (z+80)*PX;
     g.fillStyle = '#256a2e'; g.fillRect(fx(-11), fz(-43), 142*PX, 86*PX);                           // the apron turf
     for (let i=0;i<30000;i++) { g.fillStyle = Math.random()<0.5 ? 'rgba(10,40,10,.18)' : 'rgba(150,210,110,.07)'; g.fillRect(fx(-11)+Math.random()*142*PX, fz(-43)+Math.random()*86*PX, 1+Math.random()*2, 1); }
-    g.fillStyle = '#2b8a3a'; g.fillRect(fx(-1), fz(-27.7), 122*PX, 55.4*PX);                       // the strip just outside the border reads a little brighter (fresh paint shoulder)
+    g.fillStyle = 'rgba(244,247,255,.95)'; g.fillRect(fx(-2), fz(-26.65-2), 124*PX, 2*PX); g.fillRect(fx(-2), fz(26.65), 124*PX, 2*PX);   // the sidelines: 6 ft of white, out of bounds starts at their inside edge
+    g.fillRect(fx(-2), fz(-28.65), 2*PX, 57.3*PX); g.fillRect(fx(120), fz(-28.65), 2*PX, 57.3*PX);      // the end-line border
     g.strokeStyle = '#3b4252'; g.lineWidth = 2.4*PX; g.strokeRect(fx(-9.6), fz(-41.6), 139.2*PX, 83.2*PX);   // the walkway at the wall
   });
   t.anisotropy = 8; return fbvSrgb(t);
@@ -24039,10 +24055,6 @@ function fbDefLiveDraw(g){
   fbEdgeArrow(g, s.dctl, '#ffd24a', 'YOU');
   if (s.turn) fbEdgeArrow(g, s.carrier, '#7ddc8a', 'BALL');
   else if (s.carrier) fbEdgeArrow(g, s.carrier, '#ff6b5a', 'BALL');
-  if (!FB.full) {
-    fbPanel(g,36,164,248,12,0.6);
-    T(s.turn ? 'YOU HAVE THE BALL!  WASD + SHIFT - RUN IT BACK' : 'WASD MOVE  SHIFT SPRINT  SPACE TACKLE / JUMP FOR PICK  Q NEAREST  CLICK SWITCH',160,167,'#cfd8f4',4.8,'center');
-  }
   const d = s.dctl;
   if (d && d.tkLock > 0 && !s.turn) { g.fillStyle = 'rgba(255,255,255,.25)'; g.fillRect(140,158,40*Math.min(1,d.tkLock/1.0),2); }
 }
@@ -26491,7 +26503,6 @@ function fbnWaitDraw(g){
 function fbnRecvDraw(g){
   const s = FB.s; fbYardLabels(g);
   if (s.rctl) fbEdgeArrow(g, s.rctl, '#ffd24a', 'YOU');
-  if (!FB.full) { fbPanel(g,30,164,260,12,0.6); T(s.ctl===s.rctl ? 'WASD RUN  SHIFT SPRINT  SPACE DIVE  E JUKE  F TRUCK' : 'WASD MOVE (AUTO ROUTE UNTIL YOU MOVE)  SHIFT SPRINT  SPACE REACH',160,167,'#cfd8f4',4.6,'center'); }
 }
 function fbnTopDraw(g){
   const s = FB.s;
@@ -29432,6 +29443,7 @@ function devAct(a, el){
   }
   if (a==='pick') { ui.target.value = el.dataset.n || ''; return; }
   if (a==='refill') { devRefill(); devSay('msg', 'COINS REFILLED'); return; }
+  if (a==='faces') { try { if (typeof utSrv === 'undefined' || !utSrv.token) { devSay('msg', 'SIGN IN TO ULTIMATE TEAM FIRST'); return; } if (!FB.on) fbEnter(); if (!FB.ut) fbUtOpen(); FB.ut.tab = 'faces'; FB.ut.err = ''; faceLoad(); ui.menuOpen = false; devRender(); if (!utSrv.dev) fbMsg('SAVING FACES NEEDS SERVER DEV STATUS (THE DEV STATUS CIRCLE IN THE LOBBY)', '#ffd24a', 200); } catch(e){ console.error('faces', e); } return; }
   const t = devClean(ui.target.value);
   if (!t) { devSay('msg', 'TYPE OR PICK A PLAYER NAME FIRST', '#ff8b7b'); return; }
   if (a==='add') { if (!DEVX.extra.includes(t)) DEVX.extra.push(t); devSave(); }
@@ -29460,6 +29472,7 @@ function devBuild(){
     '<div id="dx-ccard" style="display:none"></div>'
     + '<div class="dx-card" id="dx-menu" style="display:none"><h3><span>DEV MENU  -  <span id="dx-role"></span></span><button class="dx-x" data-a="close" type="button">X</button></h3>'
     + '<div>COINS: UNLIMITED <button data-a="refill" type="button">REFILL</button></div>'
+    + '<div class="dx-dev" style="margin-top:6px">PLAYER FACES <button data-a="faces" type="button">ASSIGN FACES</button> <span class="dx-note">(sign in to Ultimate Team; saved for everyone)</span></div>'
     + '<section><div>PLAYERS  <span class="dx-note">(click one to pick them)</span></div><div class="dx-pl" id="dx-list"></div>'
     + '<div style="margin-top:6px">NAME <input id="dx-target" type="text" placeholder="PLAYER NAME" maxlength="12"> <button data-a="add" type="button">ADD</button></div></section>'
     + '<section><div>ROLES  <span class="dx-note">(they have to be in the park with you)</span></div>'
