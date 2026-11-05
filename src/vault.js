@@ -2,7 +2,7 @@
 // packs, rewards - lives here and is only changed by this code. A Durable Object runs one request at a time,
 // so two requests can never spend the same coins or open the same pack twice.
 import { DurableObject } from 'cloudflare:workers';
-import { UT, LINES, KICKERS, MATCH, SELL, STARTER, TRADE, UPGRADE, WAGER, PASS, XF, CHALLENGES, SEASON, DRAFT, DEV } from './ut_config.js';
+import { UT, LINES, KICKERS, MATCH, SELL, STARTER, TRADE, UPGRADE, WAGER, PASS, XF, CHALLENGES, SEASON, DRAFT, DEV, TOUR } from './ut_config.js';
 import { PLAYERS } from './ut_players.js';
 const TEAMS = new Set(Object.values(PLAYERS).map(p => p.team).filter(Boolean));
 import { CATALOG } from './ut_catalog.js';
@@ -130,10 +130,13 @@ export class Vault extends DurableObject {
     return j({ ok: true, ...this.state() });
   }
   statsRow() { const r = this.sql.exec('SELECT wins, losses, ties, pf, pa FROM stats WHERE id=1').toArray()[0]; return r || { wins: 0, losses: 0, ties: 0, pf: 0, pa: 0 }; }
-  snap() {
+  snap(tour) {
     const cards = {}; this.sql.exec('SELECT uid,pid,rarity FROM cards').toArray().forEach(c => { cards[c.uid] = c; });
     const lineup = {}; const lu = this.lineupRows(); for (const slot in lu) if (cards[lu[slot]]) lineup[slot] = { pid: cards[lu[slot]].pid, rarity: cards[lu[slot]].rarity };
     const xf = {}; this.sql.exec('SELECT uid FROM xfactor').toArray().forEach(r => { const c = cards[r.uid]; if (c && this.xfOk(c.pid, c.rarity)) for (const slot in lu) if (lu[slot] === r.uid) xf[slot] = 1; });
+    if (tour) { const c = this.sql.exec("SELECT uid, pid, rarity FROM cards WHERE src LIKE 'ltd:%' ORDER BY got DESC LIMIT 1").toArray()[0];   // tournament game: your LTD player starts at his position
+      if (c) { const cat = CATALOG.find(x => x[0] === c.pid), pos = cat ? cat[2] : ''; const slot = Object.keys(LINES.lineup).find(sl => LINES.lineup[sl].includes(pos) && !(lineup[sl] && lineup[sl].ltd)) ;
+        if (slot) lineup[slot] = { uid: c.uid, pid: c.pid, rarity: c.rarity, ltd: 1 }; } }
     return { user: this.acct().user, lineup, lines: this.lineLevels(), stats: this.statsRow(), jersey: this.metaGet('jersey'), xf };
   }
   matchPay(b) {
@@ -169,14 +172,14 @@ export class Vault extends DurableObject {
     this.ctx.storage.transactionSync(() => {
       const equipped = new Set(Object.values(this.lineupRows()));
       for (const u of uids) {
-        const c = this.sql.exec('SELECT uid, pid, rarity FROM cards WHERE uid=?', u).toArray()[0];
-        if (!c) continue; if (equipped.has(c.uid)) { held++; continue; }                 // a card in your lineup can not be sold
+        const c = this.sql.exec('SELECT uid, pid, rarity, src FROM cards WHERE uid=?', u).toArray()[0];
+        if (!c) continue; if (equipped.has(c.uid) || String(c.src || '').startsWith('ltd:')) { held++; continue; }                 // a card in your lineup can not be sold
         const cat = CATALOG.find(x => x[0] === c.pid);
         this.sql.exec('DELETE FROM cards WHERE uid=?', c.uid); this.sql.exec('DELETE FROM xfactor WHERE uid=?', c.uid); got += sellValue(cat ? cat[1] : 'F', c.rarity); n++;
       }
       if (n) this.add(got, 'sold ' + n + ' card' + (n > 1 ? 's' : ''));
     });
-    if (!n) return j({ ok: false, err: held ? 'those cards are in your lineup' : 'nothing to sell' }, 409);
+    if (!n) return j({ ok: false, err: held ? 'those cards can not be sold (in your lineup, or a tournament LTD card)' : 'nothing to sell' }, 409);
     return j({ ok: true, sold: n, got, ...this.state() });
   }
   setJersey(b) {
@@ -303,7 +306,7 @@ export class Vault extends DurableObject {
     if (age < TRADE.minAgeHours) return 'trading opens ' + Math.ceil(TRADE.minAgeHours - age) + ' hour(s) from now (new accounts wait ' + TRADE.minAgeHours + ' hours)';
     return '';
   }
-  soulbound(src) { return src === 'start' || String(src || '').startsWith('pack:starter'); }   // starter-pack cards and the starting kicker can never be traded
+  soulbound(src) { return src === 'start' || String(src || '').startsWith('pack:starter') || String(src || '').startsWith('ltd:'); }   // starter-pack cards and the starting kicker can never be traded
   tradeOpen() {                // called when this player starts a trade
     const why = this.tradeEligible(); if (why) return j({ ok: false, err: why }, 403);
     const key = 'to:' + today(), n = parseInt(this.metaGet(key) || '0', 10) || 0; if (n >= TRADE.dailyOpen) return j({ ok: false, err: 'you can start ' + TRADE.dailyOpen + ' trades a day' }, 429);
@@ -441,8 +444,9 @@ export class Vault extends DurableObject {
     try { this.ctx.storage.transactionSync(() => {
       for (const slot of slots) {
         const uid = want[slot]; if (!uid) continue;
-        const c = this.sql.exec('SELECT uid, pid FROM cards WHERE uid=?', String(uid)).toArray()[0];
+        const c = this.sql.exec('SELECT uid, pid, src FROM cards WHERE uid=?', String(uid)).toArray()[0];
         if (!c) throw new Error('not owned');
+        if (String(c.src || '').startsWith('ltd:')) throw new Error('LTD cards are for the tournament only');
         const p = CATALOG.find(x => x[0] === c.pid) || (c.pid === KICKERS.starter ? [c.pid, 'F', 'K'] : null);          // the starting kicker (Harrison Mevis) is not in the pack catalog but is a valid K
         if (!p || !LINES.lineup[slot].includes(p[2])) throw new Error('wrong position for ' + slot);
         if (Object.values(pick).includes(c.uid)) throw new Error('same card twice');
@@ -477,6 +481,18 @@ export class Vault extends DurableObject {
     try {
       if (act === 'i_exists') return j({ ok: !!this.acct() });
       if (act === 'i_devgrant') return this.devGrant(b);
+      if (act === 'i_tstats') { const a = this.acct(); if (!a) return j({ ok: false }, 404); return j({ ok: true, stats: this.statsRow() }); }
+      if (act === 'i_tfee') { const fee = Math.max(0, Math.floor(+b.fee || 0)); if (!this.acct()) return j({ ok: false, err: 'no account' }, 404); if (this.acct().coins < fee) return j({ ok: false, err: 'the entry fee is ' + fee + ' coins' }, 402);
+        if (fee) this.add(-fee, 'tournament entry ' + String(b.tid || '')); return j({ ok: true, ...this.state() }); }
+      if (act === 'i_trefund') { const fee = Math.max(0, Math.floor(+b.fee || 0)); if (fee) this.add(fee, 'tournament refund ' + String(b.tid || '')); return j({ ok: true }); }
+      if (act === 'i_tltd') { const tid = String(b.tid || ''), have = this.sql.exec('SELECT uid, pid, rarity FROM cards WHERE src=?', 'ltd:' + tid).toArray()[0]; if (have) return j({ ok: true, card: have, ...this.state() });
+        const base = TOUR.ltdPool[Math.floor(Math.random() * TOUR.ltdPool.length)], u = uid(), card = { uid: u, pid: 'LTD-' + base, rarity: 'Legendary' };
+        this.sql.exec('INSERT INTO cards (uid,pid,rarity,got,src) VALUES (?,?,?,?,?)', u, card.pid, card.rarity, Date.now(), 'ltd:' + tid); this.ledger(0, 'tournament LTD pack: ' + card.pid); return j({ ok: true, card, ...this.state() }); }
+      if (act === 'i_tdrop') { const n = this.sql.exec('SELECT COUNT(*) c FROM cards WHERE src=?', 'ltd:' + String(b.tid || '')).toArray()[0].c; this.sql.exec('DELETE FROM cards WHERE src=?', 'ltd:' + String(b.tid || '')); if (n) this.ledger(0, 'tournament over: LTD card returned'); return j({ ok: true }); }
+      if (act === 'i_tprize') { const pz = b.prize || {}; if (pz.coins) this.add(Math.floor(pz.coins), 'tournament place ' + (b.place | 0));
+        for (const k in (pz.packs || {})) if (UT.packs[k]) for (let i = 0; i < Math.min(5, pz.packs[k] | 0); i++) this.sql.exec('INSERT INTO packs (kind,got) VALUES (?,?)', k, Date.now());
+        if (pz.card && TOUR.special[pz.card]) this.sql.exec('INSERT INTO cards (uid,pid,rarity,got,src) VALUES (?,?,?,?,?)', uid(), pz.card, 'Legendary', Date.now(), 'tour:' + String(b.tid || ''));
+        this.ledger(0, 'tournament place ' + (b.place | 0) + ' prize'); return j({ ok: true }); }
       if (act === 'i_verify') return await this.tradeVerify(b);
       if (act === 'i_thas') return this.tradeHas(b);
       if (act === 'i_topen') return this.tradeOpen();
@@ -486,7 +502,7 @@ export class Vault extends DurableObject {
       if (act === 'i_tlink') return this.tradeLink(b);
       if (act === 'i_wlock') return this.wagerLock(b);
       if (act === 'i_wsettle') return this.wagerSettle(b);
-      if (act === 'i_snap') return j({ ok: true, snap: this.snap() });                 // internal: only the Match object calls these two
+      if (act === 'i_snap') return j({ ok: true, snap: this.snap(!!b.tour) });                 // internal: only the Match object calls these two
       if (act === 'i_pay') { const r = this.matchPay(b); return j({ ok: true, ...r, stateOut: this.state() }); }
       if (act === 'register') return await this.register(b);
       if (act === 'login') return await this.login(b);
