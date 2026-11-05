@@ -20402,7 +20402,7 @@ function fbLobbyGo(d){
 /* ---- DEV STATUS: stand in the circle at the back of the lobby and type the code. All it does: a blue check by your name + a DEV tag above it. */
 function fbDevOn(){ if (typeof utSrv !== 'undefined' && utSrv.token) return utSrv.dev === true; if (FB.devStatus === undefined) { try { FB.devStatus = localStorage.getItem('fb_devstatus_v1') === '1'; } catch(e){ FB.devStatus = false; } } return !!FB.devStatus; }   // signed in: the server says who is a dev
 function fbDevSet(on){ FB.devStatus = !!on; try { localStorage.setItem('fb_devstatus_v1', on ? '1' : '0'); } catch(e){} }
-function fbCheck(){}                            // v134: the blue check is part of the NAME now (ntagAfter draws it wherever a verified dev's name is written)
+function fbCheck(){}                            // v135: the blue check is part of the NAME now (ntagAfter draws it wherever a verified dev's name is written)
 function fbCheckDraw(g, cx, cy, r){ g.fillStyle = '#1d9bf0'; g.beginPath(); g.arc(cx,cy,r,0,6.3); g.fill(); g.strokeStyle = '#ffffff'; g.lineWidth = Math.max(0.5, r*0.32); g.beginPath(); g.moveTo(cx-r*0.5,cy+r*0.05); g.lineTo(cx-r*0.12,cy+r*0.45); g.lineTo(cx+r*0.55,cy-r*0.42); g.stroke(); }
 function fbDevName(){ return String((typeof utSrv !== 'undefined' && utSrv.user) || (typeof devName === 'function' ? devName() : 'PLAYER')).toUpperCase(); }
 function fbDevTag(g, x, y, name){            // name plate with the blue check, DEV above it
@@ -20485,7 +20485,7 @@ function fbLobbyWalkDraw(g){
   if (FB.lobbyDwell > 0 && FB.lobbyNear) { const d = FB_LPADS.find(q => q.id===FB.lobbyNear); if (d) { fbPanel(g,100,150,120,12,0.8); g.fillStyle = 'rgba(255,255,255,.18)'; g.fillRect(104,159,112,2); g.fillStyle = d.col; g.fillRect(104,159,112*clamp(FB.lobbyDwell/0.55,0,1),2); T('GOING TO  '+d.name,160,152.4,'#ffffff',4.2,'center'); } }
 
   if (PV2.state==='ready') T('MODELS: PLAYER BLAKEALLEN25 - HELMET EXODUSKS - CLEATS LISENHAO - TROPHY G_BORY32 (SKETCHFAB, CC BY 4.0)', 160, 176.6, '#5d6a8f', 2.1, 'center');
-  T('BUILD v134',314,174,'#8fa0cc',4,'right'); { const us = uoStatus(); if (us) T(us, 6, 174, UO.state==='off' ? '#ff8b7b' : '#6f7ea8', 3, 'left'); }
+  T('BUILD v135',314,174,'#8fa0cc',4,'right'); { const us = uoStatus(); if (us) T(us, 6, 174, UO.state==='off' ? '#ff8b7b' : '#6f7ea8', 3, 'left'); }
 }
 /* ---------------------------------------------------------------- ULTIMATE TEAM: hub, collection, cards (packs come in the next stage) */
 const UT_KEY = 'blacktop_ut_v1';
@@ -22945,7 +22945,7 @@ function fbLobbyDraw(g){
   if (PARTY.npc && !PARTY.on) T(PARTY.npc.name+' SUITS UP AS YOUR W1',160,55,'#7ddc8a',5,'center');
   fbBtn(g,'lobbyback',6,5,76,12,'< BACK TO THE FIELD',{size:4.6});
   fbBtn(g,'party',6,19,76,10,PARTY.on ? 'PARTY  '+PARTY.code.toUpperCase() : 'PLAY WITH A FRIEND',{size:4.4,line:'#7ddc8a',tc:'#c9f7d0'});
-  T('BUILD v134',314,174,'#8fa0cc',4,'right');   // so you can tell which build is live
+  T('BUILD v135',314,174,'#8fa0cc',4,'right');   // so you can tell which build is live
   fbBtn(g,'tut',100,141,58,13,'TUTORIAL',{size:5,line:'#ffd24a',tc:'#ffe9a8'}); fbBtn(g,'howlobby',162,141,58,13,'HOW TO PLAY',{size:4.4,line:'#ffd24a',tc:'#ffe9a8'});
   fbBtn(g,'shop',6,141,90,13,'PLAY SHOP',{size:5.5,line:'#7ddc8a',tc:'#c9f7d0'});
   fbBtn(g,'stats',224,141,90,13,'MY STATS',{size:5.5,line:'#6fd0ff',tc:'#cfeeff'});
@@ -26457,7 +26457,7 @@ const fbnIsHost = () => FBN.on && FBN.role==='host';
 const fbnIsGuest = () => FBN.on && FBN.role==='guest';
 function fbMain(){ if (FBN.on && FBN.role==='guest') fbnGuestStep(); else { fbStep(); if (FBN.on) fbnHostTick(); } }
 function fbVs(){ return !!(FBN.on && FBN.mode==='vs'); }
-function fbFlip(){ return false; }     // v134: one camera for everyone - behind the offense, on offense AND defense, solo, co-op and online (the same view the online 1v1 uses)
+function fbFlip(){ return false; }     // v135: one camera for everyone - behind the offense, on offense AND defense, solo, co-op and online (the same view the online 1v1 uses)
 function fbDirNow(){ const s = FB.s; return (fbFlip() || (s && s.turn)) ? -1 : 1; }      // after a turnover everyone sees the field from the other end
 function fbVsFix(t){                                                          // drive-screen text is written once (tokens) and read per player
   if (typeof t!=='string' || t.indexOf('{')<0) return t; const g = FBN.role==='guest', on = fbnOtherName();
@@ -28681,8 +28681,8 @@ function ntagAfter(g, s, x, y, size, align, base){                 // after any 
     if (e.warn) { ntagCaution(g, gx, cy, r0*1.05); if (typeof FB !== 'undefined' && FB.btns) FB.btns.unshift({ id:'nwarn:' + nm, x:gx - r0*1.6, y:cy - r0*1.7, w:r0*3.2, h:r0*3.4 }); } });
 }
 function ntagLoad(force){                                            // the tags come from the server (everyone sees the same ones)
-  if (typeof utSrv === 'undefined' || !utSrv.token) return; const t = performance.now(); if (!force && t - NTAG.at < 60000) return; NTAG.at = t;
-  utApi('tagget', {}).then(d => { if (d && d.ok) { NTAG.warns = d.warns || {}; NTAG.devs = d.devs || []; NTAG.ver++; } });
+  if (typeof utSrv === 'undefined' || typeof utBase !== 'function' || !utBase()) return; const t = performance.now(); if (!force && t - NTAG.at < 60000) return; NTAG.at = t;
+  utApi(utSrv.token ? 'tagget' : 'tagpub', {}).then(d => { if (d && d.ok) { NTAG.warns = d.warns || {}; NTAG.devs = d.devs || []; NTAG.ver++; } });
 }
 function ntagPopDraw(g){                                             // the caution sign was tapped: the dev's message about this player
   const P = FB.warnPop; if (!P) return; FB.btns = [];

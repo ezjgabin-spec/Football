@@ -1,6 +1,6 @@
 // /api/ut/<action>: forwards to the signed-in player's Vault. CORS is open because the game page lives on another address.
 const CORS = { 'access-control-allow-origin': '*', 'access-control-allow-methods': 'POST, OPTIONS', 'access-control-allow-headers': 'content-type', 'access-control-max-age': '86400', 'cache-control': 'no-store' };
-const ACTIONS = new Set(['tagget', 'tagset', 'thof', 'tbracket', 'tmatch', 'tready', 'tlineup', 'faceget', 'faceset', 'tget', 'tcreate', 'tjoin', 'tleave', 'treport', 'tadmin', 'seasonset', 'seasonclaim', 'draftget', 'draftpick', 'devunlock', 'devgive', 'lbget', 'chalclaim', 'emailinfo', 'emailstart', 'emailcheck', 'register', 'login', 'state', 'buy', 'open', 'gamestart', 'gamefinish', 'logout', 'lineup', 'upgrade', 'kickbuy', 'ping', 'sell', 'setjersey', 'cardup', 'passclaim', 'xfequip', 'xfunequip', 'passarm', 'tradelist', 'tradeopen', 'tradeget', 'tradeset', 'tradeaccept', 'tradecancel', 'mjoin', 'mreport', 'mstake', 'mwcancel', 'mforfeit', 'mqueue', 'mpoll', 'mcancel']);
+const ACTIONS = new Set(['tagpub', 'tagget', 'tagset', 'thof', 'tbracket', 'tmatch', 'tready', 'tlineup', 'faceget', 'faceset', 'tget', 'tcreate', 'tjoin', 'tleave', 'treport', 'tadmin', 'seasonset', 'seasonclaim', 'draftget', 'draftpick', 'devunlock', 'devgive', 'lbget', 'chalclaim', 'emailinfo', 'emailstart', 'emailcheck', 'register', 'login', 'state', 'buy', 'open', 'gamestart', 'gamefinish', 'logout', 'lineup', 'upgrade', 'kickbuy', 'ping', 'sell', 'setjersey', 'cardup', 'passclaim', 'xfequip', 'xfunequip', 'passarm', 'tradelist', 'tradeopen', 'tradeget', 'tradeset', 'tradeaccept', 'tradecancel', 'mjoin', 'mreport', 'mstake', 'mwcancel', 'mforfeit', 'mqueue', 'mpoll', 'mcancel']);
 export async function utRoute(req, env) {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
   const act = new URL(req.url).pathname.split('/').pop();
@@ -11,6 +11,10 @@ export async function utRoute(req, env) {
   if (act === 'emailinfo') return new Response(JSON.stringify({ ok: true, required: env.EMAIL_REQUIRED === '1' }), { status: 200, headers: Object.assign({ 'content-type': 'application/json' }, CORS) });
   if (act === 'emailstart' || act === 'emailcheck') {
     const rr = await mailbox().fetch('https://m/' + (act === 'emailstart' ? 'estart' : 'echeck'), { method: 'POST', body: JSON.stringify({ email: b.email, code: b.code, ip: req.headers.get('cf-connecting-ip') || '' }) });
+    return new Response(rr.body, { status: rr.status, headers: Object.assign({ 'content-type': 'application/json' }, CORS) });
+  }
+  if (act === 'tagpub') {                                                             // name tags for EVERYONE, signed in or not: read only (warnings + verified devs are public)
+    const rr = await env.MM.get(env.MM.idFromName('tags')).fetch('https://m/wget', { method: 'POST', body: '{}' });
     return new Response(rr.body, { status: rr.status, headers: Object.assign({ 'content-type': 'application/json' }, CORS) });
   }
   const user = String(b.user || '').toLowerCase();
