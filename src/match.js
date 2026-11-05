@@ -2,6 +2,7 @@
 // (never from the browser), and only pays out when both players report the same final score.
 import { DurableObject } from 'cloudflare:workers';
 import { MATCH, WAGER, TOUR } from './ut_config.js';
+import { PLAYERS } from './ut_players.js';
 import { sha, normEmail, sendMail } from './email.js';
 
 const j = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { 'content-type': 'application/json' } });
@@ -116,9 +117,10 @@ export const tourMethods = {
       CREATE TABLE IF NOT EXISTS tent (tid TEXT NOT NULL, user TEXT NOT NULL, ts INTEGER NOT NULL, seed INTEGER, wins INTEGER, pf INTEGER, ltd TEXT, place INTEGER, PRIMARY KEY (tid, user));
       CREATE TABLE IF NOT EXISTS tgame (tid TEXT NOT NULL, rnd INTEGER NOT NULL, slot INTEGER NOT NULL, a TEXT, b TEXT, w TEXT, sa INTEGER, sb INTEGER, ra TEXT, rb TEXT, ready INTEGER, PRIMARY KEY (tid, rnd, slot));
       CREATE TABLE IF NOT EXISTS thist (a TEXT NOT NULL, b TEXT NOT NULL, w TEXT NOT NULL, ts INTEGER NOT NULL);
-      CREATE TABLE IF NOT EXISTS tchamp (tid TEXT PRIMARY KEY, user TEXT NOT NULL, ts INTEGER NOT NULL);`);
-    for (const c of ['st TEXT', 'ck INTEGER', 'rda INTEGER', 'rdb INTEGER', 'started INTEGER', 'how TEXT', 'done INTEGER']) { try { this.sql.exec('ALTER TABLE tgame ADD COLUMN ' + c); } catch (e) {} }
-    for (const c of ['fee INTEGER', 'dropped INTEGER', 'prized INTEGER', 'out INTEGER']) { try { this.sql.exec('ALTER TABLE tent ADD COLUMN ' + c); } catch (e) {} } },
+      CREATE TABLE IF NOT EXISTS tchamp (tid TEXT PRIMARY KEY, user TEXT NOT NULL, ts INTEGER NOT NULL);
+      CREATE TABLE IF NOT EXISTS thof (tid TEXT PRIMARY KEY, no INTEGER, ts INTEGER, startAt INTEGER, champ TEXT, runner TEXT, n INTEGER, sa INTEGER, sb INTEGER, how TEXT, lu TEXT, rec TEXT, titles INTEGER, perfect INTEGER);`);
+    for (const c of ['st TEXT', 'ck INTEGER', 'rda INTEGER', 'rdb INTEGER', 'started INTEGER', 'how TEXT', 'done INTEGER', 'oa INTEGER', 'ob INTEGER', 'la TEXT', 'lb TEXT']) { try { this.sql.exec('ALTER TABLE tgame ADD COLUMN ' + c); } catch (e) {} }
+    for (const c of ['fee INTEGER', 'dropped INTEGER', 'prized INTEGER', 'out INTEGER', 'ovr INTEGER', 'lu TEXT', 'removed INTEGER']) { try { this.sql.exec('ALTER TABLE tent ADD COLUMN ' + c); } catch (e) {} } },
   tm(k, v) { if (v === undefined) { const r = this.sql.exec('SELECT v FROM tmeta WHERE k=?', k).toArray()[0]; return r ? r.v : null; } this.sql.exec('INSERT INTO tmeta (k,v) VALUES (?,?) ON CONFLICT(k) DO UPDATE SET v=excluded.v', k, String(v)); },
   tCur() { const tid = this.tm('tid'); if (!tid) return null; return { tid, state: this.tm('state'), fee: +this.tm('fee') || 0, startAt: +this.tm('startAt') || 0, round: +this.tm('round') || 0, rounds: +this.tm('rounds') || 0, size: +this.tm('size') || 0, ended: +this.tm('ended') || 0, why: this.tm('why') || '' }; },
   tBump() { this.tm('ver', (+this.tm('ver') || 0) + 1); this._changed = true; },
@@ -132,6 +134,9 @@ export const tourMethods = {
     const done = (o, code) => this.tAfter().then(() => j(o, code));
     if (act === 'ttick') return done({ ok: true });
     if (act === 'tget') return done({ ok: true, ...this.tView(me) });
+    if (act === 'thof') return done({ ok: true, ...this.tHof(me) });
+    if (act === 'tbracket') return done(this.tPast(String(b.tid || '')));
+    if (act === 'tmatch') return done(this.tMatch(String(b.tid || ''), Math.floor(+b.rnd), Math.floor(+b.slot)));
     const T = this.tCur();
     if (act === 'tcreate' || act === 'tadmin') {                // the owner's tools (the start code): entry fee, start now / at a time, cancel, settle, skip check-in
       if (String(b.code || '') !== TOUR.code) return done({ ok: false, err: 'wrong tournament code' }, 403);
@@ -142,6 +147,7 @@ export const tourMethods = {
       else if (op === 'cancel' && (T.state === 'signup' || T.state === 'running')) { await this.tCancel(T, 'cancelled by the owner'); }
       else if (op === 'next' && (T.state === 'done' || T.state === 'cancelled')) { this.tm('ended', 1); await this.tSettle(T); this.tEnsure(now); }   // skip the 30-minute result screen
       else if (op === 'skip' && T.state === 'running') { this.sql.exec("UPDATE tgame SET ck=? WHERE tid=? AND st='checkin'", now, T.tid); this.tBump(); }
+      else if (op === 'remove' && (T.state === 'signup' || T.state === 'running')) { const r = await this.tRemove(T, String(b.target || '').toLowerCase()); if (!r) return done({ ok: false, err: 'that player is not in this tournament' }, 409); }
       else if (op === 'win' && T.state === 'running') { const g = this.sql.exec("SELECT * FROM tgame WHERE tid=? AND done IS NULL AND (a=? OR b=?)", T.tid, String(b.winner || ''), String(b.winner || '')).toArray()[0]; if (!g) return done({ ok: false, err: 'no open game for that player' }, 409); this.tResolve(T, g, String(b.winner), null, null, 'owner'); }
       else return done({ ok: false, err: 'that does not apply right now' }, 409);
       await this.tAdvance(T_NOW()); return done({ ok: true, ...this.tView(me) });
@@ -168,6 +174,7 @@ export const tourMethods = {
       if (!g) return done({ ok: false, err: 'you have no check-in right now' }, 409);
       if (now >= g.ck) return done({ ok: false, err: 'the check-in window closed' }, 409);
       const col = g.a === me ? 'rda' : 'rdb'; if (!g[col]) { this.sql.exec('UPDATE tgame SET ' + col + '=? WHERE tid=? AND rnd=? AND slot=?', now, T.tid, g.rnd, g.slot); this.tBump(); }
+      await this.tSnapUser(T, me, g, g.a === me ? 'oa' : 'ob', null);
       await this.tAdvance(T_NOW()); return done({ ok: true, ...this.tView(me) });
     }
     if (act === 'treport') {
@@ -254,8 +261,35 @@ export const tourMethods = {
       if (T.round < T.rounds) { this.tOpenRound(T, T.round + 1, now); T = this.tCur(); continue; }
       this.tFinish(T, now); T = this.tCur();
     }
+    if (T && T.state === 'running') await this.tSnaps(T);
     if (T && (T.state === 'done' || T.state === 'cancelled')) await this.tSettle(T);
   },
+  tOvr(lu) {                                          // the team overall the server works out from the card list (never from the browser): the average of every starter's rating
+    const bonus = { Common: 0, Uncommon: 1, Rare: 3, Epic: 5, Legendary: 8 }; let sum = 0, n = 0;
+    for (const e of lu) { let base = null; const pid = String(e.pid || '');
+      if (pid === 'S1-NABERS') base = 99; else if (pid.indexOf('LTD-') === 0) { const p = PLAYERS[pid.slice(4)]; if (p && p.overall != null) base = Math.min(99, p.overall + (TOUR.ltdBoost || 3)); }
+      else { const p = PLAYERS[pid]; if (p && p.overall != null) base = p.overall; }
+      if (base == null) continue; sum += Math.min(99, base + (pid.indexOf('LTD-') === 0 || pid === 'S1-NABERS' ? 0 : (bonus[e.rarity] || 0))); n++; }
+    return n ? Math.round(sum / n) : null; },
+  async tSnapUser(T, user, g, ovrCol, luCol) {        // read this player's tournament team from his vault (tournament lineup + this week's LTD); keep a read-only copy
+    const r = await ivault(this.env, user, 'i_snap', { tour: true, tid: T.tid }).catch(() => null); const sn = r && r.snap; if (!sn || !sn.lineup) return null;
+    const lu = Object.keys(sn.lineup).map(slot => ({ slot, pid: sn.lineup[slot].pid, rarity: sn.lineup[slot].rarity, ltd: sn.lineup[slot].ltd ? 1 : 0 })), ovr = this.tOvr(lu), js = JSON.stringify(lu);
+    this.sql.exec('UPDATE tent SET ovr=?, lu=? WHERE tid=? AND user=?', ovr, js, T.tid, user);
+    if (g && ovrCol) this.sql.exec('UPDATE tgame SET ' + ovrCol + '=? WHERE tid=? AND rnd=? AND slot=?', ovr, T.tid, g.rnd, g.slot);
+    if (g && luCol) this.sql.exec('UPDATE tgame SET ' + luCol + '=? WHERE tid=? AND rnd=? AND slot=? AND ' + luCol + ' IS NULL', js, T.tid, g.rnd, g.slot);
+    this.tBump(); return { ovr, lu }; },
+  async tSnaps(T) {
+    for (const g of this.sql.exec("SELECT * FROM tgame WHERE tid=? AND rnd=? AND done IS NULL AND st IN ('checkin','live')", T.tid, T.round).toArray()) {
+      if (g.st === 'checkin') { if (g.oa == null && g.a) await this.tSnapUser(T, g.a, g, 'oa', null); if (g.ob == null && g.b) await this.tSnapUser(T, g.b, g, 'ob', null); }
+      if (g.st === 'live') { if (g.la == null && g.a) await this.tSnapUser(T, g.a, g, 'oa', 'la'); if (g.lb == null && g.b) await this.tSnapUser(T, g.b, g, 'ob', 'lb'); } } },
+  async tRemove(T, user) {                            // the owner takes a player out: before 8 PM it is a refunded leave; during the bracket his game is forfeited to the opponent
+    const e = this.sql.exec('SELECT * FROM tent WHERE tid=? AND user=?', T.tid, user).toArray()[0]; if (!e) return false;
+    if (T.state === 'signup') { this.sql.exec('DELETE FROM tent WHERE tid=? AND user=?', T.tid, user); await ivault(this.env, user, 'i_trefund', { fee: e.fee || 0, tid: T.tid }).catch(() => {}); await ivault(this.env, user, 'i_tdrop', { tid: T.tid }).catch(() => {}); this.tBump(); return true; }
+    this.sql.exec('UPDATE tent SET removed=1, out=COALESCE(out, ?) WHERE tid=? AND user=?', T.round, T.tid, user);
+    for (const g of this.sql.exec('SELECT * FROM tgame WHERE tid=? AND done IS NULL AND (a=? OR b=?) ORDER BY rnd', T.tid, user, user).toArray()) {
+      if (g.rnd === T.round) { const opp = g.a === user ? g.b : g.a; this.tResolve(T, g, opp || null, null, null, opp ? 'removed' : 'void'); }
+      else this.sql.exec('UPDATE tgame SET ' + (g.a === user ? 'a' : 'b') + '=NULL WHERE tid=? AND rnd=? AND slot=?', T.tid, g.rnd, g.slot); }   // a later slot he had already reached becomes a bye for whoever comes
+    this.tBump(); return true; },
   tFinish(T, now) {                                    // the championship is over: places, champion, history
     const fin = this.sql.exec('SELECT * FROM tgame WHERE tid=? AND rnd=? AND slot=0', T.tid, T.rounds).toArray()[0], third = this.sql.exec('SELECT * FROM tgame WHERE tid=? AND rnd=? AND slot=1', T.tid, T.rounds).toArray()[0];
     const place = {}; if (fin && fin.w) { place[fin.w] = 1; const ru = fin.w === fin.a ? fin.b : fin.a; if (ru && fin.how !== 'dff') place[ru] = 2; }
@@ -263,6 +297,13 @@ export const tourMethods = {
     for (const u in place) this.sql.exec('UPDATE tent SET place=? WHERE tid=? AND user=?', place[u], T.tid, u);
     this.sql.exec('UPDATE tent SET prized=1 WHERE tid=? AND place IS NULL', T.tid);
     if (fin && fin.w) this.sql.exec('INSERT INTO tchamp (tid,user,ts) VALUES (?,?,?) ON CONFLICT DO NOTHING', T.tid, fin.w, now);
+    if (fin && fin.w) { const c = fin.w, mine = this.sql.exec('SELECT * FROM tgame WHERE tid=? AND (a=? OR b=?) AND done IS NOT NULL ORDER BY rnd', T.tid, c, c).toArray();
+      const W = mine.filter(g => g.w === c && g.how !== 'bye' && g.how !== 'void').length, L = mine.filter(g => g.w && g.w !== c && g.slot === 0).length;
+      const perfect = mine.every(g => g.w === c && (g.how === 'play' || g.how === 'dispute' || g.how === 'noshow')) ? 1 : 0;      // won every round on the field (no byes, no forfeits)
+      const champA = fin.a === c, sa = fin.sa == null ? null : (champA ? fin.sa : fin.sb), sb = fin.sa == null ? null : (champA ? fin.sb : fin.sa);
+      const ent = this.sql.exec('SELECT lu FROM tent WHERE tid=? AND user=?', T.tid, c).toArray()[0] || {}, lu = (champA ? fin.la : fin.lb) || ent.lu || '[]';
+      const no = (this.sql.exec('SELECT COUNT(*) n FROM thof').toArray()[0].n | 0) + 1, titles = this.sql.exec('SELECT COUNT(*) n FROM tchamp WHERE user=?', c).toArray()[0].n | 0, n = this.sql.exec('SELECT COUNT(*) n FROM tent WHERE tid=?', T.tid).toArray()[0].n | 0;
+      this.sql.exec('INSERT INTO thof (tid,no,ts,startAt,champ,runner,n,sa,sb,how,lu,rec,titles,perfect) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT DO NOTHING', T.tid, no, now, T.startAt, c, (champA ? fin.b : fin.a) || null, n, sa, sb, fin.how, lu, W + '-' + L, titles, perfect); }
     this.tm('state', 'done'); this.tm('ended', now); this.tm('why', fin && fin.w ? '' : 'no champion (nobody showed up for the final)'); this.tBump();
   },
   async tSettle(T) {                                   // prizes once (the vault also refuses a second payout), LTD cards back from everyone - retried until all done
@@ -287,18 +328,41 @@ export const tourMethods = {
   tSocket(req) { const pair = new WebSocketPair(); this.ctx.acceptWebSocket(pair[1], ['tour']); try { pair[1].send(JSON.stringify({ k: 'tour', ver: +this.tm('ver') || 0 })); } catch (e) {} return new Response(null, { status: 101, webSocket: pair[0] }); },
   webSocketMessage(ws, m) { if (m === 'ping') { try { ws.send('pong'); } catch (e) {} } },
   webSocketClose(ws) { try { ws.close(); } catch (e) {} },
+  tBoard() {                                           // the Hall of Fame leaderboard: titles, finals, match wins, win % (then name) - straight from the stored results
+    const B = {}, get = u => B[u] || (B[u] = { user: u, titles: 0, finals: 0, w: 0, l: 0, perfect: 0, events: 0 });
+    for (const r of this.sql.exec('SELECT user, COUNT(*) n FROM tchamp GROUP BY user').toArray()) get(r.user).titles = r.n | 0;
+    for (const r of this.sql.exec('SELECT user, COUNT(*) n FROM tent WHERE place IN (1,2) GROUP BY user').toArray()) get(r.user).finals = r.n | 0;
+    for (const r of this.sql.exec('SELECT user, COUNT(*) n FROM tent WHERE seed IS NOT NULL GROUP BY user').toArray()) get(r.user).events = r.n | 0;
+    for (const r of this.sql.exec('SELECT champ, SUM(perfect) n FROM thof GROUP BY champ').toArray()) get(r.champ).perfect = r.n | 0;
+    for (const g of this.sql.exec("SELECT a, b, w FROM tgame WHERE w IS NOT NULL AND a IS NOT NULL AND b IS NOT NULL AND how IN ('play','dispute','noshow','ff','owner','removed')").toArray()) { get(g.w).w++; get(g.w === g.a ? g.b : g.a).l++; }
+    return Object.values(B).map(x => Object.assign(x, { pct: x.w + x.l ? Math.round(1000 * x.w / (x.w + x.l)) / 10 : 0 }))
+      .sort((x, y) => y.titles - x.titles || y.finals - x.finals || y.w - x.w || y.pct - x.pct || (x.user < y.user ? -1 : 1)); },
+  tAch(x) { const a = []; if (!x) return a; if (x.titles >= 3) a.push(x.titles > 3 ? x.titles + '-TIME CHAMPION' : 'THREE-TIME CHAMPION'); else if (x.titles === 2) a.push('TWO-TIME CHAMPION'); else if (x.titles === 1) a.push('WNF CHAMPION');
+    if (x.perfect) a.push('UNDEFEATED CHAMPION'); return a; },
+  tHof(me) { const board = this.tBoard(), hof = this.sql.exec('SELECT * FROM thof ORDER BY ts DESC LIMIT 40').toArray().map(h => Object.assign(h, { lu: (() => { try { return JSON.parse(h.lu || '[]'); } catch (e) { return []; } })() }));
+    return { hof, board: board.slice(0, 60).map(x => Object.assign({}, x, { ach: this.tAch(x) })), mine: Object.assign({ ach: this.tAch(board.find(x => x.user === me)) }, board.find(x => x.user === me) || {}) }; },
+  tPast(tid) { if (!/^[a-z0-9]{4,40}$/.test(tid)) return { ok: false, err: 'bad tournament' };
+    const h = this.sql.exec('SELECT * FROM thof WHERE tid=?', tid).toArray()[0], ents = this.sql.exec('SELECT user, seed, place, out, ovr FROM tent WHERE tid=? ORDER BY COALESCE(seed, 999), ts', tid).toArray();
+    const games = this.sql.exec('SELECT rnd, slot, a, b, w, sa, sb, st, how, oa, ob FROM tgame WHERE tid=? ORDER BY rnd, slot', tid).toArray(); if (!games.length) return { ok: false, err: 'no bracket for that week' };
+    const rounds = Math.max(...games.map(g => g.rnd)); if (h) { try { h.lu = JSON.parse(h.lu || '[]'); } catch (e) { h.lu = []; } } return { ok: true, past: { tid, state: 'done', round: rounds, rounds, entrants: ents, games, hof: h || null } }; },
+  tMatch(tid, rnd, slot) {                            // one matchup in detail: who, seeds, team overall, the lineups they used, the result (no account details)
+    if (!tid) tid = this.tm('tid') || ''; const g = this.sql.exec('SELECT * FROM tgame WHERE tid=? AND rnd=? AND slot=?', tid, rnd, slot).toArray()[0]; if (!g) return { ok: false, err: 'no such game' };
+    const ent = u => u ? this.sql.exec('SELECT seed, ovr, lu FROM tent WHERE tid=? AND user=?', tid, u).toArray()[0] || {} : {}, pj = s => { try { return JSON.parse(s || '[]'); } catch (e) { return []; } };
+    const ea = ent(g.a), eb = ent(g.b);
+    return { ok: true, match: { tid, rnd: g.rnd, slot: g.slot, st: g.st, how: g.how, w: g.w, sa: g.sa, sb: g.sb, ck: g.ck, rda: g.rda ? 1 : 0, rdb: g.rdb ? 1 : 0,
+      a: g.a ? { user: g.a, seed: ea.seed, ovr: g.oa != null ? g.oa : ea.ovr, lu: pj(g.la || ea.lu) } : null, b: g.b ? { user: g.b, seed: eb.seed, ovr: g.ob != null ? g.ob : eb.ovr, lu: pj(g.lb || eb.lu) } : null } }; },
   tView(me) {
     const T = this.tCur(), now = T_NOW(), view = { now, tour: null };
     const champs = this.sql.exec('SELECT tid, user, ts FROM tchamp ORDER BY ts DESC LIMIT 8').toArray(), titles = this.sql.exec('SELECT user, COUNT(*) n FROM tchamp GROUP BY user ORDER BY n DESC, MIN(ts) LIMIT 10').toArray();
     const lt = this.tm('lasttid'), last = lt ? { tid: lt, places: this.sql.exec('SELECT user, place FROM tent WHERE tid=? AND place IS NOT NULL ORDER BY place', lt).toArray() } : null;
     if (!T) return Object.assign(view, { champs, titles, last });
-    const ents = this.sql.exec('SELECT user, seed, wins, pf, place, out FROM tent WHERE tid=? ORDER BY COALESCE(seed, 999), ts', T.tid).toArray();
-    const games = this.sql.exec('SELECT rnd, slot, a, b, w, sa, sb, st, ck, rda, rdb, how FROM tgame WHERE tid=? ORDER BY rnd, slot', T.tid).toArray().map(g => Object.assign(g, { rda: g.rda ? 1 : 0, rdb: g.rdb ? 1 : 0 }));
+    const ents = this.sql.exec('SELECT user, seed, wins, pf, place, out, ovr, removed FROM tent WHERE tid=? ORDER BY COALESCE(seed, 999), ts', T.tid).toArray();
+    const games = this.sql.exec('SELECT rnd, slot, a, b, w, sa, sb, st, ck, rda, rdb, how, oa, ob FROM tgame WHERE tid=? ORDER BY rnd, slot', T.tid).toArray().map(g => Object.assign(g, { rda: g.rda ? 1 : 0, rdb: g.rdb ? 1 : 0 }));
     const mine = games.find(g => !g.w && g.st !== 'done' && g.rnd === T.round && (g.a === me || g.b === me) && g.a && g.b), ent = ents.find(e => e.user === me);
     const myLtd = (this.sql.exec('SELECT ltd FROM tent WHERE tid=? AND user=?', T.tid, me).toArray()[0] || {}).ltd || null;
-    view.tour = { tid: T.tid, state: T.state, fee: T.fee, startAt: T.startAt, round: T.round, rounds: T.rounds, size: T.size, ended: T.ended, why: T.why, ver: +this.tm('ver') || 0, entrants: ents, games, prize: TOUR.prize, checkInMinutes: TOUR.checkInMinutes,
+    view.tour = { no: (this.sql.exec('SELECT COUNT(*) n FROM thof').toArray()[0].n | 0) + (T.state === 'done' && this.sql.exec('SELECT 1 FROM thof WHERE tid=?', T.tid).toArray().length ? 0 : 1), tid: T.tid, state: T.state, fee: T.fee, startAt: T.startAt, round: T.round, rounds: T.rounds, size: T.size, ended: T.ended, why: T.why, ver: +this.tm('ver') || 0, entrants: ents, games, prize: TOUR.prize, checkInMinutes: TOUR.checkInMinutes,
       me: { entered: !!ent, ltd: myLtd, seed: ent ? ent.seed : null, out: ent ? ent.out : null, place: ent ? ent.place : null,
-        game: mine ? { rnd: mine.rnd, slot: mine.slot, opp: mine.a === me ? mine.b : mine.a, host: mine.a === me, st: mine.st, ck: mine.ck, readyMe: mine.a === me ? mine.rda : mine.rdb, readyOpp: mine.a === me ? mine.rdb : mine.rda, gid: T.tid + 'r' + mine.rnd + 's' + mine.slot } : null } };
+        game: mine ? { rnd: mine.rnd, slot: mine.slot, opp: mine.a === me ? mine.b : mine.a, host: mine.a === me, st: mine.st, ck: mine.ck, readyMe: mine.a === me ? mine.rda : mine.rdb, readyOpp: mine.a === me ? mine.rdb : mine.rda, ovrMe: mine.a === me ? mine.oa : mine.ob, ovrOpp: mine.a === me ? mine.ob : mine.oa, seedOpp: (ents.find(e => e.user === (mine.a === me ? mine.b : mine.a)) || {}).seed || null, gid: T.tid + 'r' + mine.rnd + 's' + mine.slot } : null } };
     return Object.assign(view, { champs, titles, last });
   }
 };
@@ -373,7 +437,7 @@ export class Matchmaker extends DurableObject {
     const b = await req.json(), act = new URL(req.url).pathname.split('/').pop(), now = Date.now();
     if (/^e(start|check|claim|release|bind)$/.test(act)) return this.email(b, act, now);
     if (act === 'lbadd' || act === 'lbget') return this.lb(b, act);
-    if (/^t(get|create|join|leave|report|admin|ready|tick)$/.test(act)) return this.tFetch(act, b);
+    if (/^t(get|create|join|leave|report|admin|ready|tick|hof|bracket|match)$/.test(act)) return this.tFetch(act, b);
     if (act === 'fget' || act === 'fset') {                          // player faces (this object used with the name 'faces'): player id -> one of the 100 faces
       this.sql.exec('CREATE TABLE IF NOT EXISTS fmap (pid TEXT PRIMARY KEY, face INTEGER NOT NULL)');
       if (act === 'fset') { const pid = String(b.pid || '').slice(0, 40), face = Math.floor(+b.face); if (!/^[A-Za-z0-9_:-]{3,40}$/.test(pid)) return j({ ok: false, err: 'bad player id' }, 400);

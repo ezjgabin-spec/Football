@@ -236,10 +236,10 @@ export class Vault extends DurableObject {
     for (let i = 0; i < qty; i++) this.sql.exec('INSERT INTO packs (kind,got) VALUES (?,?)', b.pack, Date.now());
     this.ledger(0, 'gift from dev ' + String(b.from || '').slice(0, 16) + ': ' + qty + ' ' + b.pack); return j({ ok: true });
   }
-  draftGet() {                           // the 3 cards on offer for the season you just finished (rolled once by the server, fixed for that season)
+  seasonWon() { let o = null; try { o = JSON.parse(this.metaGet('season') || 'null'); } catch (e) {} return !!(o && o.phase === 'done' && o.champ === 'YOU' && (o.div + ':' + o.no) === this.metaGet('skey')); }
+  draftGet() {                           // the 3 cards on offer for the season you just won (rolled once by the server, fixed for that season)
     const key = this.metaGet('skey'); if (!key) return j({ ok: false, err: 'no season yet' }, 409);
-    const played = this.gamesPlayed() - (parseInt(this.metaGet('sgp') || '0', 10) || 0);
-    if (played < SEASON.minGames.playoff) return j({ ok: false, err: 'finish more games this season first (' + played + '/' + SEASON.minGames.playoff + ')' }, 409);
+    if (!this.seasonWon()) return j({ ok: false, err: 'win the Super Bowl to draft a player' }, 409);
     let d = null; try { d = JSON.parse(this.metaGet('draft') || 'null'); } catch (e) {}
     if (!d || d.key !== key) {
       const pk = { tierWeights: DRAFT.tierWeights, rarityWeights: DRAFT.rarityWeights }, offers = []; const seen = new Set();
@@ -266,9 +266,10 @@ export class Vault extends DurableObject {
     this.ctx.storage.transactionSync(() => {
       const claimed = this.seasonClaimed(), key = this.metaGet('skey'); if (!key) { res = { ok: false, err: 'no season' }; return; }
       if (claimed.includes(kind)) { res = { ok: false, err: 'already claimed' }; return; }
-      const played = this.gamesPlayed() - (parseInt(this.metaGet('sgp') || '0', 10) || 0);
-      if (played < SEASON.minGames[kind]) { res = { ok: false, err: 'finish more games this season first (' + played + '/' + SEASON.minGames[kind] + ')' }; return; }
-      for (const k of ['playoff', 'final', 'champ']) { if (!claimed.includes(k)) claimed.push(k); if (k === kind) break; }   // claiming the best result also closes the lower ones
+      if (!this.seasonWon()) { res = { ok: false, err: 'win the Super Bowl first' }; return; }
+      let log = []; try { log = JSON.parse(this.metaGet('schamps') || '[]'); } catch (e) {} const now = Date.now(); log = log.filter(t => now - t < 86400000);
+      if (log.length >= SEASON.champsPerDay) { res = { ok: false, err: 'that is ' + SEASON.champsPerDay + ' titles today - the next reward unlocks tomorrow' }; return; }
+      log.push(now); this.metaSet('schamps', JSON.stringify(log)); claimed.push(kind);
       this.metaSet('sclaim', JSON.stringify(claimed)); this.add(coins, 'season ' + kind + ' reward'); this.sql.exec('INSERT INTO packs (kind,got) VALUES (?,?)', SEASON.pack[kind], Date.now()); res = { ok: true };
     });
     return res.ok ? j({ ok: true, ...this.state(), reward: coins, pack: SEASON.pack[kind] }) : j(res, 409);

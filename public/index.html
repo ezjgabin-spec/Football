@@ -20018,12 +20018,12 @@ function utLtdCard(g, x, y, w, h, p, dup){
   if (dup > 1) T('X'+dup, x+3*k, y+h-12*k, '#ffd24a', 2.6*k, 'left');
   g.restore();
 }
-const TOUR = { d:null, champs:[], titles:[], last:null, now:0, at:0, poll:0, open:false, err:'', msg:'', busy:false, bv:0, bp:0, lastKey:'', liveKey:'', ws:null, wsAt:0, ver:-1 };
+const TOUR = { d:null, champs:[], titles:[], last:null, now:0, at:0, poll:0, open:false, err:'', msg:'', busy:false, bv:0, bp:0, lastKey:'', liveKey:'', ws:null, wsAt:0, ver:-1, tab:'main', hof:null, past:null, detail:null, showB:false, hpg:0, lpg:0, q:[] };
 function tourSync(force){
   if (typeof utSrv === 'undefined' || !utSrv.token) return; const t = performance.now(); if (!force && t - TOUR.poll < (TOUR.ws && TOUR.ws.readyState === 1 ? 15000 : (TOUR.open ? 2500 : 6000))) return; TOUR.poll = t;
   utApi('tget', {}).then(d => { if (d && d.ok) tourTake(d); });
 }
-function tourTake(d){ TOUR.d = d.tour; TOUR.champs = d.champs || []; TOUR.titles = d.titles || []; TOUR.last = d.last || null; TOUR.now = d.now; TOUR.at = performance.now(); if (d.tour) TOUR.ver = d.tour.ver; tourWatch(); }
+function tourTake(d){ TOUR.d = d.tour; TOUR.champs = d.champs || []; TOUR.titles = d.titles || []; TOUR.last = d.last || null; TOUR.now = d.now; TOUR.at = performance.now(); if (d.tour) TOUR.ver = d.tour.ver; tourWatch(); try { tourNotes(); } catch(e){} if (d.tour && d.tour.state === 'done' && TOUR.hofTid !== d.tour.tid) { TOUR.hofTid = d.tour.tid; tourHofLoad(); } }
 function tourWs(){                                       // the live feed: the server pings on every bracket change; the page then fetches the new state
   if (typeof utSrv === 'undefined' || !utSrv.token || typeof WebSocket === 'undefined') return; if (TOUR.ws || performance.now() - TOUR.wsAt < 5000) return; TOUR.wsAt = performance.now();
   try { const base = (utBase() || location.origin).replace(/\/+$/, '').replace(/^http/, 'ws'); const ws = new WebSocket(base + '/api/tour/ws'); TOUR.ws = ws;
@@ -20038,11 +20038,11 @@ function tourWhen(ms){ try { return new Date(ms).toLocaleString('en-US', { timeZ
 function tourWatch(){
   const TD = TOUR.d, g = TD && TD.me && TD.me.game;
   if (FB.tourGame && FB.scr === 'lobby' && TD && (!g || g.gid !== FB.tourGame.gid || g.st !== 'live')) { FB.tourGame = null; TOUR.liveKey = ''; try { if (PARTY.on) partyLeave(false); } catch(e){} if (FB.msg && /YOUR MATCH/.test(FB.msg.txt)) FB.msg = null; }   // that match was settled (or forfeited) while we waited: drop the room
-  if (g && g.st === 'checkin' && TOUR.lastKey !== g.gid) { TOUR.lastKey = g.gid; if (!TOUR.open) fbMsg('WNF: CHECK IN VS '+String(g.opp).toUpperCase().slice(0,10)+' - 5 MIN', '#ff4458', 260); try { fbSfx('whistle'); } catch(e){} if (FB.scr === 'lobby' && !TOUR.open) tourOpen(); }
+  if (g && g.st === 'checkin' && TOUR.lastKey !== g.gid) { TOUR.lastKey = g.gid; try { fbSfx('whistle'); } catch(e){} if (FB.scr === 'lobby' && !TOUR.open) tourOpen(); }
   if (g && g.st === 'live' && TOUR.liveKey !== g.gid && !FB.tourGame && (FB.scr === 'lobby' || FB.scr === 'ut')) { TOUR.liveKey = g.gid; tourPlay(); }      // both ready: the game starts by itself
 }
-function tourTick(){ if (FB.scr === 'lobby' || FB.scr === 'ut') { tourWs(); tourSync(false); } }
-function tourOpen(){ if (!utSrv.token) { fbMsg('SIGN IN TO ULTIMATE TEAM FIRST', '#ffd24a', 120); try { utAuthShow(true); } catch(e){} return; } TOUR.open = true; TOUR.err = ''; TOUR.msg = ''; tourSync(true); }
+function tourTick(){ if (FB.scr === 'lobby' || FB.scr === 'ut') { tourWs(); tourSync(false); tourNoteTick(); } }
+function tourOpen(){ if (!utSrv.token) { fbMsg('SIGN IN TO ULTIMATE TEAM FIRST', '#ffd24a', 120); try { utAuthShow(true); } catch(e){} return; } TOUR.open = true; TOUR.err = ''; TOUR.msg = ''; TOUR.tab = 'main'; TOUR.detail = null; TOUR.showB = false; tourSync(true); tourHofLoad(); }
 function T_(g, s, x, y, c, sz){ T(s, x, y, c, sz, 'center'); }
 function tourHeader(g){
   g.fillStyle = 'rgba(4,6,18,.86)'; g.fillRect(0,0,W,H);
@@ -20050,84 +20050,202 @@ function tourHeader(g){
   g.strokeStyle = '#ff2440'; g.lineWidth = 1; rrect(g, 8, 4, 304, 172, 6); g.stroke(); g.fillStyle = '#ff2440'; g.fillRect(8, 22, 304, 0.8);
   fbvSlashes(g, 26, 13, 12, 0, '#ff2440'); uiMark(g, 'WEDNESDAY NIGHT FOOTBALL', 160, 18, 9, '#ffffff', 'center', -0.03); fbvSlashes(g, 294, 13, 12, 0, '#ff2440');
   fbBtn(g, 'tourx', 268, 25, 40, 9, 'CLOSE', { size:3.2 });
+  const tb = TOUR.tab || 'main'; fbBtn(g, tb === 'main' ? 'tourhof' : 'tourmain', 34, 8, 48, 10, tb === 'main' ? 'HALL OF FAME' : '< EVENT', { size:3, col:'#ffd24a', on:tb === 'main' });
 }
 function tourDraw(g){
   const TD = TOUR.d, now = tourClock(); tourHeader(g);
+  if (TOUR.detail) return tourDetailDraw(g);
+  if (TOUR.msg && TOUR.msgAt && performance.now() - TOUR.msgAt > 6000) { TOUR.msg = ''; TOUR.msgAt = 0; }
   if (TOUR.err) T_(g, String(TOUR.err).toUpperCase(), 160, 168, '#ff8b7b', 3); else if (TOUR.msg) T_(g, TOUR.msg, 160, 168, '#7ddc8a', 3);
+  if (TOUR.tab === 'hof') return tourHofDraw(g);
+  if (TOUR.tab === 'past') return tourPastDraw(g, now);
   if (!TD) { T_(g, 'LOADING...', 160, 90, '#cfd8f4', 4); return; }
   if (TD.state === 'signup') return tourSignupDraw(g, TD, now);
   if (TD.state === 'running') return tourRunDraw(g, TD, now);
   return tourDoneDraw(g, TD, now);
 }
+function tourStatus(TD, now){                                      // one line that says where the event is right now
+  if (!TD) return ''; if (TD.state === 'signup') return TD.startAt - now > 0 ? 'REGISTRATION OPEN' : 'BUILDING THE BRACKET...';
+  if (TD.state === 'running') { const live = (TD.games||[]).filter(g => g.st === 'live').length, ck = (TD.games||[]).filter(g => g.st === 'checkin').length; return 'LIVE - ' + tourRoundName(TD, TD.round) + (ck ? '  -  ' + ck + ' CHECKING IN' : '') + (live ? '  -  ' + live + ' PLAYING' : ''); }
+  return TD.state === 'cancelled' ? 'CANCELLED' : 'FINAL';
+}
 function tourSignupDraw(g, TD, now){
-  const left = TD.startAt - now, me = TD.me || {};
-  T('NEXT TOURNAMENT', 16, 27, '#9fb0dc', 2.8, 'left'); T(tourWhen(TD.startAt), 16, 32, '#ffffff', 3.4, 'left');
-  uiPanel(g, 14, 39, 128, 22, { r:3, fill:'rgba(5,9,31,.8)', line:'#ff2440' }); T_(g, left > 0 ? tourLeft(left, true) : 'STARTING...', 78, 43, '#ffffff', 6.4); T_(g, 'REGISTRATION CLOSES AT KICKOFF', 78, 54, '#ff8a96', 2.4);
-  T((TD.entrants||[]).length + ' REGISTERED', 16, 64, '#7ddc8a', 3.6, 'left'); if (TD.fee) T('ENTRY ' + TD.fee + ' COINS', 90, 64.5, '#ffd24a', 2.8, 'left');
-  if (!me.entered) fbBtn(g, 'tourjoin', 14, 71, 128, 15, left > 0 ? 'JOIN TOURNAMENT' : 'REGISTRATION CLOSED', { size:4.6, col:'#ff2440', on:left > 0 });
-  else { const p = me.ltd && utById(me.ltd); T('YOU ARE IN!', 16, 71, '#7ddc8a', 3.8, 'left'); if (p) { utCard(g, 112, 66, 30, 36, p, 'Common', 0); T('YOUR LTD: ' + p.name.toUpperCase().slice(0,14), 16, 78, '#ff8a96', 2.6, 'left'); }
-    fbBtn(g, 'tourlu', 14, 84, 92, 10, 'TOURNAMENT LINEUP', { size:3.2, col:'#ffd24a' }); fbBtn(g, 'tourleave', 14, 96, 92, 8, 'LEAVE' + (TD.fee ? ' (REFUND)' : ''), { size:2.8 }); }
+  const left = TD.startAt - now, me = TD.me || {}, ents = TD.entrants || [];
+  T('WNF #' + (TD.no || 1) + '  -  NEXT TOURNAMENT', 16, 27, '#9fb0dc', 2.8, 'left'); T(tourWhen(TD.startAt), 16, 32, '#ffffff', 3.4, 'left');
+  uiPanel(g, 14, 38, 128, 21, { r:3, fill:'rgba(5,9,31,.8)', line:'#ff2440' }); T_(g, left > 0 ? tourLeft(left, true) : 'STARTING...', 78, 41.5, '#ffffff', 6.4); T_(g, 'REGISTRATION CLOSES AT KICKOFF', 78, 52.5, '#ff8a96', 2.4);
+  T(ents.length + ' REGISTERED', 16, 61.5, '#7ddc8a', 3.4, 'left'); T(tourStatus(TD, now), 142, 61.5, '#ffd24a', 2.4, 'right');
+  if (!me.entered) fbBtn(g, 'tourjoin', 14, 68, 128, 14, left > 0 ? 'JOIN TOURNAMENT - FREE' : 'REGISTRATION CLOSED', { size:4.4, col:'#ff2440', on:left > 0 });
+  else { const p = me.ltd && utById(me.ltd); T('YOU ARE IN!', 16, 68, '#7ddc8a', 3.6, 'left'); if (p) { utCard(g, 116, 66, 26, 30, p, 'Common', 0); T('YOUR LTD: ' + p.name.toUpperCase().slice(0,14), 16, 74, '#ff8a96', 2.4, 'left'); }
+    fbBtn(g, 'tourlu', 14, 79, 46, 9, 'TOURNAMENT LINEUP', { size:2.4, col:'#ffd24a' }); fbBtn(g, 'tourleave', 62, 79, 46, 9, 'LEAVE' + (TD.fee ? ' (REFUND)' : ''), { size:2.4 }); }
+  // who is in
+  T('PLAYERS', 16, 97, '#ff4458', 2.8, 'left'); const shown = ents.slice(0, 12);
+  shown.forEach((e,i) => { const mine = e.user === utSrv.user, x = 16 + (i%3)*42, y = 102.5 + Math.floor(i/3)*5; T(String(e.user).toUpperCase().slice(0,11), x, y, mine ? '#ff8ad8' : '#ffffff', 2.3, 'left'); if (mine && fbDevOn()) fbCheck(g, x + String(e.user).slice(0,11).length*2.35 + 1.5, y+1.2, 1.2); });
+  if (ents.length > 12) T('+' + (ents.length - 12) + ' MORE', 142, 97.5, '#9fb0dc', 2.2, 'right'); if (!ents.length) T('NOBODY YET - BE THE FIRST', 16, 102.5, '#7f8db0', 2.3, 'left');
   // rules
-  const R = ['SIGN UP BEFORE WEDNESDAY 8:00 PM ET - ONE FREE SEASON LTD PACK','BUILD A TOURNAMENT LINEUP AROUND YOUR LTD (NORMAL LINEUP UNTOUCHED)','BRACKET BUILT AT 8:00 PM: BYES TO TOP SEEDS (WINS, H2H, POINTS)','EVERY ROUND: 5 MINUTES TO READY UP OR YOU FORFEIT','LTD CARDS EXPIRE WHEN THE TOURNAMENT ENDS'];
-  T('RULES', 16, 108, '#ff4458', 3, 'left'); R.forEach((r,i) => T('- ' + r, 16, 114 + i*5.4, '#cfd8f4', 2.2, 'left'));
+  const R = ['FREE ENTRY - ONE SEASON LTD PACK (TOURNAMENT ONLY)','TOURNAMENT LINEUP: YOUR CARDS + YOUR LTD (NORMAL LINEUP UNTOUCHED)','8:00 PM ET: BRACKET BUILT - BYES TO TOP SEEDS (WINS, H2H, POINTS)','EVERY ROUND: 5 MINUTES TO READY UP OR FORFEIT (NOBODY = BOTH OUT)','LTD CARDS EXPIRE WHEN THE TOURNAMENT ENDS'];
+  T('RULES', 16, 124, '#ff4458', 2.8, 'left'); R.forEach((r,i) => T('- ' + r, 16, 129 + i*5, '#cfd8f4', 2.05, 'left'));
   // rewards
   T('SEASON LTD PACK - ONE OF THESE', 150, 27, '#ff4458', 2.8, 'left');
   TOUR_POOL.forEach((id,i) => { const p = utById('LTD-' + id); if (p) utCard(g, 150 + (i%4)*31, 32 + Math.floor(i/4)*37, 29, 35, p, 'Common', 0); });
   T('CHAMPION WINS', 150, 108, '#ffd24a', 2.8, 'left'); { const p = utById('S1-NABERS'); if (p) utCard(g, 150, 113, 34, 41, p, 'Legendary', 0); }
   T('SEASON 1 LIMITED EDITION', 188, 116, '#ff6a6a', 2.6, 'left'); T('MALIK NABERS - 99 EVERYTHING', 188, 121, '#ffffff', 2.4, 'left');
   T('2ND: 5,000 COINS + ELITE PACK', 188, 129, '#cfd8f4', 2.4, 'left'); T('3RD: 2,500 COINS + 2 PREMIUM PACKS', 188, 134, '#cfd8f4', 2.4, 'left');
-  tourHallDraw(g, 188, 141);
+  tourHallDraw(g, 188, 141); tourMyAch(g, 16, 157);
   fbBtn(g, 'tourown', 270, 166, 38, 8, 'OWNER', { size:2.6 });
 }
+function tourMyAch(g, x, y){ const m = TOUR.hof && TOUR.hof.mine; if (!m || !m.ach || !m.ach.length) return; T('YOUR WNF: ' + m.ach.join('  -  '), x, y, '#ffd24a', 2.4, 'left'); }
 function tourHallDraw(g, x, y){ const c = TOUR.champs || []; if (!c.length) return; T('LAST CHAMPIONS', x, y, '#9fb0dc', 2.3, 'left'); c.slice(0, 3).forEach((e,i) => { const me = e.user === utSrv.user; T(String(e.user).toUpperCase().slice(0,12), x, y+5+i*4.6, me ? '#ff8ad8' : '#ffffff', 2.3, 'left'); if (me && fbDevOn()) fbCheck(g, x + String(e.user).slice(0,12).length*2.4 + 2, y+6+i*4.6, 1.4); }); }
 function tourRoundName(TD, r){ const R = TD.rounds; return r === R ? 'CHAMPIONSHIP' : r === R-1 ? 'SEMIFINALS' : r === R-2 ? 'QUARTERFINALS' : 'ROUND ' + r; }
+function tourNextOpp(TD){                                          // who you play next, once your game is done: a name, or the two who are still playing for it
+  const me = utSrv.user, gs = TD.games || [], nx = gs.filter(q => q.rnd > TD.round || (q.rnd === TD.round && q.st !== 'done')).find(q => (q.a === me || q.b === me) && q.st !== 'done'); if (!nx) return '';
+  const opp = nx.a === me ? nx.b : nx.a; if (opp) return String(opp).toUpperCase();
+  const feed = gs.find(q => q.rnd === nx.rnd - 1 && (q.slot >> 1) === nx.slot && !(q.a === me || q.b === me)); return feed && feed.a && feed.b ? 'WINNER OF ' + String(feed.a).toUpperCase().slice(0,9) + ' / ' + String(feed.b).toUpperCase().slice(0,9) : 'TBD';
+}
 function tourRunDraw(g, TD, now){
   const me = TD.me || {}, gm = me.game;
-  T(tourRoundName(TD, TD.round) + '  -  ' + (TD.entrants||[]).length + ' PLAYERS', 16, 27, '#ffffff', 3.4, 'left');
-  // your match box
-  uiPanel(g, 14, 33, 292, 26, { r:3, fill:'rgba(5,9,31,.85)', line: gm && gm.st === 'checkin' ? '#ff2440' : '#3b4c8a' });
+  T(tourRoundName(TD, TD.round) + '  -  ' + (TD.entrants||[]).length + ' PLAYERS', 16, 27, '#ffffff', 3.4, 'left'); T(tourStatus(TD, now), 264, 27.5, '#ffd24a', 2.4, 'right');
+  uiPanel(g, 14, 33, 292, 26, { r:3, fill:'rgba(5,9,31,.85)', line: gm && gm.st === 'checkin' ? '#ff2440' : gm && gm.st === 'live' ? '#7ddc8a' : '#3b4c8a' });
+  const vs = gm ? '#' + (me.seed || '-') + ' YOU' + (gm.ovrMe ? ' (' + gm.ovrMe + ' OVR)' : '') + '   VS   #' + (gm.seedOpp || '-') + ' ' + String(gm.opp).toUpperCase().slice(0,12) + (gm.ovrOpp ? ' (' + gm.ovrOpp + ' OVR)' : '') : '';
   if (gm && gm.st === 'checkin') { const left = gm.ck - now;
-    T('YOUR MATCH VS ' + String(gm.opp).toUpperCase(), 20, 36, '#ffffff', 3.6, 'left'); T(left > 0 ? 'CHECK-IN CLOSES IN ' + tourLeft(left) : 'CHECK-IN CLOSED', 20, 43, left < 60000 ? '#ff4458' : '#ffd24a', 3.2, 'left');
+    T(vs, 20, 36, '#ffffff', 3.2, 'left'); T(left > 0 ? 'CHECK-IN CLOSES IN ' + tourLeft(left) : 'CHECK-IN CLOSED', 20, 43, left < 60000 ? '#ff4458' : '#ffd24a', 3.2, 'left');
     T((gm.readyMe ? 'YOU: READY' : 'YOU: NOT READY') + '     ' + String(gm.opp).toUpperCase().slice(0,10) + ': ' + (gm.readyOpp ? 'READY' : 'NOT READY'), 20, 50.5, '#cfd8f4', 2.6, 'left');
-    if (!gm.readyMe) fbBtn(g, 'tourready', 220, 37, 80, 17, 'READY UP', { size:5.2, col:'#ff2440' }); else T_(g, 'WAITING FOR ' + String(gm.opp).toUpperCase().slice(0,10), 260, 43, '#7ddc8a', 2.8); }
-  else if (gm && gm.st === 'live') { T('YOUR GAME VS ' + String(gm.opp).toUpperCase() + ' IS LIVE', 20, 37, '#7ddc8a', 3.8, 'left'); T('IT STARTS BY ITSELF - TAP IF IT DID NOT', 20, 45, '#9fb0dc', 2.6, 'left'); fbBtn(g, 'tourplay', 220, 37, 80, 17, 'PLAY', { size:5.2, col:'#7ddc8a' }); }
+    if (!gm.readyMe) fbBtn(g, 'tourready', 226, 37, 74, 17, 'READY UP', { size:5, col:'#ff2440' }); else T_(g, 'WAITING FOR ' + String(gm.opp).toUpperCase().slice(0,10), 263, 43, '#7ddc8a', 2.8); }
+  else if (gm && gm.st === 'live') { T(vs, 20, 36, '#ffffff', 3.2, 'left'); T('MATCH IS LIVE - IT STARTS BY ITSELF', 20, 43.5, '#7ddc8a', 3.2, 'left'); T('TAP PLAY IF IT DID NOT OPEN', 20, 50.5, '#9fb0dc', 2.6, 'left'); fbBtn(g, 'tourplay', 226, 37, 74, 17, 'PLAY', { size:5, col:'#7ddc8a' }); }
   else if (me.entered && me.out) T_(g, 'ELIMINATED IN ' + tourRoundName(TD, me.out) + '  -  THANKS FOR PLAYING', 160, 42, '#ff8b7b', 3.4);
-  else if (me.entered) T_(g, 'YOU ARE THROUGH - WAITING FOR THE ROUND TO FINISH', 160, 42, '#7ddc8a', 3.4);
+  else if (me.entered) { T_(g, 'YOU ARE THROUGH - WAITING FOR THE ROUND TO FINISH', 160, 39, '#7ddc8a', 3.4); const n = tourNextOpp(TD); if (n) T_(g, 'NEXT OPPONENT: ' + n, 160, 47, '#ffffff', 3); }
   else T_(g, 'YOU ARE NOT IN THIS TOURNAMENT - WATCH THE BRACKET LIVE', 160, 42, '#9fb0dc', 3.2);
   tourBracket(g, TD, now, 14, 62, 292, 102);
 }
-function tourBracket(g, TD, now, bx, by, bw, bh){                // three rounds at a time; long rounds page up and down
-  const R = TD.rounds || 1, games = TD.games || [], cols = Math.min(3, R); if (!TOUR.bvSet || TOUR.bvR !== TD.round) { TOUR.bv = Math.max(1, Math.min(TD.round || 1, R - cols + 1)); TOUR.bvR = TD.round; TOUR.bvSet = true; TOUR.bp = 0; }
+function tourBracket(g, TD, now, bx, by, bw, bh, tid){                // three rounds at a time; long rounds page up and down; tap a game for the details
+  const R = TD.rounds || 1, games = TD.games || [], cols = Math.min(3, R), key = (tid || TD.tid || '') + ':' + TD.round, t = performance.now()/1000;
+  if (TOUR.bvKey !== key) { TOUR.bv = Math.max(1, Math.min(TD.round || 1, R - cols + 1)); TOUR.bvKey = key; TOUR.bp = 0; }
   const r0 = TOUR.bv, colW = (bw - 12) / cols, seedOf = {}; (TD.entrants||[]).forEach(e => { seedOf[e.user] = e.seed; });
-  for (let c = 0; c < cols; c++) { const r = r0 + c; if (r > R) break; const gs = games.filter(q => q.rnd === r && q.slot === q.slot && (r < R || q.slot === 0)); const per = Math.max(1, Math.min(gs.length, 8)), pages = Math.ceil(gs.length / per), pg = Math.min(TOUR.bp, pages-1);
-    const x = bx + 6 + c*colW; T_(g, tourRoundName(TD, r) + (pages > 1 ? ' ' + (pg+1) + '/' + pages : ''), x + colW/2 - 3, by, r === TD.round ? '#ff4458' : '#9fb0dc', 2.6);
+  const fin = games.find(q => q.rnd === R && q.slot === 0), champ = TD.state === 'done' && fin && fin.w;
+  for (let c = 0; c < cols; c++) { const r = r0 + c; if (r > R) break; const gs = games.filter(q => q.rnd === r && (r < R || q.slot === 0)); const per = Math.max(1, Math.min(gs.length, 8)), pages = Math.ceil(gs.length / per), pg = Math.min(TOUR.bp, pages-1);
+    const x = bx + 6 + c*colW; T_(g, tourRoundName(TD, r) + (pages > 1 ? ' ' + (pg+1) + '/' + pages : ''), x + colW/2 - 3, by, r === TD.round && TD.state === 'running' ? '#ff4458' : '#9fb0dc', 2.6);
     const cell = (bh - 8) / per; gs.slice(pg*per, pg*per+per).forEach((q, i) => { const y = by + 5 + i*cell + Math.max(0, (cell - 13)/2), cw = colW - 7;
-      const row = (u, yy, won, sc) => { const mine = u && u === utSrv.user; g.fillStyle = won ? 'rgba(255,36,64,.42)' : mine ? 'rgba(255,138,216,.16)' : 'rgba(255,255,255,.06)'; g.fillRect(x, yy, cw, 6); if (won) { g.fillStyle = '#ff2440'; g.fillRect(x, yy, 1, 6); }
+      if (q.st === 'live' || q.st === 'checkin') { const a = 0.45 + 0.35*Math.sin(t*4); g.strokeStyle = q.st === 'live' ? 'rgba(125,220,138,' + a.toFixed(2) + ')' : 'rgba(255,210,74,' + a.toFixed(2) + ')'; g.lineWidth = 0.8; g.strokeRect(x - 0.8, y - 0.8, cw + 1.6, 14.2); }   // the games being played right now
+      if (champ && q === fin) { g.strokeStyle = '#ffd24a'; g.lineWidth = 1; g.strokeRect(x - 1, y - 1, cw + 2, 14.6); }
+      const row = (u, yy, won, sc) => { const mine = u && u === utSrv.user, gold = champ && u === champ && q === fin; g.fillStyle = gold ? 'rgba(255,210,74,.45)' : won ? 'rgba(255,36,64,.42)' : mine ? 'rgba(255,138,216,.16)' : 'rgba(255,255,255,.06)'; g.fillRect(x, yy, cw, 6); if (won) { g.fillStyle = gold ? '#ffd24a' : '#ff2440'; g.fillRect(x, yy, 1, 6); }
         T((u ? (seedOf[u] ? seedOf[u] + ' ' : '') + String(u).toUpperCase().slice(0, 10) : (q.st === 'done' ? (q.how === 'bye' ? 'BYE' : '-') : '...')), x + 2, yy + 1.4, mine ? '#ff8ad8' : (q.st === 'done' && !won && u ? '#7f8db0' : '#ffffff'), 2.3, 'left');
         if (mine && fbDevOn()) fbCheck(g, x + 2 + (String(seedOf[u] || '').length + 1 + String(u).slice(0,10).length)*2.35 + 1.5, yy + 3, 1.3);
         if (sc != null) T(String(sc), x + cw - 1.5, yy + 1.4, '#ffd24a', 2.3, 'right'); };
       row(q.a, y, q.w && q.w === q.a, q.sa); row(q.b, y + 6.6, q.w && q.w === q.b, q.sb);
-      const tag = q.st === 'checkin' ? (q.rda && q.rdb ? 'READY' : 'CHECK-IN ' + tourLeft(q.ck - now)) : q.st === 'live' ? 'LIVE' : q.how === 'ff' ? 'FORFEIT' : q.how === 'dff' ? 'NO SHOW' : q.how === 'dispute' ? 'HOST SCORE' : '';
-      if (tag) T(tag, x + cw, y + 13.2, q.st === 'live' ? '#7ddc8a' : q.st === 'checkin' ? '#ffd24a' : '#9fb0dc', 1.9, 'right'); }); }
-  const third = games.find(q => q.rnd === R && q.slot === 1); if (third && r0 + cols - 1 >= R) T('3RD PLACE: ' + String(third.a || '...').toUpperCase() + ' VS ' + String(third.b || '...').toUpperCase() + (third.w ? '  -  ' + String(third.w).toUpperCase() : ''), bx + 4, by + bh - 1, '#cfd8f4', 2.2, 'left');
+      const tag = q.st === 'checkin' ? (q.rda && q.rdb ? 'READY' : 'CHECK-IN ' + tourLeft(q.ck - now)) : q.st === 'live' ? 'LIVE' : q.how === 'ff' ? 'FORFEIT' : q.how === 'dff' ? 'NO SHOW' : q.how === 'dispute' ? 'HOST SCORE' : q.how === 'removed' ? 'REMOVED' : q.how === 'noshow' ? 'NO REPORT' : '';
+      if (tag) T(tag, x + cw, y + 13.2, q.st === 'live' ? '#7ddc8a' : q.st === 'checkin' ? '#ffd24a' : '#9fb0dc', 1.9, 'right');
+      if (q.a || q.b) FB.btns.push({ id:'tourg_' + q.rnd + '_' + q.slot, x, y, w:cw, h:13 }); }); }
+  const third = games.find(q => q.rnd === R && q.slot === 1); if (third && r0 + cols - 1 >= R) { T('3RD PLACE: ' + String(third.a || '...').toUpperCase() + ' VS ' + String(third.b || '...').toUpperCase() + (third.w ? '  -  ' + String(third.w).toUpperCase() : ''), bx + 4, by + bh - 1, '#cfd8f4', 2.2, 'left'); if (third.a || third.b) FB.btns.push({ id:'tourg_' + R + '_1', x:bx + 4, y:by + bh - 2, w:120, h:5 }); }
   if (R > cols) { fbBtn(g, 'tourbl', bx + bw - 44, by - 3, 10, 7, '<', { size:3 }); fbBtn(g, 'tourbr', bx + bw - 32, by - 3, 10, 7, '>', { size:3 }); }
   fbBtn(g, 'tourbu', bx + bw - 20, by - 3, 9, 7, '^', { size:3 }); fbBtn(g, 'tourbd', bx + bw - 10, by - 3, 9, 7, 'v', { size:3 });
+}
+const TOUR_SLOTS = ['QB','RB','WR1','WR2','WR3','TE','EDGE1','EDGE2','LB1','LB2','CB1','CB2','S1','S2','K'];
+function tourLuDraw(g, lu, x, y, n, colw){                         // a read-only lineup (a snapshot - it still shows an LTD card after the card itself has expired)
+  if (typeof lu === 'string') { try { lu = JSON.parse(lu); } catch(e){ lu = []; } } if (!Array.isArray(lu)) lu = [];
+  const L = lu.slice().sort((a,b) => TOUR_SLOTS.indexOf(a.slot) - TOUR_SLOTS.indexOf(b.slot)).slice(0, n || 15);
+  if (!L.length) { T('NO LINEUP SAVED', x, y, '#7f8db0', 2.3, 'left'); return; }
+  L.forEach((e,i) => { const p = utById(e.pid), yy = y + i*5, ov = p && p.overall != null ? Math.min(99, p.overall + (e.ltd || p.ltd || p.special ? 0 : utBonus(e.rarity))) : '--';
+    T(String(e.slot).replace(/[0-9]/g,''), x, yy, '#9fb0dc', 2.2, 'left'); T(p ? p.name.toUpperCase().slice(0, 16) : e.pid, x + 9, yy, e.ltd ? '#ff4458' : p && p.special ? '#ffd24a' : '#ffffff', 2.2, 'left'); T(String(ov), x + (colw || 60), yy, '#ffd24a', 2.2, 'right'); });
+}
+function tourDetailDraw(g){                                        // one matchup: the two teams, seeds, overall, the result
+  const D = TOUR.detail; fbBtn(g, 'tourdx', 268, 25, 40, 9, 'BACK', { size:3.2 });
+  if (D.loading) { T_(g, 'LOADING...', 160, 90, '#cfd8f4', 4); return; } const M = D.m; if (!M) { T_(g, String(D.err || 'NOT FOUND').toUpperCase(), 160, 90, '#ff8b7b', 3.4); return; }
+  const TD = TOUR.tab === 'past' && TOUR.past ? TOUR.past : TOUR.d; T((TD ? tourRoundName(TD, M.rnd) : 'ROUND ' + M.rnd) + (M.slot === 1 && TD && M.rnd === TD.rounds ? ' - 3RD PLACE' : ''), 16, 27, '#ffffff', 3.4, 'left');
+  const res = M.st === 'done' ? (M.w ? String(M.w).toUpperCase() + ' WINS' + (M.sa != null ? '  ' + Math.max(M.sa, M.sb) + '-' + Math.min(M.sa, M.sb) : '') : 'NO WINNER') + ({ ff:' (FORFEIT)', dff:' (NOBODY CHECKED IN)', bye:' (BYE)', dispute:' (HOST SCORE)', noshow:' (ONE REPORT)', removed:' (OPPONENT REMOVED)', nores:' (NO RESULT)', owner:' (OWNER)' }[M.how] || '')
+    : M.st === 'live' ? 'LIVE NOW' : M.st === 'checkin' ? 'CHECKING IN' : 'WAITING FOR THE ROUND';
+  T_(g, res, 160, 34, M.st === 'live' ? '#7ddc8a' : '#ffd24a', 3.6);
+  [[M.a, 16, M.sa, M.rda], [M.b, 164, M.sb, M.rdb]].forEach(([P, x, sc, rd]) => { uiPanel(g, x - 2, 41, 144, 122, { r:3, fill:'rgba(5,9,31,.7)', line: P && M.w === P.user ? '#ffd24a' : '#3b4c8a' });
+    if (!P) { T('-', x + 4, 46, '#7f8db0', 3.4, 'left'); return; } const mine = P.user === utSrv.user;
+    T(String(P.user).toUpperCase().slice(0, 14), x + 2, 44.5, mine ? '#ff8ad8' : '#ffffff', 4, 'left'); if (mine && fbDevOn()) fbCheck(g, x + 2 + String(P.user).slice(0,14).length*4.1 + 2, 47, 1.8);
+    T('SEED #' + (P.seed || '-') + '   TEAM ' + (P.ovr || '--') + ' OVR' + (M.st === 'checkin' ? '   ' + (rd ? 'READY' : 'NOT READY') : '') + (sc != null ? '   SCORE ' + sc : ''), x + 2, 51.5, '#9fb0dc', 2.5, 'left');
+    tourLuDraw(g, P.lu, x + 2, 58, 15, 134); });
 }
 function tourDoneDraw(g, TD, now){
   const pl = (TD.entrants||[]).filter(e => e.place).sort((a,b) => a.place - b.place), ch = pl[0], me = TD.me || {}, t = performance.now()/1000;
   if (TD.state === 'cancelled' || !ch) { T_(g, TD.state === 'cancelled' ? 'THIS WEEK WAS CANCELLED' : 'NO CHAMPION THIS WEEK', 160, 60, '#ffffff', 5); T_(g, String(TD.why || '').toUpperCase(), 160, 72, '#9fb0dc', 3); T_(g, 'THE NEXT WEDNESDAY IS SCHEDULED AUTOMATICALLY', 160, 84, '#cfd8f4', 3); tourHallDraw(g, 130, 100); return; }
+  if (TOUR.showB) { T('FINAL BRACKET', 16, 27, '#ffd24a', 3.4, 'left'); fbBtn(g, 'tourbk', 200, 25, 64, 9, 'CELEBRATION', { size:2.8, col:'#ffd24a' }); tourBracket(g, TD, now, 14, 40, 292, 124); return; }
   for (let i = 0; i < 40; i++) { const sx = 20 + ((i*53) % 280), sy = 28 + ((t*30 + i*17) % 140); g.fillStyle = ['#ff2440','#ffffff','#2647c9','#ffd24a'][i%4]; g.fillRect(sx, sy, 1.6, 2.4); }   // confetti
-  T_(g, me.place === 1 ? 'YOU ARE THE CHAMPION!' : 'WNF CHAMPION', 160, 30, me.place === 1 ? '#ffd24a' : '#ff4458', 6);
-  uiMark(g, String(ch.user).toUpperCase(), 160, 48, 13, '#ffffff', 'center', -0.03); if (ch.user === utSrv.user && fbDevOn()) fbCheck(g, 160 + String(ch.user).length*4.3 + 6, 44, 3);
-  { const p = utById('S1-NABERS'); if (p) utCard(g, 135, 62, 50, 61, p, 'Legendary', 0); }
-  pl.slice(1).forEach((e,i) => T_(g, (e.place === 2 ? '2ND  ' : '3RD  ') + String(e.user).toUpperCase(), 160, 129 + i*6, '#cfd8f4', 3.2));
-  T_(g, 'EVERYONE\'S LTD CARD HAS EXPIRED  -  NEXT WEDNESDAY IS ON THE WAY', 160, 146, '#9fb0dc', 2.6); tourHallDraw(g, 24, 128);
+  T_(g, me.place === 1 ? 'YOU ARE THE CHAMPION!' : 'WNF #' + (TD.no || '') + ' CHAMPION', 160, 27, me.place === 1 ? '#ffd24a' : '#ff4458', 5.4);
+  uiMark(g, String(ch.user).toUpperCase(), 160, 46, 13, '#ffffff', 'center', -0.03); if (ch.user === utSrv.user && fbDevOn()) fbCheck(g, 160 + String(ch.user).length*4.3 + 6, 42, 3);
+  const fin = (TD.games||[]).find(q => q.rnd === TD.rounds && q.slot === 0), ru = fin && (fin.w === fin.a ? fin.b : fin.a);
+  if (fin) T_(g, (fin.sa != null ? 'FINAL  ' + Math.max(fin.sa, fin.sb) + '-' + Math.min(fin.sa, fin.sb) : 'FINAL') + (ru ? '  OVER ' + String(ru).toUpperCase() : ''), 160, 52, '#ffd24a', 3.2);
+  { const p = utById('S1-NABERS'); if (p) utCard(g, 135, 60, 50, 61, p, 'Legendary', 0); }
+  const h = ((TOUR.hof && TOUR.hof.hof) || []).find(x => x.tid === TD.tid);
+  T('WINNING LINEUP', 200, 60, '#ff4458', 2.6, 'left'); if (h) tourLuDraw(g, h.lu, 200, 66, 15, 104); else T('LOADING...', 200, 66, '#7f8db0', 2.3, 'left');
+  if (h) { T('RECORD ' + h.rec + '  -  ' + h.titles + (h.titles === 1 ? ' TITLE' : ' TITLES'), 200, 143, '#cfd8f4', 2.3, 'left'); if (h.perfect) T('UNDEFEATED CHAMPION', 200, 148, '#ffd24a', 2.3, 'left'); }
+  pl.slice(1).forEach((e,i) => T_(g, (e.place === 2 ? '2ND  ' : '3RD  ') + String(e.user).toUpperCase(), 160, 127 + i*6, '#cfd8f4', 3.2));
+  T_(g, 'EVERYONE\'S LTD CARD HAS EXPIRED  -  NEXT WEDNESDAY IS ON THE WAY', 160, 157, '#9fb0dc', 2.6); tourHallDraw(g, 24, 64);
+  fbBtn(g, 'tourbk', 24, 140, 64, 9, 'VIEW BRACKET', { size:2.8, col:'#ffd24a' });
 }
+function tourHofDraw(g){                                           // the Hall of Fame: the leaderboard and every past Wednesday
+  const H = TOUR.hof; if (!H) { T_(g, 'LOADING...', 160, 90, '#cfd8f4', 4); return; }
+  T('LEADERBOARD', 16, 27, '#ff4458', 3.2, 'left'); const B = H.board || [], per = 12, pages = Math.max(1, Math.ceil(B.length / per)); TOUR.hpg = Math.min(TOUR.hpg|0, pages - 1);
+  uiPanel(g, 14, 33, 152, 122, { r:3, fill:'rgba(5,9,31,.7)', line:'#3b4c8a' });
+  [['#',17],['PLAYER',25],['TITLES',96],['FINALS',113],['W-L',134],['PCT',163]].forEach(([l,x],i) => T(l, x, 35.5, '#9fb0dc', 2.1, i >= 2 ? (i === 5 ? 'right' : 'left') : 'left'));
+  if (!B.length) T('NO RESULTS YET - THE FIRST CHAMPION GOES HERE', 18, 45, '#7f8db0', 2.3, 'left');
+  B.slice(TOUR.hpg*per, TOUR.hpg*per + per).forEach((x,i) => { const y = 41 + i*9.4, mine = x.user === utSrv.user, rk = TOUR.hpg*per + i + 1;
+    if (mine) { g.fillStyle = 'rgba(255,138,216,.16)'; g.fillRect(15, y - 0.8, 150, 8.6); }
+    T(String(rk), 17, y, rk === 1 ? '#ffd24a' : '#ffffff', 2.5, 'left'); T(String(x.user).toUpperCase().slice(0, 13), 25, y, mine ? '#ff8ad8' : '#ffffff', 2.5, 'left'); if (mine && fbDevOn()) fbCheck(g, 25 + String(x.user).slice(0,13).length*2.55 + 1.5, y + 1.3, 1.2);
+    if (x.ach && x.ach.length) T(x.ach.join(' - '), 25, y + 4, '#ffd24a', 1.8, 'left');
+    T(String(x.titles), 100, y, '#ffd24a', 2.5, 'center'); T(String(x.finals), 118, y, '#ffffff', 2.5, 'center'); T(x.w + '-' + x.l, 134, y, '#cfd8f4', 2.4, 'left'); T(x.pct.toFixed ? x.pct.toFixed(1) : String(x.pct), 163, y, '#cfd8f4', 2.4, 'right'); });
+  if (pages > 1) { fbBtn(g, 'tourhp', 14, 157, 20, 8, '<', { size:3 }); T_(g, (TOUR.hpg+1) + '/' + pages, 90, 158.5, '#cfd8f4', 2.6); fbBtn(g, 'tourhn', 146, 157, 20, 8, '>', { size:3 }); }
+  tourMyAch(g, 16, 168);
+  T('PAST TOURNAMENTS', 172, 27, '#ff4458', 3.2, 'left'); const L = H.hof || [], lp = 7, lpages = Math.max(1, Math.ceil(L.length / lp)); TOUR.lpg = Math.min(TOUR.lpg|0, lpages - 1);
+  if (!L.length) T('THE FIRST WEDNESDAY IS COMING', 172, 36, '#7f8db0', 2.4, 'left');
+  L.slice(TOUR.lpg*lp, TOUR.lpg*lp + lp).forEach((h,i) => { const y = 33 + i*17.4; uiPanel(g, 170, y, 136, 16, { r:2, fill:'rgba(5,9,31,.7)', line: h.champ === utSrv.user ? '#ffd24a' : '#3b4c8a' });
+    let dt = ''; try { dt = new Date(h.startAt || h.ts).toLocaleDateString('en-US', { timeZone:'America/New_York', month:'short', day:'numeric', year:'numeric' }).toUpperCase(); } catch(e){}
+    T('WNF #' + h.no + '  ' + dt + '  -  ' + h.n + ' PLAYERS', 173, y + 1.8, '#9fb0dc', 2.2, 'left');
+    T(String(h.champ).toUpperCase().slice(0, 12), 173, y + 6.4, '#ffd24a', 3, 'left'); T((h.sa != null ? h.sa + '-' + h.sb + ' ' : '') + 'OVER ' + String(h.runner || '-').toUpperCase().slice(0, 10), 302, y + 7, '#ffffff', 2.3, 'right');
+    T('RECORD ' + h.rec + (h.perfect ? '  -  UNDEFEATED' : '') + '  -  TITLE #' + h.titles, 173, y + 11.6, '#cfd8f4', 2, 'left');
+    FB.btns.push({ id:'tourhs_' + h.tid, x:170, y, w:136, h:16 }); });
+  if (lpages > 1) { fbBtn(g, 'tourlp', 170, 157, 20, 8, '<', { size:3 }); T_(g, (TOUR.lpg+1) + '/' + lpages, 238, 158.5, '#cfd8f4', 2.6); fbBtn(g, 'tourln', 286, 157, 20, 8, '>', { size:3 }); }
+}
+function tourPastDraw(g, now){                                     // one past Wednesday: the result, the champion's lineup (a snapshot), the whole bracket
+  const P = TOUR.past; if (!P) { T_(g, TOUR.pastErr ? String(TOUR.pastErr).toUpperCase() : 'LOADING...', 160, 90, '#cfd8f4', 4); return; } const h = P.hof || {};
+  fbBtn(g, 'tourhof', 222, 25, 44, 9, '< ALL', { size:3 });
+  T('WNF #' + (h.no || '?') + '  -  ' + (h.n || (P.entrants||[]).length) + ' PLAYERS', 16, 27, '#9fb0dc', 2.8, 'left');
+  T(String(h.champ || '-').toUpperCase().slice(0, 14), 16, 33, '#ffd24a', 4.6, 'left'); T((h.sa != null ? 'FINAL ' + h.sa + '-' + h.sb + ' ' : '') + 'OVER ' + String(h.runner || '-').toUpperCase().slice(0, 12), 16, 41, '#ffffff', 2.6, 'left');
+  T('RECORD ' + (h.rec || '-') + '  -  TITLE #' + (h.titles || 1) + (h.perfect ? '  -  UNDEFEATED' : ''), 16, 46, '#cfd8f4', 2.3, 'left');
+  T('WINNING LINEUP', 16, 53, '#ff4458', 2.6, 'left'); tourLuDraw(g, h.lu, 16, 58.5, 15, 100);
+  tourBracket(g, P, now, 120, 40, 186, 124, P.tid);
+}
+/* notifications: one line at a time, each event once (remembered on this device) */
+function tourSeen(){ if (!TOUR.seen) { TOUR.seen = new Set(); try { JSON.parse(localStorage.getItem('wnf_seen_' + (utSrv.user||'')) || '[]').forEach(k => TOUR.seen.add(k)); } catch(e){} } return TOUR.seen; }
+function tourNote(key, txt, col){ const S = tourSeen(); if (S.has(key)) return; S.add(key); try { localStorage.setItem('wnf_seen_' + (utSrv.user||''), JSON.stringify([...S].slice(-200))); } catch(e){} (TOUR.q = TOUR.q || []).push({ txt, col:col || '#ff4458' }); if (TOUR.q.length > 3) TOUR.q.shift(); }
+function tourNotes(){
+  const TD = TOUR.d; if (!TD || !utSrv.user) return; const me = TD.me || {}, now = tourClock(), tid = TD.tid, gm = me.game, u = utSrv.user;
+  if (TD.state === 'signup') { tourNote(tid + ':open', 'WNF #' + (TD.no || '') + ' REGISTRATION IS OPEN', '#ffd24a');
+    const left = TD.startAt - now; if (me.entered && left < 10*60000 && left > 0) tourNote(tid + ':soon', 'WNF STARTS IN ' + Math.max(1, Math.ceil(left/60000)) + ' MINUTES - GET YOUR LINEUP READY', '#ffd24a');
+    if (me.entered && me.ltd) tourNote(tid + ':pack', 'YOUR SEASON LTD PACK IS IN - BUILD YOUR TOURNAMENT LINEUP', '#ff4458'); }
+  if (TD.state === 'running' && me.entered) tourNote(tid + ':start', 'WNF HAS STARTED - THE BRACKET IS SET', '#ff4458');
+  if (gm) { const gid = gm.gid;
+    if (gm.st === 'checkin') { tourNote(gid + ':ready', 'MATCH READY VS ' + String(gm.opp).toUpperCase() + ' - CHECK IN (5 MIN)', '#ff4458');
+      if (gm.readyOpp && !gm.readyMe) tourNote(gid + ':opp', String(gm.opp).toUpperCase() + ' CHECKED IN - READY UP!', '#ffd24a');
+      if (!gm.readyMe && gm.ck - now < 60000 && gm.ck > now) tourNote(gid + ':1min', 'ONE MINUTE LEFT TO CHECK IN!', '#ff4458'); }
+    if (gm.st === 'live') tourNote(gid + ':live', 'MATCH STARTING VS ' + String(gm.opp).toUpperCase(), '#7ddc8a');
+    if (TD.rounds && gm.rnd === TD.rounds && gm.slot === 0) tourNote(tid + ':final', 'YOU MADE THE CHAMPIONSHIP!', '#ffd24a'); }
+  (TD.games || []).filter(q => q.st === 'done' && (q.a === u || q.b === u) && q.how !== 'void').forEach(q => { const k = tid + ':r' + q.rnd + 's' + q.slot + ':done';
+    if (q.how === 'bye') return tourNote(k, 'BYE - YOU ADVANCE TO ' + tourRoundName(TD, q.rnd + 1), '#7ddc8a');
+    if (q.w === u) { if (q.rnd >= TD.rounds) return; tourNote(k, (q.how === 'ff' || q.how === 'removed' ? 'WON BY FORFEIT' : 'YOU WON' + (q.sa != null ? ' ' + Math.max(q.sa, q.sb) + '-' + Math.min(q.sa, q.sb) : '')) + ' - ON TO ' + tourRoundName(TD, q.rnd + 1), '#7ddc8a'); }
+    else tourNote(k, q.how === 'dff' ? 'NOBODY CHECKED IN - YOU ARE OUT' : 'ELIMINATED' + (q.sa != null ? ' ' + Math.min(q.sa, q.sb) + '-' + Math.max(q.sa, q.sb) : '') + ' - THANKS FOR PLAYING', '#ff8b7b'); });
+  if (TD.state === 'done') { const ch = (TD.entrants || []).find(e => e.place === 1);
+    if (ch) tourNote(tid + ':champ', ch.user === u ? 'YOU ARE THE WNF CHAMPION!' : String(ch.user).toUpperCase() + ' IS THE WNF CHAMPION', '#ffd24a');
+    if (me.entered) tourNote(tid + ':exp', 'YOUR SEASON LTD CARD HAS EXPIRED', '#9fb0dc'); }
+}
+function tourNoteTick(){ const q = TOUR.q; if (!q || !q.length) return; if (FB.scr !== 'lobby' && FB.scr !== 'ut') return; const t = performance.now(); if (t - (TOUR.qAt || 0) < 3200) return; if (!TOUR.open && FB.msg && FB.msg.t > 30) return; TOUR.qAt = t; const m = q.shift(); if (TOUR.open) { TOUR.msg = m.txt; TOUR.msgAt = t; TOUR.err = ''; } else fbMsg('WNF: ' + m.txt, m.col, 170); }   // with the WNF window open it goes on its status line instead of over the bracket
+function tourHofLoad(){ utApi('thof', {}).then(d => { if (d && d.ok) TOUR.hof = d; }); }
 function tourAsk(label, cur, num){ const v = prompt(label, cur == null ? '' : String(cur)); if (v == null) return null; return num ? Math.max(0, Math.floor(+v || 0)) : String(v).trim(); }
 function tourAct(id){
   if (!TOUR.open) return false;
   const done = d => { TOUR.busy = false; if (d && d.ok) { tourTake(d); TOUR.err = ''; return true; } TOUR.err = (d && d.err) || 'failed'; return false; };
-  if (id === 'tourx') { TOUR.open = false; FB.lobbyLock = 'tour'; return true; }
+  if (id === 'tourx') { TOUR.open = false; TOUR.detail = null; FB.lobbyLock = 'tour'; return true; }
+  if (id === 'tourdx') { TOUR.detail = null; return true; }
+  if (id === 'tourhof') { TOUR.tab = 'hof'; TOUR.past = null; TOUR.bvKey = ''; tourHofLoad(); return true; }
+  if (id === 'tourmain') { TOUR.tab = 'main'; TOUR.past = null; TOUR.bvKey = ''; return true; }
+  if (id === 'tourbk') { TOUR.showB = !TOUR.showB; return true; }
+  if (id === 'tourhp' || id === 'tourhn') { TOUR.hpg = Math.max(0, (TOUR.hpg|0) + (id === 'tourhn' ? 1 : -1)); return true; }
+  if (id === 'tourlp' || id === 'tourln') { TOUR.lpg = Math.max(0, (TOUR.lpg|0) + (id === 'tourln' ? 1 : -1)); return true; }
+  if (/^tourhs_/.test(id)) { const tid = id.slice(7); TOUR.tab = 'past'; TOUR.past = null; TOUR.pastErr = ''; TOUR.bvKey = ''; utApi('tbracket', { tid }).then(d => { if (d && d.ok) TOUR.past = d.past; else TOUR.pastErr = (d && d.err) || 'could not load'; }); return true; }
+  if (/^tourg_\d+_\d+$/.test(id)) { const p = id.split('_'), tid = TOUR.tab === 'past' && TOUR.past ? TOUR.past.tid : ''; TOUR.detail = { loading:true }; utApi('tmatch', { tid, rnd:+p[1], slot:+p[2] }).then(d => { if (!TOUR.detail) return; TOUR.detail = d && d.ok ? { m:d.match } : { err:(d && d.err) || 'could not load' }; }); fbSfx('tick'); return true; }
   if (id === 'tourbl' || id === 'tourbr') { const TD = TOUR.d; if (TD) TOUR.bv = Math.max(1, Math.min((TD.rounds||1) - 2, TOUR.bv + (id === 'tourbr' ? 1 : -1))); TOUR.bp = 0; return true; }
   if (id === 'tourbu' || id === 'tourbd') { TOUR.bp = Math.max(0, TOUR.bp + (id === 'tourbd' ? 1 : -1)); return true; }
   if (id === 'tourjoin') { if (TOUR.busy) return true; TOUR.busy = true; utApi('tjoin', {}).then(d => { if (done(d)) { utApi('state', {}).then(s => { if (s && s.ok) utApply(s); }); if (d.ltd && !d.already) { TOUR.open = false; if (!FB.ut) fbUtOpen(); FB.ut.rev = { pulled:[d.ltd], pack:'ltd', i:0, stage:'shake', t0:performance.now() }; } } }); return true; }
@@ -20135,7 +20253,8 @@ function tourAct(id){
   if (id === 'tourready') { if (TOUR.busy) return true; TOUR.busy = true; utApi('tready', {}).then(d => { if (done(d)) { TOUR.msg = 'READY! THE GAME STARTS WHEN YOUR OPPONENT IS READY'; fbSfx('tick'); } }); return true; }
   if (id === 'tourplay') { TOUR.liveKey = ''; tourPlay(); return true; }
   if (id === 'tourlu') { TOUR.open = false; fbUtOpen(); FB.ut.tab = 'team'; FB.ut.tmode = true; return true; }
-  if (id === 'tourown') { const code = tourAsk('Owner code', '', false); if (!code) return true; const op = tourAsk('Type one: fee / startnow / cancel / skip', 'fee', false); if (!op) return true;
+  if (id === 'tourown') { const code = tourAsk('Owner code', '', false); if (!code) return true; const op = tourAsk('Type one: fee / startnow / cancel / skip / remove', 'fee', false); if (!op) return true;
+    if (op === 'remove') { const target = tourAsk('Username to remove from this tournament', '', false); if (!target) return true; TOUR.busy = true; utApi('tadmin', { code, op, target }).then(done); return true; }
     if (op === 'fee') { const fee = tourAsk('Entry fee in coins (0 = free)', 0, true); if (fee == null) return true; TOUR.busy = true; utApi('tcreate', { code, fee }).then(done); }
     else { TOUR.busy = true; utApi('tadmin', { code, op }).then(done); } return true; }
   return true;
@@ -20333,7 +20452,7 @@ function fbLobbyWalkDraw(g){
   if (FB.lobbyDwell > 0 && FB.lobbyNear) { const d = FB_LPADS.find(q => q.id===FB.lobbyNear); if (d) { fbPanel(g,100,150,120,12,0.8); g.fillStyle = 'rgba(255,255,255,.18)'; g.fillRect(104,159,112,2); g.fillStyle = d.col; g.fillRect(104,159,112*clamp(FB.lobbyDwell/0.55,0,1),2); T('GOING TO  '+d.name,160,152.4,'#ffffff',4.2,'center'); } }
 
   if (PV2.state==='ready') T('MODELS: PLAYER BLAKEALLEN25 - HELMET EXODUSKS - CLEATS LISENHAO - TROPHY G_BORY32 (SKETCHFAB, CC BY 4.0)', 160, 176.6, '#5d6a8f', 2.1, 'center');
-  T('BUILD v132',314,174,'#8fa0cc',4,'right'); { const us = uoStatus(); if (us) T(us, 6, 174, UO.state==='off' ? '#ff8b7b' : '#6f7ea8', 3, 'left'); }
+  T('BUILD v133',314,174,'#8fa0cc',4,'right'); { const us = uoStatus(); if (us) T(us, 6, 174, UO.state==='off' ? '#ff8b7b' : '#6f7ea8', 3, 'left'); }
 }
 /* ---------------------------------------------------------------- ULTIMATE TEAM: hub, collection, cards (packs come in the next stage) */
 const UT_KEY = 'blacktop_ut_v1';
@@ -21412,7 +21531,7 @@ function utSeasonForfeit(){ const G = FB.seasonGame, s = FB.s; if (!G || !s || s
   utSeasonApply(S, false, Math.min(s.you|0, 0), Math.max(21, s.cpu|0)); utSeasonSave(S); FB.seasonGame = null; }
 function utSeasonRewards(S){          // paid once the season is over: only the best thing you did counts (playoffs < Super Bowl < champion)
   if (!S || S.phase !== 'done') return; const U = FB.ut, claimed = utSrv.seasonClaimed || [];
-  const kind = S.champ === 'YOU' ? 'champ' : S.fin ? 'final' : S.made ? 'playoff' : null; if (!kind || claimed.indexOf(kind) >= 0) return;
+  const kind = S.champ === 'YOU' ? 'champ' : null; if (!kind || claimed.indexOf(kind) >= 0) return;      // only the Super Bowl pays - played or simmed
   const NM = { champ:'SUPER BOWL CHAMPION', final:'SUPER BOWL APPEARANCE', playoff:'MADE THE PLAYOFFS' };
   utApi('seasonclaim', { kind }).then(d => { if (d && d.ok) { const keep = utSrv.season; utApply(d); utSrv.season = keep; utSrv.seasonClaimed = d.seasonClaimed; if (U) U.msg = NM[kind]+': +'+d.reward+' COINS + '+String(d.pack || '').toUpperCase()+' PACK'; } else if (U && d && d.err) U.err = d.err; });
 }
@@ -21481,7 +21600,7 @@ function utSeasonScreen(g){
   const S = utSeasonGet();
   if (!S) {
     uiPanel(g,40,22,240,120,{ r:5 }); T('START YOUR SEASON', 160, 30, '#ff8ad8', 6, 'center');
-    ['ALL 32 NFL TEAMS + YOU. 8 GAMES EACH: YOU PLAY ONE A WEEK,','THE OTHER TEAMS PLAY EACH OTHER.','THE TOP 8 MAKE THE PLAYOFFS (TIES: MOST POINTS, THEN A DRAW YOU WIN).','WIN THE SUPER BOWL TO MOVE UP A DIVISION:','THE SAME TEAMS, BUT EVERY PLAYER IS A TIER BETTER.','PLAYOFFS = PACK + 1000 C   SUPER BOWL = BIGGER PACK + 1000 C','CHAMPION = ELITE PACK + 2000 C','YOU START IN DIV 5.'].forEach((l,i) => T(l, 160, 46+i*7.4, '#dff3fc', 3.1, 'center'));
+    ['ALL 32 NFL TEAMS + YOU. 8 GAMES EACH: YOU PLAY ONE A WEEK,','THE OTHER TEAMS PLAY EACH OTHER.','THE TOP 8 MAKE THE PLAYOFFS (TIES: MOST POINTS, THEN A DRAW YOU WIN).','WIN THE SUPER BOWL TO MOVE UP A DIVISION:','THE SAME TEAMS, BUT EVERY PLAYER IS A TIER BETTER.','WIN THE SUPER BOWL = ELITE PACK + 2000 C + DRAFT A PLAYER','(SIMMED GAMES COUNT - JUST WIN THE BOWL)','YOU START IN DIV 5.'].forEach((l,i) => T(l, 160, 46+i*7.4, '#dff3fc', 3.1, 'center'));
     fbBtn(g,'utsnew',90,120,140,16,'START SEASON',{size:5.2,on:true,col:'#ff8ad8'}); utSeasonExtra(g, 148); return; }
   if (U.draft) { utDraftDraw(g); return; }
   const tbl = utSeasonTable(S), po = S.phase === 'po', done = S.phase === 'done';
@@ -21497,7 +21616,7 @@ function utSeasonScreen(g){
   uiPanel(g,ox,24,138,70,{ r:3 });
   if (done) { T(S.champ === 'YOU' ? 'SUPER BOWL CHAMPIONS!' : 'CHAMPIONS', ox+69, 28, '#ffd24a', 3.6, 'center'); T(utLgFull(S.champ), ox+69, 37, '#ffffff', 3.2, 'center');
     T(S.champ === 'YOU' ? (S.div > 1 ? 'YOU MOVE UP TO DIV '+(S.div-1) : 'YOU RULE DIV 1') : (S.made ? 'ELIMINATED' : 'MISSED THE PLAYOFFS'), ox+69, 46, S.champ === 'YOU' ? '#9ee8ff' : '#ff8b7b', 3, 'center');
-    fbBtn(g,'utsnext',ox+9,52,120,13,S.champ === 'YOU' && S.div > 1 ? 'NEXT DIVISION' : 'NEW SEASON',{size:4.2,on:true,col:'#ff8ad8'}); fbBtn(g,'utsdraft',ox+9,68,120,13,'DRAFT A PLAYER',{size:4.2,col:'#ffd24a'}); }
+    fbBtn(g,'utsnext',ox+9,52,120,13,S.champ === 'YOU' && S.div > 1 ? 'NEXT DIVISION' : 'NEW SEASON',{size:4.2,on:true,col:'#ff8ad8'}); if (S.champ === 'YOU') fbBtn(g,'utsdraft',ox+9,68,120,13,'DRAFT A PLAYER',{size:4.2,col:'#ffd24a'}); else T('WIN THE SUPER BOWL FOR REWARDS', ox+69, 72, '#9fb0dc', 2.8, 'center'); }
   else if (opp) { const yo = utLgYouOvr(), oo = utLgTeamOvr(opp, S.div);
     T(po ? utPoRound(S) : 'WEEK '+(S.week+1), ox+69, 28, '#ffd0f0', 3.4, 'center'); T('VS '+utLgFull(opp), ox+69, 36, '#ffffff', 3, 'center');
     T('YOU '+yo, ox+34, 46, '#9ee8ff', 4, 'center'); T('THEM '+oo, ox+104, 46, oo > yo ? '#ff8b7b' : '#9ee8ff', 4, 'center');
@@ -22786,7 +22905,7 @@ function fbLobbyDraw(g){
   if (PARTY.npc && !PARTY.on) T(PARTY.npc.name+' SUITS UP AS YOUR W1',160,55,'#7ddc8a',5,'center');
   fbBtn(g,'lobbyback',6,5,76,12,'< BACK TO THE FIELD',{size:4.6});
   fbBtn(g,'party',6,19,76,10,PARTY.on ? 'PARTY  '+PARTY.code.toUpperCase() : 'PLAY WITH A FRIEND',{size:4.4,line:'#7ddc8a',tc:'#c9f7d0'});
-  T('BUILD v132',314,174,'#8fa0cc',4,'right');   // so you can tell which build is live
+  T('BUILD v133',314,174,'#8fa0cc',4,'right');   // so you can tell which build is live
   fbBtn(g,'tut',100,141,58,13,'TUTORIAL',{size:5,line:'#ffd24a',tc:'#ffe9a8'}); fbBtn(g,'howlobby',162,141,58,13,'HOW TO PLAY',{size:4.4,line:'#ffd24a',tc:'#ffe9a8'});
   fbBtn(g,'shop',6,141,90,13,'PLAY SHOP',{size:5.5,line:'#7ddc8a',tc:'#c9f7d0'});
   fbBtn(g,'stats',224,141,90,13,'MY STATS',{size:5.5,line:'#6fd0ff',tc:'#cfeeff'});
