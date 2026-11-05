@@ -104,7 +104,7 @@ export class Vault extends DurableObject {
   metaSet(k, val) { this.sql.exec('INSERT INTO meta (k,v) VALUES (?,?) ON CONFLICT(k) DO UPDATE SET v=excluded.v', k, val); }
   ensureStarter() {            // every account gets ONE free starter pack (new accounts, and old ones that never built a team)
     if (this.metaGet('starter')) return; this.metaSet('starter', '1');
-    if (this.sql.exec('SELECT COUNT(*) c FROM cards').toArray()[0].c <= 1) this.sql.exec('INSERT INTO packs (kind,got) VALUES (?,?)', 'starter', Date.now());
+    if (this.sql.exec('SELECT COUNT(*) c FROM cards').toArray()[0].c <= 1) { this.sql.exec('INSERT INTO packs (kind,got) VALUES (?,?)', 'starter', Date.now()); for (let i = 0; i < 3; i++) this.sql.exec('INSERT INTO packs (kind,got) VALUES (?,?)', 'elite', Date.now()); this.ledger(0, 'welcome gift: 3 elite packs'); }   // a brand-new account: the starter pack plus 3 elite packs
   }
   recoverEscrow() {            // cards held for a trade that never finished come back after the trade expires
     const old = this.sql.exec('SELECT tid FROM escrow GROUP BY tid HAVING MIN(got) < ?', Date.now() - TRADE.expireMinutes * 60000 * 2).toArray();
