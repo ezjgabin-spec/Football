@@ -20418,7 +20418,7 @@ function fbLobbyGo(d){
 /* ---- DEV STATUS: stand in the circle at the back of the lobby and type the code. All it does: a blue check by your name + a DEV tag above it. */
 function fbDevOn(){ if (typeof utSrv !== 'undefined' && utSrv.token) return utSrv.dev === true; if (FB.devStatus === undefined) { try { FB.devStatus = localStorage.getItem('fb_devstatus_v1') === '1'; } catch(e){ FB.devStatus = false; } } return !!FB.devStatus; }   // signed in: the server says who is a dev
 function fbDevSet(on){ FB.devStatus = !!on; try { localStorage.setItem('fb_devstatus_v1', on ? '1' : '0'); } catch(e){} }
-function fbCheck(){}                            // v137: the blue check is part of the NAME now (ntagAfter draws it wherever a verified dev's name is written)
+function fbCheck(g, cx, cy, r){ fbCheckDraw(g, cx, cy, r); }   // your own name: drawn where the screen writes it (ntagAfter skips your own name, so it is never drawn twice)
 function fbCheckDraw(g, cx, cy, r){ g.fillStyle = '#1d9bf0'; g.beginPath(); g.arc(cx,cy,r,0,6.3); g.fill(); g.strokeStyle = '#ffffff'; g.lineWidth = Math.max(0.5, r*0.32); g.beginPath(); g.moveTo(cx-r*0.5,cy+r*0.05); g.lineTo(cx-r*0.12,cy+r*0.45); g.lineTo(cx+r*0.55,cy-r*0.42); g.stroke(); }
 function fbDevName(){ return String((typeof utSrv !== 'undefined' && utSrv.user) || (typeof devName === 'function' ? devName() : 'PLAYER')).toUpperCase(); }
 function fbDevTag(g, x, y, name){            // name plate with the blue check, DEV above it
@@ -20502,7 +20502,7 @@ function fbLobbyWalkDraw(g){
 
   if (PV2.state==='ready') T('MODELS: PLAYER BLAKEALLEN25 - HELMET EXODUSKS - CLEATS LISENHAO - TROPHY G_BORY32 (SKETCHFAB, CC BY 4.0)', 160, 176.6, '#5d6a8f', 2.1, 'center');
   try { onlPanelDraw(g); } catch(e){ console.error('onl', e); }
-  T('BUILD v137',314,174,'#8fa0cc',4,'right'); { const us = uoStatus(); if (us) T(us, 6, 174, UO.state==='off' ? '#ff8b7b' : '#6f7ea8', 3, 'left'); }
+  T('BUILD v138',314,174,'#8fa0cc',4,'right'); { const us = uoStatus(); if (us) T(us, 6, 174, UO.state==='off' ? '#ff8b7b' : '#6f7ea8', 3, 'left'); }
 }
 /* ===================== WHO'S ONLINE: a live list in the lobby (signed-in players + what they are doing), chat and party invites.
    Anything sent to you pops up as a small red note in the top corner, wherever you are in the game. ===================== */
@@ -23084,7 +23084,7 @@ function fbLobbyDraw(g){
   if (PARTY.npc && !PARTY.on) T(PARTY.npc.name+' SUITS UP AS YOUR W1',160,55,'#7ddc8a',5,'center');
   fbBtn(g,'lobbyback',6,5,76,12,'< BACK TO THE FIELD',{size:4.6});
   fbBtn(g,'party',6,19,76,10,PARTY.on ? 'PARTY  '+PARTY.code.toUpperCase() : 'PLAY WITH A FRIEND',{size:4.4,line:'#7ddc8a',tc:'#c9f7d0'});
-  T('BUILD v137',314,174,'#8fa0cc',4,'right');   // so you can tell which build is live
+  T('BUILD v138',314,174,'#8fa0cc',4,'right');   // so you can tell which build is live
   fbBtn(g,'tut',100,141,58,13,'TUTORIAL',{size:5,line:'#ffd24a',tc:'#ffe9a8'}); fbBtn(g,'howlobby',162,141,58,13,'HOW TO PLAY',{size:4.4,line:'#ffd24a',tc:'#ffe9a8'});
   fbBtn(g,'shop',6,141,90,13,'PLAY SHOP',{size:5.5,line:'#7ddc8a',tc:'#c9f7d0'});
   fbBtn(g,'stats',224,141,90,13,'MY STATS',{size:5.5,line:'#6fd0ff',tc:'#cfeeff'});
@@ -26625,7 +26625,7 @@ const fbnIsHost = () => FBN.on && FBN.role==='host';
 const fbnIsGuest = () => FBN.on && FBN.role==='guest';
 function fbMain(){ if (FBN.on && FBN.role==='guest') fbnGuestStep(); else { fbStep(); if (FBN.on) fbnHostTick(); } }
 function fbVs(){ return !!(FBN.on && FBN.mode==='vs'); }
-function fbFlip(){ return false; }     // v137: one camera for everyone - behind the offense, on offense AND defense, solo, co-op and online (the same view the online 1v1 uses)
+function fbFlip(){ return false; }     // v138: one camera for everyone - behind the offense, on offense AND defense, solo, co-op and online (the same view the online 1v1 uses)
 function fbDirNow(){ const s = FB.s; return (fbFlip() || (s && s.turn)) ? -1 : 1; }      // after a turnover everyone sees the field from the other end
 function fbVsFix(t){                                                          // drive-screen text is written once (tokens) and read per player
   if (typeof t!=='string' || t.indexOf('{')<0) return t; const g = FBN.role==='guest', on = fbnOtherName();
@@ -28846,7 +28846,8 @@ function ntagAfter(g, s, x, y, size, align, base){                 // after any 
   if (!hits) return;
   const full = g.measureText(s).width, left = align === 'center' ? x - full/2 : align === 'right' ? x - full : x;
   hits.forEach(([end, e, nm]) => { const w = g.measureText(s.slice(0, end)).width, r0 = Math.max(1.5, size*0.5), cy = base === 'top' ? y + size*0.48 : y - size*0.34; let gx = left + w + r0*1.35;
-    if (e.dev) { fbCheckDraw(g, gx, cy, r0); gx += r0*2.5; }
+    const own = nm === String((typeof utSrv !== 'undefined' && utSrv.user) || '').toUpperCase() || (typeof fbDevOn === 'function' && fbDevOn() && nm === String(fbDevName()).toUpperCase());
+    if (e.dev && !own) { fbCheckDraw(g, gx, cy, r0); gx += r0*2.5; }
     if (e.warn) { ntagCaution(g, gx, cy, r0*1.05); if (typeof FB !== 'undefined' && FB.btns) FB.btns.unshift({ id:'nwarn:' + nm, x:gx - r0*1.6, y:cy - r0*1.7, w:r0*3.2, h:r0*3.4 }); } });
 }
 function ntagLoad(force){                                            // the tags come from the server (everyone sees the same ones)
