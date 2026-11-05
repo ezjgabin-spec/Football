@@ -17430,7 +17430,7 @@ function fbApplyPlayerLook(p){
     const girth = clamp(Math.sqrt((wLb/hIn) / (215/73)), 0.86, 1.4), sy = FB.look.height * 1.16 * (hIn/73);
     let sx = 1.3 * girth * clamp(FB.look.build, 0.9, 1.15); if (receiver) sx *= 0.93; if (line) sx *= 1.1;
     v.scale.set(sx, sy, sx);
-    const hd = p.rig.fbBones && p.rig.fbBones.mixamorigHead; if (hd) { const k = clamp(sy/sx, 0.72, 1); hd.scale.set(1.24*k, 1.24, 1.24*k); }   // the head reads bigger, and stays round on a wide body
+    const hd = p.rig.fbBones && p.rig.fbBones.mixamorigHead, HS = 1.3; if (hd) { hd.scale.setScalar(HS); hd.children.forEach(o => { if (o.name === 'pv2Helmet') { const b = o.userData.base || (o.userData.base = { x:o.scale.x, y:o.scale.y, z:o.scale.z }); o.scale.set(b.x/HS, b.y/HS, b.z/HS); } }); }   // a bigger head that fills the helmet; the helmet itself stays its normal size
   } else
   v.scale.set(width*wk,FB.look.height*height*(uk?uk.hk:1),width*wk);
   if(p.rig.fbV2){try{pv2Dress(p);}catch(e){console.warn('dress',e);}}
@@ -17641,7 +17641,7 @@ function pv2FitHelmet(root, H){
   root.updateMatrixWorld(true); const ob = pv2WorldBox(old), os = ob.getSize(new THREE.Vector3()), oc = ob.getCenter(new THREE.Vector3());
   const G = new THREE.Group(); G.name = 'pv2Helmet'; const inner = H.scene; inner.rotation.y = Math.PI; G.add(inner); root.add(G);   // its facemask points -Z; the player faces +Z
   const nb = pv2WorldBox(G), ns = nb.getSize(new THREE.Vector3()), k = (os.x / ns.x) * 1.04; G.scale.setScalar(k);
-  const nb2 = pv2WorldBox(G), nc = nb2.getCenter(new THREE.Vector3()); G.position.add(oc.clone().sub(nc)); G.position.y += os.y*0.02;
+  const nb2 = pv2WorldBox(G), nc = nb2.getCenter(new THREE.Vector3()); inner.position.sub(nc.clone().divideScalar(k)); G.position.copy(oc); G.position.y += os.y*0.02;   // pivot at the helmet's centre, so it can be resized in place
   root.updateMatrixWorld(true); head.attach(G);
   ['helmet_1','Loft'].forEach(n => { const o = pv2Find(root,n); if (o) o.visible = false; });
   G.traverse(o => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; const m = o.material; if (m && m.map && m.name==='Handle1Mtl') PV2.shellImg = m.map.image; if (m && m.name==='Material.015') m.userData.decal = true; } });
@@ -20082,7 +20082,7 @@ function fbLobbyWalkDraw(g){
   if (FB.lobbyDwell > 0 && FB.lobbyNear) { const d = FB_LPADS.find(q => q.id===FB.lobbyNear); if (d) { fbPanel(g,100,150,120,12,0.8); g.fillStyle = 'rgba(255,255,255,.18)'; g.fillRect(104,159,112,2); g.fillStyle = d.col; g.fillRect(104,159,112*clamp(FB.lobbyDwell/0.55,0,1),2); T('GOING TO  '+d.name,160,152.4,'#ffffff',4.2,'center'); } }
   fbPanel(g,56,164,208,12,0.6); T('WASD WALK     SHIFT RUN     STEP ON A GLOWING PAD',160,167,'#cfd8f4',4.4,'center');
   if (PV2.state==='ready') T('MODELS: PLAYER BLAKEALLEN25 - HELMET EXODUSKS - CLEATS LISENHAO - TROPHY G_BORY32 (SKETCHFAB, CC BY 4.0)', 160, 176.6, '#5d6a8f', 2.1, 'center');
-  T('BUILD v128',314,174,'#8fa0cc',4,'right'); { const us = uoStatus(); if (us) T(us, 6, 174, UO.state==='off' ? '#ff8b7b' : '#6f7ea8', 3, 'left'); }
+  T('BUILD v129',314,174,'#8fa0cc',4,'right'); { const us = uoStatus(); if (us) T(us, 6, 174, UO.state==='off' ? '#ff8b7b' : '#6f7ea8', 3, 'left'); }
 }
 /* ---------------------------------------------------------------- ULTIMATE TEAM: hub, collection, cards (packs come in the next stage) */
 const UT_KEY = 'blacktop_ut_v1';
@@ -22505,7 +22505,7 @@ function fbLobbyDraw(g){
   T('WHEN THE CPU HAS THE BALL YOU CAN PLAY DEFENSE (OR SKIP IT)',160,167,'#aeb9dc',4.6,'center');
   fbBtn(g,'lobbyback',6,5,76,12,'< BACK TO THE FIELD',{size:4.6});
   fbBtn(g,'party',6,19,76,10,PARTY.on ? 'PARTY  '+PARTY.code.toUpperCase() : 'PLAY WITH A FRIEND',{size:4.4,line:'#7ddc8a',tc:'#c9f7d0'});
-  T('BUILD v128',314,174,'#8fa0cc',4,'right');   // so you can tell which build is live
+  T('BUILD v129',314,174,'#8fa0cc',4,'right');   // so you can tell which build is live
   fbBtn(g,'tut',100,141,58,13,'TUTORIAL',{size:5,line:'#ffd24a',tc:'#ffe9a8'}); fbBtn(g,'howlobby',162,141,58,13,'HOW TO PLAY',{size:4.4,line:'#ffd24a',tc:'#ffe9a8'});
   fbBtn(g,'shop',6,141,90,13,'PLAY SHOP',{size:5.5,line:'#7ddc8a',tc:'#c9f7d0'});
   fbBtn(g,'stats',224,141,90,13,'MY STATS',{size:5.5,line:'#6fd0ff',tc:'#cfeeff'});
