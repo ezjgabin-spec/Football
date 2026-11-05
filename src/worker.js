@@ -30,6 +30,10 @@ export default {
       if (!room.startsWith('blk-')) return new Response('bad room', { status: 400 });
       return env.ROOMS.get(env.ROOMS.idFromName(room)).fetch(req);
     }
+    if (url.pathname === '/api/tour/ws') {                                    // the live WNF feed: a ping whenever the bracket changes
+      if (req.headers.get('Upgrade') !== 'websocket') return new Response('expected a websocket', { status: 426 });
+      return env.MM.get(env.MM.idFromName('tour')).fetch(req);
+    }
     if (url.pathname.startsWith('/api/ut/')) return utRoute(req, env);      // Ultimate Team: accounts, coins, packs
     if (url.pathname === '/api/hello') return Response.json({ blacktop: 1 }, { headers: { 'cache-control': 'no-store', 'access-control-allow-origin': '*' } });
     if (url.pathname.startsWith('/anim/')) {                                  // the tackle animation library (gzipped GLB clips) for the game page on any origin
@@ -37,6 +41,9 @@ export default {
       const r = await env.ASSETS.fetch(req), h = new Headers(r.headers); h.set('access-control-allow-origin', '*'); h.set('cache-control', 'public, max-age=86400'); return new Response(r.body, { status: r.status, headers: h });
     }
     return env.ASSETS.fetch(req);
+  },
+  async scheduled(ev, env, ctx) {                                            // the backup clock: Wednesday Night Football moves on even if nobody is online
+    ctx.waitUntil(env.MM.get(env.MM.idFromName('tour')).fetch('https://m/ttick', { method: 'POST', body: '{}' }).catch(() => {}));
   }
 };
 

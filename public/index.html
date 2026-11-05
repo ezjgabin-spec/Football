@@ -19962,106 +19962,194 @@ const FB_LPADS = [      // a small lobby: three rows of three pads
   { id:'v1',     x:58, z:12,   col:'#6fd0ff', name:'1V1 VS A FRIEND' },
   { id:'ut',     x:22, z:-7,   col:'#ffd24a', name:'ULTIMATE TEAM' },      // one step to the left of where you spawn
   { id:'dev',    x:15.5, z:0,  col:'#1d9bf0', name:'DEV STATUS' },      // all the way back: type the code for the blue check + DEV tag
-  { id:'tour',   x:68, z:0,    col:'#ff3a4a', name:'TOURNAMENT' }       // the far end: the giant trophy
+  { id:'tour',   x:68, z:0,    col:'#ff3a4a', name:'WEDNESDAY NIGHT FOOTBALL' }       // the far end: the giant trophy
 ];
 const TOUR_PAD = FB_LPADS[FB_LPADS.length-1];
-/* ===================== TOURNAMENTS: the trophy circle in the lobby. The server runs the bracket (byes by total wins -> head-to-head -> points scored);
-   sign-up pays the entry fee and hands you one tournament-only LTD player; the winner takes the Season 1 Limited Edition Malik Nabers card. ===================== */
-const TOUR_POOL = ['WR-0002','WR-0001','WR-0004','QB-0089','QB-0076','QB-0077','TE-0209','TE-0208','RB-0134','RB-0135','CB-0308','LB-0266','EDGE-0386'];
+/* ===================== WEDNESDAY NIGHT FOOTBALL: fully automatic on the server (Wednesday 8:00 PM New York). This is just the window onto it:
+   countdown from the server's clock, join (one free Season LTD pack), your tournament lineup, the 5-minute check-in, the live bracket, the champion. ===================== */
+const TOUR_POOL = ['WR-0002','WR-0001','CB-0308','RB-0134','RB-0135','QB-0076','QB-0077','LB-0266'];
+const TOUR_S3 = new Set(['CB-0308','RB-0134','RB-0135','QB-0076','QB-0077','LB-0266']);
 const TOUR_CREDIT = 'TROPHY MODEL BY G_BORY32 (SKETCHFAB), CC BY 4.0';
-function tourCards(){                                     // the LTD (red tier) versions and the special Nabers card, added to the card list once
+function tourCards(){                                     // the Season LTD cards (+3 on every rating, capped at 99) and the Season 1 Limited Edition Nabers, added to the card list once
   const db = window.FB_PLAYER_DB; if (!db || db.__tour) return; db.__tour = true;
   const up = (v, n) => v == null ? v : Math.min(99, v + n);
-  TOUR_POOL.forEach(id => { const b = db.find(p => p.id === id); if (!b) return; const q = JSON.parse(JSON.stringify(b)); q.id = 'LTD-' + id; q.tier = 'L'; q.ltd = true; q.type = 'LTD';
-    Object.keys(q.attributes || {}).forEach(k => { q.attributes[k] = up(q.attributes[k], 4); }); (q.skills || []).forEach(s => { s.rating = up(s.rating, 4); }); q.overall = up(q.overall, 4); db.push(q); });
+  TOUR_POOL.forEach(id => { const b = db.find(p => p.id === id); if (!b) return; const q = JSON.parse(JSON.stringify(b)); q.id = 'LTD-' + id; q.tier = 'L'; q.ltd = true; q.s3 = TOUR_S3.has(id); q.type = 'LTD';
+    q.ltdLabel = q.s3 ? 'SEASON 3 LTD' : 'SEASON LTD';
+    Object.keys(q.attributes || {}).forEach(k => { q.attributes[k] = up(q.attributes[k], 3); }); (q.skills || []).forEach(s => { s.rating = up(s.rating, 3); }); q.overall = up(q.overall, 3); db.push(q); });
   const n = db.find(p => p.id === 'WR-0002'); if (n) { const q = JSON.parse(JSON.stringify(n)); q.id = 'S1-NABERS'; q.tier = 'X'; q.special = 'SEASON 1 LIMITED EDITION'; q.type = 'Special';
     Object.keys(q.attributes || {}).forEach(k => { if (q.attributes[k] != null) q.attributes[k] = 99; }); (q.skills || []).forEach(s => { s.rating = 99; }); q.overall = 99; db.push(q); }   // 99 everywhere; height and weight stay his
 }
-const TOUR = { d:null, now:0, at:0, poll:0, open:false, err:'', msg:'', busy:false, form:null, pg:0, lastKey:'' };
+/* the Season LTD cards: their own look. Season 3 = the Season 1 loading-screen colours (Giants royal blue, neon red, chrome, fireworks) */
+function utLtdCard(g, x, y, w, h, p, dup){
+  const k = w/46, t = performance.now()/1000, s3 = !!p.s3, A = p.appearance || {};
+  g.save();
+  if (s3) {                                                // the Season 1 loading screen: a dark stadium, red lights along the rim, red fireworks, red smoke, Giants-blue jerseys, chrome-red lettering
+    g.shadowColor = '#ff2440'; g.shadowBlur = (8 + 4*Math.sin(t*3))*k;
+    const bg = g.createLinearGradient(x, y, x, y+h); bg.addColorStop(0, '#05060f'); bg.addColorStop(0.5, '#0d0f22'); bg.addColorStop(1, '#2a050b'); g.fillStyle = bg; rrect(g,x,y,w,h,3*k); g.fill(); g.shadowBlur = 0;
+    g.save(); rrect(g,x,y,w,h,3*k); g.clip();
+    for (let i = 0; i < 9; i++) { const lx = x + w*(0.06 + i*0.11), ly = y + h*0.035 + Math.abs(i-4)*0.6*k, a = 0.55 + 0.45*Math.sin(t*4 + i); g.fillStyle = 'rgba(255,60,70,'+a.toFixed(2)+')'; g.fillRect(lx, ly, 1.6*k, 0.9*k); }   // stadium lights
+    for (let i = 0; i < 3; i++) { const fx = x + w*(0.2 + 0.3*i), fy = y + h*(0.13 + 0.05*(i%2)), ph = (t*0.7 + i*0.37) % 1, r = (3 + 9*ph)*k;          // fireworks
+      g.strokeStyle = 'rgba(255,' + (50 + 50*(i%2)) + ',' + (60 + 20*i) + ',' + (0.95*(1-ph)).toFixed(2) + ')'; g.lineWidth = 0.55*k;
+      for (let a = 0; a < 12; a++) { const an = a/12*6.283; g.beginPath(); g.moveTo(fx + Math.cos(an)*r*0.45, fy + Math.sin(an)*r*0.45); g.lineTo(fx + Math.cos(an)*r, fy + Math.sin(an)*r); g.stroke(); } }
+    for (let i = 0; i < 4; i++) { const sx = x + w*(0.15 + 0.25*i) + Math.sin(t*0.8 + i)*2*k, sy = y + h*0.86, rg = g.createRadialGradient(sx, sy, 0, sx, sy, 13*k);    // red smoke along the bottom
+      rg.addColorStop(0, 'rgba(255,40,60,.42)'); rg.addColorStop(1, 'rgba(255,40,60,0)'); g.fillStyle = rg; g.fillRect(x, y + h*0.55, w, h*0.45); }
+    g.fillStyle = 'rgba(255,36,64,.9)'; for (let i = 0; i < 3; i++) { const sx = x + w*0.62 + i*w*0.09; g.beginPath(); g.moveTo(sx, y+h*0.635); g.lineTo(sx+w*0.06, y+h*0.635); g.lineTo(sx+w*0.03, y+h*0.665); g.lineTo(sx-w*0.03, y+h*0.665); g.closePath(); g.fill(); }   // the // slashes
+    const sw = ((t*0.5) % 1.6 - 0.3) * w; const sh = g.createLinearGradient(x+sw-10*k, y, x+sw+10*k, y+h); sh.addColorStop(0, 'rgba(255,255,255,0)'); sh.addColorStop(0.5, 'rgba(255,255,255,.16)'); sh.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = sh; g.fillRect(x, y, w, h);   // holo sweep
+    g.restore();
+    const edge = g.createLinearGradient(x, y, x+w, y+h); edge.addColorStop(0, '#ff2440'); edge.addColorStop(0.45, '#f4f6fb'); edge.addColorStop(0.55, '#9aa3b8'); edge.addColorStop(1, '#ff2440'); g.strokeStyle = edge; g.lineWidth = 1.5*k; rrect(g,x+0.7*k,y+0.7*k,w-1.4*k,h-1.4*k,3*k); g.stroke();
+  } else {
+    g.shadowColor = '#ff3a3a'; g.shadowBlur = 7*k; const bg = g.createLinearGradient(x, y, x, y+h); bg.addColorStop(0, '#7a0f1a'); bg.addColorStop(1, '#14060a'); g.fillStyle = bg; rrect(g,x,y,w,h,3*k); g.fill(); g.shadowBlur = 0;
+    g.strokeStyle = 'hsl(356,95%,' + (52 + 8*Math.sin(t*3)) + '%)'; g.lineWidth = 1.5*k; rrect(g,x+0.7*k,y+0.7*k,w-1.4*k,h-1.4*k,3*k); g.stroke();
+  }
+  // rating, position, label ribbon
+  T(String(p.overall != null ? p.overall : '--'), x+3*k, y+3*k, '#ffffff', 7*k, 'left'); T(p.pos, x+3*k, y+12.5*k, s3 ? '#ffd0d6' : '#ffd0c8', 2.6*k, 'left');
+  if (w >= 34 && p.skills && p.skills.length) utCardSkills(g, x, y, w, k, p, 'Common');
+  g.fillStyle = s3 ? 'rgba(0,0,0,.7)' : 'rgba(0,0,0,.55)'; g.fillRect(x+2*k, y+18.6*k, w-4*k, 4.6*k);
+  T(p.ltdLabel || 'SEASON LTD', x+w/2, y+19.4*k, s3 ? '#ff3a4e' : '#ffd24a', 2.6*k, 'center'); if (s3) { g.fillStyle = 'rgba(255,255,255,.35)'; g.fillRect(x+w*0.22, y+19.2*k, w*0.56, 0.35*k); }
+  const nm = p.name.toUpperCase(); T(nm.length > 12*(k<1?1:k) ? nm.slice(0, 11)+'.' : nm, x+w/2, y+24.4*k, '#f2f4fa', 2.7*k, 'center');
+  T(p.team || '', x+w/2, y+28.8*k, s3 ? '#c9d0e6' : '#e8b8b8', 2.1*k, 'center');
+  { const cx = x+w/2, by = y+h-9.5*k, f = faceOf(faceKey(p.id), A.skin_hex), jc = s3 ? '#2a4fd8' : (A.jersey_hex || '#7a0f1a');
+    g.save(); g.beginPath(); g.rect(x+2*k, y+31*k, w-4*k, by-(y+31*k)); g.clip();
+    g.fillStyle = jc; g.beginPath(); g.moveTo(cx-15*k, by+2*k); g.quadraticCurveTo(cx-14*k, by-6*k, cx-5*k, by-7*k); g.lineTo(cx+5*k, by-7*k); g.quadraticCurveTo(cx+14*k, by-6*k, cx+15*k, by+2*k); g.closePath(); g.fill();
+    if (s3) { g.strokeStyle = '#ff2440'; g.lineWidth = 0.9*k; g.beginPath(); g.moveTo(cx-5*k, by-7*k); g.lineTo(cx, by-4.5*k); g.lineTo(cx+5*k, by-7*k); g.stroke(); if (p.jersey != null) T(String(p.jersey), cx + 9*k, by-4*k, '#ffffff', 3.2*k, 'center'); }
+    g.fillStyle = faceShade(f.skin, 0.8); g.fillRect(cx-2.2*k, by-10*k, 4.4*k, 4*k); faceDraw(g, f, cx, by-13.5*k, 4.6*k, 5.5*k); g.restore(); }
+  g.fillStyle = s3 ? '#ff2440' : '#b3121e'; g.fillRect(x+2*k, y+h-7.6*k, w-4*k, 5.4*k);
+  T('WNF EXCLUSIVE', x+w/2, y+h-7.1*k, '#ffffff', 2.2*k, 'center'); T('EXPIRES AFTER TOURNAMENT', x+w/2, y+h-4.3*k, '#ffe2e6', 1.6*k, 'center');
+  if (dup > 1) T('X'+dup, x+3*k, y+h-12*k, '#ffd24a', 2.6*k, 'left');
+  g.restore();
+}
+const TOUR = { d:null, champs:[], titles:[], last:null, now:0, at:0, poll:0, open:false, err:'', msg:'', busy:false, bv:0, bp:0, lastKey:'', liveKey:'', ws:null, wsAt:0, ver:-1 };
 function tourSync(force){
-  if (typeof utSrv === 'undefined' || !utSrv.token) return; const t = performance.now(); if (!force && t - TOUR.poll < (TOUR.open ? 2500 : 6000)) return; TOUR.poll = t;
-  utApi('tget', {}).then(d => { if (d && d.ok) { TOUR.d = d.tour; TOUR.now = d.now; TOUR.at = performance.now(); tourWatch(); } });
+  if (typeof utSrv === 'undefined' || !utSrv.token) return; const t = performance.now(); if (!force && t - TOUR.poll < (TOUR.ws && TOUR.ws.readyState === 1 ? 15000 : (TOUR.open ? 2500 : 6000))) return; TOUR.poll = t;
+  utApi('tget', {}).then(d => { if (d && d.ok) tourTake(d); });
 }
-function tourClock(){ return TOUR.now + (performance.now() - TOUR.at); }
-function tourLeft(ms){ const s = Math.max(0, Math.ceil(ms/1000)), m = Math.floor(s/60); return (m >= 60 ? Math.floor(m/60)+'H '+String(m%60).padStart(2,'0')+'M' : m+':'+String(s%60).padStart(2,'0')); }
-function tourWatch(){                                     // your match is ready: say so wherever you are in the lobby
-  const T = TOUR.d, g = T && T.me && T.me.game; const key = g ? g.gid : '';
-  if (key && key !== TOUR.lastKey) { TOUR.lastKey = key; fbMsg('MATCH READY VS '+String(g.opp).toUpperCase().slice(0,10)+' - TROPHY', '#ff6a6a', 220); }
+function tourTake(d){ TOUR.d = d.tour; TOUR.champs = d.champs || []; TOUR.titles = d.titles || []; TOUR.last = d.last || null; TOUR.now = d.now; TOUR.at = performance.now(); if (d.tour) TOUR.ver = d.tour.ver; tourWatch(); }
+function tourWs(){                                       // the live feed: the server pings on every bracket change; the page then fetches the new state
+  if (typeof utSrv === 'undefined' || !utSrv.token || typeof WebSocket === 'undefined') return; if (TOUR.ws || performance.now() - TOUR.wsAt < 5000) return; TOUR.wsAt = performance.now();
+  try { const base = (utBase() || location.origin).replace(/\/+$/, '').replace(/^http/, 'ws'); const ws = new WebSocket(base + '/api/tour/ws'); TOUR.ws = ws;
+    ws.onmessage = e => { try { const m = JSON.parse(e.data); if (m && m.k === 'tour' && m.ver !== TOUR.ver) tourSync(true); } catch(_){} };
+    ws.onclose = ws.onerror = () => { if (TOUR.ws === ws) TOUR.ws = null; };
+  } catch(e){ TOUR.ws = null; }
 }
-function tourTick(){ if (FB.scr === 'lobby' || FB.scr === 'ut') tourSync(false); }
+function tourClock(){ return TOUR.now + (performance.now() - TOUR.at); }                    // the server's clock, not the device's
+function tourLeft(ms, long){ const s = Math.max(0, Math.floor(ms/1000)), d = Math.floor(s/86400), h = Math.floor(s%86400/3600), m = Math.floor(s%3600/60), ss = s%60;
+  return long ? (d ? d+'D ' : '') + String(h).padStart(2,'0')+'H '+String(m).padStart(2,'0')+'M '+String(ss).padStart(2,'0')+'S' : (m >= 60 ? Math.floor(m/60)+'H '+String(m%60).padStart(2,'0')+'M' : m+':'+String(ss).padStart(2,'0')); }
+function tourWhen(ms){ try { return new Date(ms).toLocaleString('en-US', { timeZone:'America/New_York', weekday:'long', month:'short', day:'numeric', hour:'numeric', minute:'2-digit' }).toUpperCase() + ' ET'; } catch(e){ return ''; } }
+function tourWatch(){
+  const TD = TOUR.d, g = TD && TD.me && TD.me.game;
+  if (FB.tourGame && FB.scr === 'lobby' && TD && (!g || g.gid !== FB.tourGame.gid || g.st !== 'live')) { FB.tourGame = null; TOUR.liveKey = ''; try { if (PARTY.on) partyLeave(false); } catch(e){} if (FB.msg && /YOUR MATCH/.test(FB.msg.txt)) FB.msg = null; }   // that match was settled (or forfeited) while we waited: drop the room
+  if (g && g.st === 'checkin' && TOUR.lastKey !== g.gid) { TOUR.lastKey = g.gid; if (!TOUR.open) fbMsg('WNF: CHECK IN VS '+String(g.opp).toUpperCase().slice(0,10)+' - 5 MIN', '#ff4458', 260); try { fbSfx('whistle'); } catch(e){} if (FB.scr === 'lobby' && !TOUR.open) tourOpen(); }
+  if (g && g.st === 'live' && TOUR.liveKey !== g.gid && !FB.tourGame && (FB.scr === 'lobby' || FB.scr === 'ut')) { TOUR.liveKey = g.gid; tourPlay(); }      // both ready: the game starts by itself
+}
+function tourTick(){ if (FB.scr === 'lobby' || FB.scr === 'ut') { tourWs(); tourSync(false); } }
 function tourOpen(){ if (!utSrv.token) { fbMsg('SIGN IN TO ULTIMATE TEAM FIRST', '#ffd24a', 120); try { utAuthShow(true); } catch(e){} return; } TOUR.open = true; TOUR.err = ''; TOUR.msg = ''; tourSync(true); }
-function tourDraw(g){
-  const TD = TOUR.d, now = tourClock(); g.fillStyle = 'rgba(6,4,14,.82)'; g.fillRect(0,0,W,H);
-  uiPanel(g, 20, 8, 280, 164, { r:5, fill:'rgba(14,10,26,.95)', line:'#ff4a5a' });
-  uiMark(g, 'TOURNAMENT', 160, 24, 13, '#ffffff', 'center', -0.04); fbBtn(g, 'tourx', 262, 12, 34, 10, 'CLOSE', { size:3.6 });
-  if (TOUR.err) T_(g, String(TOUR.err).toUpperCase(), 160, 162, '#ff8b7b', 3.2); else if (TOUR.msg) T_(g, TOUR.msg, 160, 162, '#7ddc8a', 3.2);
-  if (TOUR.form) { tourFormDraw(g); return; }
-  if (!TD || TD.state === 'done' || TD.state === 'cancelled') {
-    if (TD && TD.state === 'done') { const w = (TD.entrants||[]).filter(e => e.place).sort((a,b) => a.place - b.place); T_(g, 'LAST TOURNAMENT', 160, 32, '#ff9aa4', 3.4);
-      w.forEach((e,i) => { const pr = e.place === 1 ? 'SEASON 1 LIMITED EDITION MALIK NABERS' : e.place === 2 ? '5,000 COINS + ELITE PACK' : '2,500 COINS + 2 PREMIUM PACKS'; T_(g, ['','1ST','2ND','3RD'][e.place]+'  '+String(e.user).toUpperCase()+'  -  '+pr, 160, 42+i*8, e.place === 1 ? '#ff6a6a' : '#ffffff', 3); }); }
-    else if (TD && TD.state === 'cancelled') T_(g, 'THE LAST TOURNAMENT WAS CANCELLED (EVERYONE WAS REFUNDED)', 160, 36, '#9fb0dc', 3);
-    T_(g, 'NO TOURNAMENT IS OPEN RIGHT NOW', 160, 78, '#ffffff', 4.4);
-    T_(g, 'HAVE THE START CODE? OPEN ONE: SET THE ENTRY FEE AND THE SIGN-UP WINDOW', 160, 90, '#9fb0dc', 3);
-    fbBtn(g, 'tournew', 110, 102, 100, 14, 'START A TOURNAMENT', { size:4.2, col:'#ff6a6a' });
-    tourPrizeBox(g, 120); return;
-  }
-  T_(g, (TD.fee ? 'ENTRY FEE  '+TD.fee+' COINS' : 'FREE ENTRY')+'   -   '+(TD.entrants||[]).length+' PLAYERS', 160, 31, '#ffd24a', 3.6);
-  if (TD.state === 'signup') {
-    const su = TD.signupEnd - now, st = TD.startAt - now;
-    T_(g, su > 0 ? 'SIGN-UP CLOSES IN '+tourLeft(su) : 'SIGN-UP CLOSED', 104, 40, su > 0 ? '#7ddc8a' : '#ff8b7b', 4); T_(g, 'STARTS IN '+tourLeft(st), 216, 40, '#ffffff', 4);
-    const ent = !!(TD.me && TD.me.entered);
-    if (!ent) fbBtn(g, 'tourjoin', 96, 48, 128, 14, su > 0 ? 'ENTER  ('+(TD.fee ? TD.fee+' COINS' : 'FREE')+')' : 'SIGN-UP CLOSED', { size:4.4, col:'#ff6a6a', on:su > 0 });
-    else { T_(g, 'YOU ARE IN!  YOUR LTD PLAYER:', 160, 50, '#7ddc8a', 3.4); const p = TD.me.ltd && utById(TD.me.ltd); if (p) T_(g, p.name.toUpperCase()+'  '+p.pos+'  '+p.overall+' OVR  (TOURNAMENT ONLY)', 160, 57, '#ff6a6a', 3.4); fbBtn(g, 'tourleave', 122, 63, 76, 9, 'LEAVE (REFUND)', { size:3.1 }); }
-    T_(g, 'PLAYERS', 160, 76, '#9fb0dc', 3); (TD.entrants||[]).slice(0, 24).forEach((e,i) => T_(g, String(e.user).toUpperCase(), 48 + (i%4)*75, 84 + Math.floor(i/4)*7, e.user === utSrv.user ? '#ff8ad8' : '#ffffff', 3));
-    if (TD.by === utSrv.user || fbDevOn()) fbBtn(g, 'tourstart', 24, 150, 64, 10, 'START NOW', { size:3.2, col:'#ffd24a' });
-    tourPrizeBox(g, 132); return;
-  }
-  tourBracket(g, TD, now);
-}
 function T_(g, s, x, y, c, sz){ T(s, x, y, c, sz, 'center'); }
-function tourPrizeBox(g, y){ T_(g, 'PRIZES', 160, y, '#9fb0dc', 2.9); T_(g, '1ST: SEASON 1 LIMITED EDITION MALIK NABERS (99 EVERYTHING)', 160, y+7, '#ff6a6a', 2.9); T_(g, '2ND: 5,000 COINS + ELITE PACK     3RD: 2,500 COINS + 2 PREMIUM PACKS', 160, y+14, '#cfd8f4', 2.7);
-  T_(g, 'EVERY ENTRANT GETS ONE LTD PLAYER - TOURNAMENT GAMES ONLY, RETURNED WHEN IT ENDS', 160, y+21, '#9fb0dc', 2.5); }
-function tourBracket(g, TD, now){
-  const R = TD.rounds || 1, games = TD.games || [], me = TD.me || {}, colW = 260 / (R + 0.2);
-  for (let r = 1; r <= R; r++) { const gs = games.filter(q => q.rnd === r && (r < R || q.slot === 0)), x = 28 + (r-1)*colW, n = Math.max(1, (TD.size||2) >> r);
-    T_(g, r === R ? 'FINAL' : r === R-1 ? 'SEMIS' : 'ROUND '+r, x + colW/2 - 4, 37, '#ff9aa4', 2.8);
-    gs.forEach(q => { const span = 110 / n, y = 44 + q.slot*span + span/2 - 7; const box = (nm, yy, won) => { g.fillStyle = won ? 'rgba(255,74,90,.35)' : 'rgba(255,255,255,.07)'; g.fillRect(x, yy, colW - 8, 6.5); T(String(nm || (q.w ? 'BYE' : '...')).toUpperCase().slice(0, 11), x+1.5, yy+1.4, nm === utSrv.user ? '#ff8ad8' : '#ffffff', 2.6, 'left'); };
-      box(q.a, y, q.w && q.w === q.a); box(q.b, y+7, q.w && q.w === q.b); if (q.sa != null) T(String(q.sa)+'-'+String(q.sb), x+colW-9, y+4.6, '#ffd24a', 2.4, 'right'); }); }
-  const third = games.find(q => q.rnd === R && q.slot === 1); if (third) T((third.a||'...')+' VS '+(third.b||'...')+' (3RD PLACE)'+(third.w ? '  WINNER '+third.w : ''), 28, 156, '#cfd8f4', 2.6, 'left');
-  const gm = me.game;
-  if (gm) { fbBtn(g, 'tourplay', 196, 148, 100, 12, 'PLAY YOUR MATCH VS '+String(gm.opp).toUpperCase().slice(0,8), { size:3.2, col:'#ff6a6a' }); T('BOTH PLAYERS PRESS IT - THE TOP SEED HOSTS', 246, 141, '#9fb0dc', 2.4, 'center'); }
-  else if (me.entered) T('WAITING FOR YOUR NEXT GAME...', 246, 152, '#9fb0dc', 3, 'center');
+function tourHeader(g){
+  g.fillStyle = 'rgba(4,6,18,.86)'; g.fillRect(0,0,W,H);
+  const bg = g.createLinearGradient(0, 4, 0, 176); bg.addColorStop(0, '#16257a'); bg.addColorStop(1, '#070b22'); g.fillStyle = bg; rrect(g, 8, 4, 304, 172, 6); g.fill();
+  g.strokeStyle = '#ff2440'; g.lineWidth = 1; rrect(g, 8, 4, 304, 172, 6); g.stroke(); g.fillStyle = '#ff2440'; g.fillRect(8, 22, 304, 0.8);
+  fbvSlashes(g, 26, 13, 12, 0, '#ff2440'); uiMark(g, 'WEDNESDAY NIGHT FOOTBALL', 160, 18, 9, '#ffffff', 'center', -0.03); fbvSlashes(g, 294, 13, 12, 0, '#ff2440');
+  fbBtn(g, 'tourx', 268, 25, 40, 9, 'CLOSE', { size:3.2 });
 }
-function tourFormDraw(g){
-  const F = TOUR.form; T_(g, 'START A TOURNAMENT', 160, 36, '#ffffff', 4.6);
-  [['code','START CODE', F.code ? '*'.repeat(F.code.length) : 'TAP TO TYPE'],['fee','ENTRY FEE (COINS)', String(F.fee)],['su','SIGN-UP WINDOW (MINUTES)', String(F.su)],['sd','START DELAY AFTER SIGN-UP (MIN)', String(F.sd)]].forEach(([k,l,v],i) => {
-    const y = 48 + i*18; T(l, 60, y, '#9fb0dc', 3.2, 'left'); fbBtn(g, 'tourf_'+k, 170, y-2.5, 90, 11, v, { size:3.6, col:'#ff6a6a' }); });
-  fbBtn(g, 'tourgo', 96, 124, 128, 14, TOUR.busy ? 'WORKING...' : 'OPEN SIGN-UP', { size:4.4, col:'#7ddc8a' }); fbBtn(g, 'tourcancelf', 130, 142, 60, 10, 'BACK', { size:3.4 });
+function tourDraw(g){
+  const TD = TOUR.d, now = tourClock(); tourHeader(g);
+  if (TOUR.err) T_(g, String(TOUR.err).toUpperCase(), 160, 168, '#ff8b7b', 3); else if (TOUR.msg) T_(g, TOUR.msg, 160, 168, '#7ddc8a', 3);
+  if (!TD) { T_(g, 'LOADING...', 160, 90, '#cfd8f4', 4); return; }
+  if (TD.state === 'signup') return tourSignupDraw(g, TD, now);
+  if (TD.state === 'running') return tourRunDraw(g, TD, now);
+  return tourDoneDraw(g, TD, now);
+}
+function tourSignupDraw(g, TD, now){
+  const left = TD.startAt - now, me = TD.me || {};
+  T('NEXT TOURNAMENT', 16, 27, '#9fb0dc', 2.8, 'left'); T(tourWhen(TD.startAt), 16, 32, '#ffffff', 3.4, 'left');
+  uiPanel(g, 14, 39, 128, 22, { r:3, fill:'rgba(5,9,31,.8)', line:'#ff2440' }); T_(g, left > 0 ? tourLeft(left, true) : 'STARTING...', 78, 43, '#ffffff', 6.4); T_(g, 'REGISTRATION CLOSES AT KICKOFF', 78, 54, '#ff8a96', 2.4);
+  T((TD.entrants||[]).length + ' REGISTERED', 16, 64, '#7ddc8a', 3.6, 'left'); if (TD.fee) T('ENTRY ' + TD.fee + ' COINS', 90, 64.5, '#ffd24a', 2.8, 'left');
+  if (!me.entered) fbBtn(g, 'tourjoin', 14, 71, 128, 15, left > 0 ? 'JOIN TOURNAMENT' : 'REGISTRATION CLOSED', { size:4.6, col:'#ff2440', on:left > 0 });
+  else { const p = me.ltd && utById(me.ltd); T('YOU ARE IN!', 16, 71, '#7ddc8a', 3.8, 'left'); if (p) { utCard(g, 112, 66, 30, 36, p, 'Common', 0); T('YOUR LTD: ' + p.name.toUpperCase().slice(0,14), 16, 78, '#ff8a96', 2.6, 'left'); }
+    fbBtn(g, 'tourlu', 14, 84, 92, 10, 'TOURNAMENT LINEUP', { size:3.2, col:'#ffd24a' }); fbBtn(g, 'tourleave', 14, 96, 92, 8, 'LEAVE' + (TD.fee ? ' (REFUND)' : ''), { size:2.8 }); }
+  // rules
+  const R = ['SIGN UP BEFORE WEDNESDAY 8:00 PM ET - ONE FREE SEASON LTD PACK','BUILD A TOURNAMENT LINEUP AROUND YOUR LTD (NORMAL LINEUP UNTOUCHED)','BRACKET BUILT AT 8:00 PM: BYES TO TOP SEEDS (WINS, H2H, POINTS)','EVERY ROUND: 5 MINUTES TO READY UP OR YOU FORFEIT','LTD CARDS EXPIRE WHEN THE TOURNAMENT ENDS'];
+  T('RULES', 16, 108, '#ff4458', 3, 'left'); R.forEach((r,i) => T('- ' + r, 16, 114 + i*5.4, '#cfd8f4', 2.2, 'left'));
+  // rewards
+  T('SEASON LTD PACK - ONE OF THESE', 150, 27, '#ff4458', 2.8, 'left');
+  TOUR_POOL.forEach((id,i) => { const p = utById('LTD-' + id); if (p) utCard(g, 150 + (i%4)*31, 32 + Math.floor(i/4)*37, 29, 35, p, 'Common', 0); });
+  T('CHAMPION WINS', 150, 108, '#ffd24a', 2.8, 'left'); { const p = utById('S1-NABERS'); if (p) utCard(g, 150, 113, 34, 41, p, 'Legendary', 0); }
+  T('SEASON 1 LIMITED EDITION', 188, 116, '#ff6a6a', 2.6, 'left'); T('MALIK NABERS - 99 EVERYTHING', 188, 121, '#ffffff', 2.4, 'left');
+  T('2ND: 5,000 COINS + ELITE PACK', 188, 129, '#cfd8f4', 2.4, 'left'); T('3RD: 2,500 COINS + 2 PREMIUM PACKS', 188, 134, '#cfd8f4', 2.4, 'left');
+  tourHallDraw(g, 188, 141);
+  fbBtn(g, 'tourown', 270, 166, 38, 8, 'OWNER', { size:2.6 });
+}
+function tourHallDraw(g, x, y){ const c = TOUR.champs || []; if (!c.length) return; T('LAST CHAMPIONS', x, y, '#9fb0dc', 2.3, 'left'); c.slice(0, 3).forEach((e,i) => { const me = e.user === utSrv.user; T(String(e.user).toUpperCase().slice(0,12), x, y+5+i*4.6, me ? '#ff8ad8' : '#ffffff', 2.3, 'left'); if (me && fbDevOn()) fbCheck(g, x + String(e.user).slice(0,12).length*2.4 + 2, y+6+i*4.6, 1.4); }); }
+function tourRoundName(TD, r){ const R = TD.rounds; return r === R ? 'CHAMPIONSHIP' : r === R-1 ? 'SEMIFINALS' : r === R-2 ? 'QUARTERFINALS' : 'ROUND ' + r; }
+function tourRunDraw(g, TD, now){
+  const me = TD.me || {}, gm = me.game;
+  T(tourRoundName(TD, TD.round) + '  -  ' + (TD.entrants||[]).length + ' PLAYERS', 16, 27, '#ffffff', 3.4, 'left');
+  // your match box
+  uiPanel(g, 14, 33, 292, 26, { r:3, fill:'rgba(5,9,31,.85)', line: gm && gm.st === 'checkin' ? '#ff2440' : '#3b4c8a' });
+  if (gm && gm.st === 'checkin') { const left = gm.ck - now;
+    T('YOUR MATCH VS ' + String(gm.opp).toUpperCase(), 20, 36, '#ffffff', 3.6, 'left'); T(left > 0 ? 'CHECK-IN CLOSES IN ' + tourLeft(left) : 'CHECK-IN CLOSED', 20, 43, left < 60000 ? '#ff4458' : '#ffd24a', 3.2, 'left');
+    T((gm.readyMe ? 'YOU: READY' : 'YOU: NOT READY') + '     ' + String(gm.opp).toUpperCase().slice(0,10) + ': ' + (gm.readyOpp ? 'READY' : 'NOT READY'), 20, 50.5, '#cfd8f4', 2.6, 'left');
+    if (!gm.readyMe) fbBtn(g, 'tourready', 220, 37, 80, 17, 'READY UP', { size:5.2, col:'#ff2440' }); else T_(g, 'WAITING FOR ' + String(gm.opp).toUpperCase().slice(0,10), 260, 43, '#7ddc8a', 2.8); }
+  else if (gm && gm.st === 'live') { T('YOUR GAME VS ' + String(gm.opp).toUpperCase() + ' IS LIVE', 20, 37, '#7ddc8a', 3.8, 'left'); T('IT STARTS BY ITSELF - TAP IF IT DID NOT', 20, 45, '#9fb0dc', 2.6, 'left'); fbBtn(g, 'tourplay', 220, 37, 80, 17, 'PLAY', { size:5.2, col:'#7ddc8a' }); }
+  else if (me.entered && me.out) T_(g, 'ELIMINATED IN ' + tourRoundName(TD, me.out) + '  -  THANKS FOR PLAYING', 160, 42, '#ff8b7b', 3.4);
+  else if (me.entered) T_(g, 'YOU ARE THROUGH - WAITING FOR THE ROUND TO FINISH', 160, 42, '#7ddc8a', 3.4);
+  else T_(g, 'YOU ARE NOT IN THIS TOURNAMENT - WATCH THE BRACKET LIVE', 160, 42, '#9fb0dc', 3.2);
+  tourBracket(g, TD, now, 14, 62, 292, 102);
+}
+function tourBracket(g, TD, now, bx, by, bw, bh){                // three rounds at a time; long rounds page up and down
+  const R = TD.rounds || 1, games = TD.games || [], cols = Math.min(3, R); if (!TOUR.bvSet || TOUR.bvR !== TD.round) { TOUR.bv = Math.max(1, Math.min(TD.round || 1, R - cols + 1)); TOUR.bvR = TD.round; TOUR.bvSet = true; TOUR.bp = 0; }
+  const r0 = TOUR.bv, colW = (bw - 12) / cols, seedOf = {}; (TD.entrants||[]).forEach(e => { seedOf[e.user] = e.seed; });
+  for (let c = 0; c < cols; c++) { const r = r0 + c; if (r > R) break; const gs = games.filter(q => q.rnd === r && q.slot === q.slot && (r < R || q.slot === 0)); const per = Math.max(1, Math.min(gs.length, 8)), pages = Math.ceil(gs.length / per), pg = Math.min(TOUR.bp, pages-1);
+    const x = bx + 6 + c*colW; T_(g, tourRoundName(TD, r) + (pages > 1 ? ' ' + (pg+1) + '/' + pages : ''), x + colW/2 - 3, by, r === TD.round ? '#ff4458' : '#9fb0dc', 2.6);
+    const cell = (bh - 8) / per; gs.slice(pg*per, pg*per+per).forEach((q, i) => { const y = by + 5 + i*cell + Math.max(0, (cell - 13)/2), cw = colW - 7;
+      const row = (u, yy, won, sc) => { const mine = u && u === utSrv.user; g.fillStyle = won ? 'rgba(255,36,64,.42)' : mine ? 'rgba(255,138,216,.16)' : 'rgba(255,255,255,.06)'; g.fillRect(x, yy, cw, 6); if (won) { g.fillStyle = '#ff2440'; g.fillRect(x, yy, 1, 6); }
+        T((u ? (seedOf[u] ? seedOf[u] + ' ' : '') + String(u).toUpperCase().slice(0, 10) : (q.st === 'done' ? (q.how === 'bye' ? 'BYE' : '-') : '...')), x + 2, yy + 1.4, mine ? '#ff8ad8' : (q.st === 'done' && !won && u ? '#7f8db0' : '#ffffff'), 2.3, 'left');
+        if (mine && fbDevOn()) fbCheck(g, x + 2 + (String(seedOf[u] || '').length + 1 + String(u).slice(0,10).length)*2.35 + 1.5, yy + 3, 1.3);
+        if (sc != null) T(String(sc), x + cw - 1.5, yy + 1.4, '#ffd24a', 2.3, 'right'); };
+      row(q.a, y, q.w && q.w === q.a, q.sa); row(q.b, y + 6.6, q.w && q.w === q.b, q.sb);
+      const tag = q.st === 'checkin' ? (q.rda && q.rdb ? 'READY' : 'CHECK-IN ' + tourLeft(q.ck - now)) : q.st === 'live' ? 'LIVE' : q.how === 'ff' ? 'FORFEIT' : q.how === 'dff' ? 'NO SHOW' : q.how === 'dispute' ? 'HOST SCORE' : '';
+      if (tag) T(tag, x + cw, y + 13.2, q.st === 'live' ? '#7ddc8a' : q.st === 'checkin' ? '#ffd24a' : '#9fb0dc', 1.9, 'right'); }); }
+  const third = games.find(q => q.rnd === R && q.slot === 1); if (third && r0 + cols - 1 >= R) T('3RD PLACE: ' + String(third.a || '...').toUpperCase() + ' VS ' + String(third.b || '...').toUpperCase() + (third.w ? '  -  ' + String(third.w).toUpperCase() : ''), bx + 4, by + bh - 1, '#cfd8f4', 2.2, 'left');
+  if (R > cols) { fbBtn(g, 'tourbl', bx + bw - 44, by - 3, 10, 7, '<', { size:3 }); fbBtn(g, 'tourbr', bx + bw - 32, by - 3, 10, 7, '>', { size:3 }); }
+  fbBtn(g, 'tourbu', bx + bw - 20, by - 3, 9, 7, '^', { size:3 }); fbBtn(g, 'tourbd', bx + bw - 10, by - 3, 9, 7, 'v', { size:3 });
+}
+function tourDoneDraw(g, TD, now){
+  const pl = (TD.entrants||[]).filter(e => e.place).sort((a,b) => a.place - b.place), ch = pl[0], me = TD.me || {}, t = performance.now()/1000;
+  if (TD.state === 'cancelled' || !ch) { T_(g, TD.state === 'cancelled' ? 'THIS WEEK WAS CANCELLED' : 'NO CHAMPION THIS WEEK', 160, 60, '#ffffff', 5); T_(g, String(TD.why || '').toUpperCase(), 160, 72, '#9fb0dc', 3); T_(g, 'THE NEXT WEDNESDAY IS SCHEDULED AUTOMATICALLY', 160, 84, '#cfd8f4', 3); tourHallDraw(g, 130, 100); return; }
+  for (let i = 0; i < 40; i++) { const sx = 20 + ((i*53) % 280), sy = 28 + ((t*30 + i*17) % 140); g.fillStyle = ['#ff2440','#ffffff','#2647c9','#ffd24a'][i%4]; g.fillRect(sx, sy, 1.6, 2.4); }   // confetti
+  T_(g, me.place === 1 ? 'YOU ARE THE CHAMPION!' : 'WNF CHAMPION', 160, 30, me.place === 1 ? '#ffd24a' : '#ff4458', 6);
+  uiMark(g, String(ch.user).toUpperCase(), 160, 48, 13, '#ffffff', 'center', -0.03); if (ch.user === utSrv.user && fbDevOn()) fbCheck(g, 160 + String(ch.user).length*4.3 + 6, 44, 3);
+  { const p = utById('S1-NABERS'); if (p) utCard(g, 135, 62, 50, 61, p, 'Legendary', 0); }
+  pl.slice(1).forEach((e,i) => T_(g, (e.place === 2 ? '2ND  ' : '3RD  ') + String(e.user).toUpperCase(), 160, 129 + i*6, '#cfd8f4', 3.2));
+  T_(g, 'EVERYONE\'S LTD CARD HAS EXPIRED  -  NEXT WEDNESDAY IS ON THE WAY', 160, 146, '#9fb0dc', 2.6); tourHallDraw(g, 24, 128);
 }
 function tourAsk(label, cur, num){ const v = prompt(label, cur == null ? '' : String(cur)); if (v == null) return null; return num ? Math.max(0, Math.floor(+v || 0)) : String(v).trim(); }
 function tourAct(id){
   if (!TOUR.open) return false;
-  const done = d => { TOUR.busy = false; if (d && d.ok) { TOUR.d = d.tour; TOUR.now = d.now; TOUR.at = performance.now(); TOUR.err = ''; if (d.state) utApply(d.state); return true; } TOUR.err = (d && d.err) || 'failed'; return false; };
-  if (id === 'tourx') { TOUR.open = false; TOUR.form = null; FB.lobbyLock = 'tour'; return true; }
-  if (id === 'tournew') { TOUR.form = { code:'', fee:0, su:15, sd:1 }; return true; }
-  if (id === 'tourcancelf') { TOUR.form = null; return true; }
-  if (/^tourf_/.test(id)) { const F = TOUR.form, k = id.slice(6); if (k === 'code') { const v = tourAsk('Tournament start code', '', false); if (v != null) F.code = v; } else if (k === 'fee') { const v = tourAsk('Entry fee in coins (0 = free)', F.fee, true); if (v != null) F.fee = v; } else if (k === 'su') { const v = tourAsk('Sign-up window in minutes', F.su, true); if (v != null) F.su = Math.max(1, v); } else if (k === 'sd') { const v = tourAsk('Minutes between sign-up closing and the first games', F.sd, true); if (v != null) F.sd = v; } return true; }
-  if (id === 'tourgo') { if (TOUR.busy) return true; const F = TOUR.form; TOUR.busy = true; utApi('tcreate', { code:F.code, fee:F.fee, signupMin:F.su, startDelayMin:F.sd }).then(d => { if (done(d)) { TOUR.form = null; TOUR.msg = 'SIGN-UP IS OPEN!'; } }); return true; }
-  if (id === 'tourjoin') { if (TOUR.busy) return true; TOUR.busy = true; utApi('tjoin', {}).then(d => { if (done(d)) { try { utApi('state', {}).then(s => { if (s && s.ok) utApply(s); }); } catch(e){} if (d.ltd) { TOUR.open = false; if (!FB.ut) fbUtOpen(); FB.ut.rev = { pulled:[d.ltd], pack:'ltd', i:0, stage:'shake', t0:performance.now() }; } } }); return true; }
-  if (id === 'tourleave') { if (TOUR.busy) return true; TOUR.busy = true; utApi('tleave', {}).then(d => { if (done(d)) TOUR.msg = 'YOU LEFT - FEE REFUNDED'; }); return true; }
-  if (id === 'tourstart') { const c = TOUR.form && TOUR.form.code || tourAsk('Tournament start code', '', false); if (!c) return true; TOUR.busy = true; utApi('tadmin', { code:c, op:'startnow' }).then(done); return true; }
-  if (id === 'tourplay') { tourPlay(); return true; }
+  const done = d => { TOUR.busy = false; if (d && d.ok) { tourTake(d); TOUR.err = ''; return true; } TOUR.err = (d && d.err) || 'failed'; return false; };
+  if (id === 'tourx') { TOUR.open = false; FB.lobbyLock = 'tour'; return true; }
+  if (id === 'tourbl' || id === 'tourbr') { const TD = TOUR.d; if (TD) TOUR.bv = Math.max(1, Math.min((TD.rounds||1) - 2, TOUR.bv + (id === 'tourbr' ? 1 : -1))); TOUR.bp = 0; return true; }
+  if (id === 'tourbu' || id === 'tourbd') { TOUR.bp = Math.max(0, TOUR.bp + (id === 'tourbd' ? 1 : -1)); return true; }
+  if (id === 'tourjoin') { if (TOUR.busy) return true; TOUR.busy = true; utApi('tjoin', {}).then(d => { if (done(d)) { utApi('state', {}).then(s => { if (s && s.ok) utApply(s); }); if (d.ltd && !d.already) { TOUR.open = false; if (!FB.ut) fbUtOpen(); FB.ut.rev = { pulled:[d.ltd], pack:'ltd', i:0, stage:'shake', t0:performance.now() }; } } }); return true; }
+  if (id === 'tourleave') { if (TOUR.busy) return true; TOUR.busy = true; utApi('tleave', {}).then(d => { if (done(d)) { TOUR.msg = 'YOU LEFT THIS WEEK'; utApi('state', {}).then(s => { if (s && s.ok) utApply(s); }); } }); return true; }
+  if (id === 'tourready') { if (TOUR.busy) return true; TOUR.busy = true; utApi('tready', {}).then(d => { if (done(d)) { TOUR.msg = 'READY! THE GAME STARTS WHEN YOUR OPPONENT IS READY'; fbSfx('tick'); } }); return true; }
+  if (id === 'tourplay') { TOUR.liveKey = ''; tourPlay(); return true; }
+  if (id === 'tourlu') { TOUR.open = false; fbUtOpen(); FB.ut.tab = 'team'; FB.ut.tmode = true; return true; }
+  if (id === 'tourown') { const code = tourAsk('Owner code', '', false); if (!code) return true; const op = tourAsk('Type one: fee / startnow / cancel / skip', 'fee', false); if (!op) return true;
+    if (op === 'fee') { const fee = tourAsk('Entry fee in coins (0 = free)', 0, true); if (fee == null) return true; TOUR.busy = true; utApi('tcreate', { code, fee }).then(done); }
+    else { TOUR.busy = true; utApi('tadmin', { code, op }).then(done); } return true; }
   return true;
 }
-/* the match itself: both players get the same private party code from the game id; the top seed hosts a normal online 1v1 (the server loads both saved teams + each LTD player) */
+/* the match itself: both players get the same private room from the game id; the top seed hosts a normal online 1v1 (the server loads each tournament lineup + LTD) */
 function tourCode(gid){ let h = 0; for (const c of String(gid)) h = (h*31 + c.charCodeAt(0)) >>> 0; return 't' + h.toString(36).slice(0, 7); }
 async function tourPlay(){
-  const T = TOUR.d, gm = T && T.me && T.me.game; if (!gm) return; const code = tourCode(gm.gid);
-  FB.tourGame = { gid:gm.gid, mid:'tr' + String(gm.gid).replace(/[^a-z0-9]/g, '').slice(0, 28), opp:gm.opp }; TOUR.open = false;
+  const TD = TOUR.d, gm = TD && TD.me && TD.me.game; if (!gm || gm.st !== 'live') return; const code = tourCode(gm.gid);
+  FB.tourGame = { gid:gm.gid, mid:'tr' + String(gm.gid).replace(/[^a-z0-9]/g, '').slice(0, 30), opp:gm.opp }; TOUR.open = false;
+  if (FB.ut) { try { fbUtClose(); } catch(e){} }
   if (gm.host) {
     partyLeave(false); partyDropNpc(); PARTY.nm = utSrv.user || 'PLAYER'; const R = await netRoomApi(); if (!R) { fbMsg('ONLINE PLAY IS NOT AVAILABLE HERE', '#ff6b6b', 120); return; }
     let room = null; try { room = await R.join(roomName(code + 'p'), true); } catch(e){}
-    if (!room) { fbMsg('COULD NOT OPEN THE MATCH ROOM', '#ff6b6b', 120); return; }
+    if (!room) { fbMsg('COULD NOT OPEN THE MATCH ROOM', '#ff6b6b', 120); FB.tourGame = null; TOUR.liveKey = ''; return; }
     Object.assign(PARTY, { on:true, leader:true, code, room, other:null });
     room.presence({ r:'L', nm:PARTY.nm, lk:hubLook(), rk:window.ISLAND_CLIENT_ID });
     PARTY.offs.push(room.onPeers(ch => { const m = ch.peers.find(p => !p.isMe && p.presence && p.presence.r === 'M'); const was = PARTY.other; PARTY.other = m ? cleanName(m.presence.nm, 'FRIEND') : null;
@@ -20069,11 +20157,20 @@ async function tourPlay(){
     fbMsg('WAITING FOR '+String(gm.opp).toUpperCase()+' TO JOIN YOUR MATCH...', '#ffd24a', 600);
   } else { fbMsg('JOINING YOUR MATCH VS '+String(gm.opp).toUpperCase()+'...', '#ffd24a', 300); let tries = 0; const go = () => { partyJoin(code, utSrv.user || 'PLAYER'); setTimeout(() => { if (!PARTY.on && FB.tourGame && ++tries < 20) go(); }, 7500); }; go(); }
 }
-function tourReport(s){                                   // after the final whistle: both players report their own score; the server needs both to agree
+function tourReport(s){                                   // after the final whistle both players report their own score; the server needs both to agree
   const G = FB.tourGame; if (!G || !s || s.tourRep) return; s.tourRep = true;
-  (async () => { for (let i = 0; i < 10; i++) { const d = await utApi('treport', { pf:s.you|0, pa:s.cpu|0 }); if (d && d.ok) { TOUR.d = d.tour; break; } if (d && d.err && /no game|not running|bad score/.test(d.err)) break; await new Promise(r => setTimeout(r, 3000)); } FB.tourGame = null; })();
+  (async () => { for (let i = 0; i < 10; i++) { const d = await utApi('treport', { pf:s.you|0, pa:s.cpu|0 }); if (d && d.ok) { tourTake(d); break; } if (d && d.err && /no game|not running|bad score/.test(d.err)) break; await new Promise(r => setTimeout(r, 3000)); } FB.tourGame = null; TOUR.liveKey = ''; })();
 }
-/* the lobby: a giant trophy standing in a big red TOURNAMENT circle */
+/* tournament lineup: the normal team screen, saving to the tournament lineup instead (the LTD card is allowed only here) */
+function utLtdCardOwned(o){ return !!(o && String(o.pid).indexOf('LTD-') === 0); }
+function utTourLu(){ const all = Object.assign({}, utSrv.lineup || {}), t = utSrv.tlineup || {}; Object.keys(t).forEach(sl => { const u = t[sl]; if (!utCardByUid(u)) return; Object.keys(all).forEach(k => { if (all[k] === u) delete all[k]; }); all[sl] = u; });
+  const ltd = utOwned().find(utLtdCardOwned); if (ltd && !Object.values(all).includes(ltd.uid)) { const p = utById(ltd.pid), sl = p && Object.keys(UT_LSLOT).find(s => UT_LSLOT[s].indexOf(p.pos) >= 0); if (sl) all[sl] = ltd.uid; }   // the LTD starts at his position until you move him
+  return all; }
+function utPool(){ const tm = FB.ut && FB.ut.tmode; return utOwned().filter(o => tm || !utLtdCardOwned(o)); }
+function utTourLuBanner(g){ const k = 0.6 + 0.4*Math.sin(performance.now()/300); g.fillStyle = 'rgba(5,9,31,.92)'; g.fillRect(60, 168, 256, 11); g.fillStyle = 'rgba(255,36,64,'+(0.5+0.4*k).toFixed(2)+')'; g.fillRect(60, 168, 256, 1);
+  T('WNF TOURNAMENT LINEUP', 64, 170, '#ff4458', 3.4, 'left'); T('YOUR NORMAL LINEUP IS NOT CHANGED', 312, 170.6, '#cfd8f4', 2.5, 'right'); }
+function utLU(){ return (FB.ut && FB.ut.tmode) ? utTourLu() : (utSrv.lineup || {}); }
+function utLuSave(next){ const U = FB.ut; U.busy = true; U.err = ''; utApi(U.tmode ? 'tlineup' : 'lineup', { lineup:next }).then(d => { U.busy = false; if (d && d.ok) { utApply(d); fbSfx('tick'); } else U.err = (d && d.err) || 'failed'; }); }
 function tourLobbyBuild(L){
   const ring = canvasTex(1024, 1024, (g,w,h) => { g.translate(w/2, h/2); g.strokeStyle = 'rgba(255,60,80,.95)'; g.lineWidth = 26; g.beginPath(); g.arc(0,0,470,0,6.3); g.stroke(); g.lineWidth = 6; g.beginPath(); g.arc(0,0,420,0,6.3); g.stroke();
     g.fillStyle = '#ffffff'; g.font = '900 92px "Arial Black", Impact, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; const txt = 'TOURNAMENT  -  TOURNAMENT  -  ';
@@ -20131,7 +20228,7 @@ function fbLobbyInit(){
 }
 function fbLobbyPadOk(d){ if (d.id==='coop' || d.id==='v1') return !!(PARTY.on && PARTY.leader && PARTY.other); return true; }
 function fbLobbyPadSub(d){
-  if (d.id==='tour') return TOUR.d && TOUR.d.state==='signup' ? 'SIGN-UP OPEN - STEP IN' : TOUR.d && TOUR.d.state==='running' ? 'IN PROGRESS' : 'REAL PLAYERS - BRACKET';
+  if (d.id==='tour') { const TD = TOUR.d; if (TD && TD.state==='signup') { const l = TD.startAt - tourClock(); return l > 0 ? 'WNF IN ' + tourLeft(l, true) : 'BRACKET STARTING'; } return TD && TD.state==='running' ? 'WNF LIVE - ' + tourRoundName(TD, TD.round) : 'WEDNESDAY 8 PM ET'; }
   const fr = PARTY.on && PARTY.other ? PARTY.other : null;
   if (d.id==='solo') return 'VS CPU  -  '+FBD[FB.diff].n+'  -  '+(fbQL()/60)+' MIN';
   if (d.id==='coop') return fbLobbyPadOk(d) ? 'YOU + '+fbnOtherName()+' VS CPU' : (PARTY.on && !PARTY.leader ? 'YOUR LEADER PICKS' : 'NEEDS A FRIEND');
@@ -20236,7 +20333,7 @@ function fbLobbyWalkDraw(g){
   if (FB.lobbyDwell > 0 && FB.lobbyNear) { const d = FB_LPADS.find(q => q.id===FB.lobbyNear); if (d) { fbPanel(g,100,150,120,12,0.8); g.fillStyle = 'rgba(255,255,255,.18)'; g.fillRect(104,159,112,2); g.fillStyle = d.col; g.fillRect(104,159,112*clamp(FB.lobbyDwell/0.55,0,1),2); T('GOING TO  '+d.name,160,152.4,'#ffffff',4.2,'center'); } }
 
   if (PV2.state==='ready') T('MODELS: PLAYER BLAKEALLEN25 - HELMET EXODUSKS - CLEATS LISENHAO - TROPHY G_BORY32 (SKETCHFAB, CC BY 4.0)', 160, 176.6, '#5d6a8f', 2.1, 'center');
-  T('BUILD v131',314,174,'#8fa0cc',4,'right'); { const us = uoStatus(); if (us) T(us, 6, 174, UO.state==='off' ? '#ff8b7b' : '#6f7ea8', 3, 'left'); }
+  T('BUILD v132',314,174,'#8fa0cc',4,'right'); { const us = uoStatus(); if (us) T(us, 6, 174, UO.state==='off' ? '#ff8b7b' : '#6f7ea8', 3, 'left'); }
 }
 /* ---------------------------------------------------------------- ULTIMATE TEAM: hub, collection, cards (packs come in the next stage) */
 const UT_KEY = 'blacktop_ut_v1';
@@ -20315,7 +20412,7 @@ async function utApi(a, body){
   } catch(e){ utSrv.offline = true; return { ok:false, err: e && e.name === 'AbortError' ? 'the server took too long - check your connection and try again' : 'cannot reach the server - is your network blocking it?' }; }
   finally { clearTimeout(tm); }
 }
-function utApply(d){ if (!d) return; if (d.chal) utSrv.chalAt = performance.now(); ['coins','cards','packs','cfg','today','ledger','lines','lineup','stats','jersey','pass','xf','chal','season','seasonClaimed','dev'].forEach(k => { if (d[k]!==undefined) utSrv[k] = d[k]; }); if (d.user) utSrv.user = d.user; }
+function utApply(d){ if (!d) return; if (d.chal) utSrv.chalAt = performance.now(); ['coins','cards','packs','cfg','today','ledger','lines','lineup','tlineup','stats','jersey','pass','xf','chal','season','seasonClaimed','dev'].forEach(k => { if (d[k]!==undefined) utSrv[k] = d[k]; }); if (d.user) utSrv.user = d.user; }
 function utSignedOut(){ utSrv.lines = {}; utSrv.lineup = {}; utSrv.token = null; utSrv.cards = []; utSrv.packs = {}; utSrv.coins = 0; try { localStorage.removeItem(UT_SESS); } catch(e){} }
 function utInit(){
   if (utSrv.inited) return; utSrv.inited = true;
@@ -20434,7 +20531,7 @@ function utGameClaim(){
 function utOdds(p){ const w = p.tierWeights, t = Object.values(w).reduce((a,b) => a+b, 0); return ['S','A','B','C','D'].map(k => k+' '+(Math.round(1000*w[k]/t)/10)+'%').join('  '); }
 function utUpCost(pid, rar){ const c = utSrv.cfg && utSrv.cfg.upgrade, p = utById(pid), i = c ? c.order.indexOf(rar) : -1; if (!c || !p || i < 0 || i >= c.order.length-1) return 0; return Math.round((c.tierBase[p.tier] || c.tierBase.F) * c.stepMult[i]); }
 function utSellValue(pid, rar){ const c = utSrv.cfg && utSrv.cfg.sell, p = utById(pid); if (!c || !p) return 0; return Math.round((c.base[p.tier] || c.base.F || 0) * (c.rarityMult[rar] || 1)); }
-function utEquippedSet(){ return new Set(Object.values(utSrv.lineup || {})); }
+function utEquippedSet(){ return new Set(Object.values(utLU())); }
 function utDupes(){                  // every extra copy of a player (keeps your best / equipped one), never a card in your lineup
   const eq = utEquippedSet(), by = {}; utOwned().forEach(o => { (by[o.pid] = by[o.pid] || []).push(o); });
   const out = []; Object.keys(by).forEach(pid => { const l = by[pid]; if (l.length < 2) return;
@@ -20454,7 +20551,7 @@ function utTeam(g,x){
   if (!lines) {
     const slots = Object.keys(UT_LSLOT); let ovr = 0, n = 0;
     slots.forEach((k,i) => { const col = i < 8 ? 0 : 1, row = col ? i-8 : i, cx = x+6+col*101, cy = 34+row*12;
-      const cd = utCardByUid(utSrv.lineup[k]), p = cd ? utById(cd.pid) : null; if (p && p.overall!=null) { ovr += p.overall; n++; }
+      const cd = utCardByUid(utLU()[k]), p = cd ? utById(cd.pid) : null; if (p && p.overall!=null) { ovr += p.overall; n++; }
       fbBtn(g,'utls_'+k,cx,cy,98,10,k+': '+(p ? p.name.toUpperCase().slice(0,13)+' '+(p.overall!=null?p.overall:'') : 'EMPTY - TAP TO FILL'),{size:3.2,on:!!p,col:'#ffd24a'}); });
     T('TEAM OVR '+(n ? Math.round(ovr/n) : '--')+'  ('+n+'/'+slots.length+' FILLED)', x+107, 140, '#e8ecf8', 3.8, 'center');
     T('TAP A SLOT TO CYCLE OWNED CARDS THAT FIT', x+107, 149, '#9fb0dc', 2.8, 'center');
@@ -20680,10 +20777,10 @@ const UT_OFF_ROWS = [['LT','LG','C','RG','RT','TE'],['WR1','WR2','WR3','RB','QB'
 const UT_DEF_ROWS = [['EDGE1','DE1','DT1','DT2','EDGE2'],['LB1','LB2','CB1','CB2','S1','S2']];
 const utSlotLabel = sl => sl.replace(/(\d)$/, ' $1');
 const utEff = o => { const p = utById(o.pid); return Math.min(99, ((p && p.overall) || 0) + utBonus(o.rarity)); };
-function utSlotCards(slot){ const pos = UT_LSLOT[slot]; if (!pos) return []; return utOwned().filter(o => { const p = utById(o.pid); return p && pos.indexOf(p.pos) >= 0; }).sort((a,b) => utEff(b) - utEff(a) || a.pid.localeCompare(b.pid)); }
+function utSlotCards(slot){ const pos = UT_LSLOT[slot]; if (!pos) return []; return utPool().filter(o => { const p = utById(o.pid); return p && pos.indexOf(p.pos) >= 0; }).sort((a,b) => utEff(b) - utEff(a) || a.pid.localeCompare(b.pid)); }
 function utShort(p){ const w = p.name.toUpperCase().split(' '); const n = (w.length > 1 ? w[0][0]+'. ' : '') + w.slice(1).join(' ') ; return (w.length > 1 ? n : w[0]).slice(0, 13); }
 function utOvrBox(g,x,y,v){ g.fillStyle = v >= 85 ? '#17a34a' : v >= 75 ? '#6fae2f' : v >= 65 ? '#b89a22' : '#a2552b'; rrect(g,x,y,12,6,1.5); g.fill(); T(String(v), x+6, y+0.6, '#ffffff', 3.6, 'center'); }
-function utTeamOvr(){ const eq = Object.values(utSrv.lineup||{}).map(u => utCardByUid(u)).filter(Boolean); return eq.length ? Math.round(eq.reduce((a,o) => a + utEff(o), 0) / eq.length) : 0; }
+function utTeamOvr(){ const eq = Object.values(utLU()).map(u => utCardByUid(u)).filter(Boolean); return eq.length ? Math.round(eq.reduce((a,o) => a + utEff(o), 0) / eq.length) : 0; }
 function utTeamScreen(g){
   const U = FB.ut; if (!U.side) U.side = 'off';
   utBg(g);
@@ -20710,7 +20807,7 @@ function utTeamScreen(g){
         FB.btns.push({ id:'utlu_'+slot, x:cx, y:cy, w:40, h:48 });
         T(cost ? (cf ? 'TAP AGAIN' : 'UPGRADE ALL '+(/^(LT|LG|C|RG|RT)$/.test(slot)?'OL':'DL')) : 'MAX LEVEL', cx+20, ry+57, cf ? '#ff8b7b' : '#7ddc8a', 3, 'center'); T(cost ? cost+' COINS' : '', cx+20, ry+65, '#ffe9a0', 2.8, 'center'); T(cost ? 'NEXT: LVL '+(lv+1) : '', cx+20, ry+73, '#9fb0dc', 2.6, 'center');
         return; }
-      const cur = utCardByUid(utSrv.lineup[slot]), p = cur ? utById(cur.pid) : null;
+      const cur = utCardByUid(utLU()[slot]), p = cur ? utById(cur.pid) : null;
       if (p) { utCard(g,cx,cy,40,48,p,cur.rarity,0); if (utXfOn(cur)) { const fl = 0.75+0.25*Math.sin(performance.now()/90+cx); g.save(); g.shadowColor = '#ff6a00'; g.shadowBlur = 6; T('X', cx+34, cy+2, 'rgba(255,'+(130+fl*90|0)+',20,1)', 9, 'center'); g.restore(); } } else { g.fillStyle = 'rgba(255,255,255,.07)'; rrect(g,cx,cy,40,48,3); g.fill(); g.strokeStyle = 'rgba(255,255,255,.35)'; g.lineWidth = 1; rrect(g,cx,cy,40,48,3); g.stroke(); T('+', cx+20, cy+16, '#9fb0dc', 12, 'center'); T('EMPTY', cx+20, cy+34, '#9fb0dc', 3, 'center'); }
       FB.btns.push({ id:'utslot_'+slot, x:cx, y:cy, w:40, h:48 });
       const bench = utSlotCards(slot).filter(o => !cur || o.uid !== cur.uid).filter(o => !eq.has(o.uid)).slice(0, 2), list = [cur].concat(bench);
@@ -20740,7 +20837,7 @@ function utXfScreen(g){
 }
 function utPicker(g){
   const U = FB.ut, P = U.pick, list = utSlotCards(P.slot), per = 10, pages = Math.max(1, Math.ceil(list.length/per)); P.pg = Math.min(Math.max(0, P.pg|0), pages-1);
-  const cur = utSrv.lineup[P.slot]; utBg(g);
+  const cur = utLU()[P.slot]; utBg(g);
   T('CHOOSE '+utSlotLabel(P.slot)+'  -  '+(UT_LSLOT[P.slot]||[]).join(' / '), 160, 5, '#ffd24a', 5.5, 'center');
   list.slice(P.pg*per, P.pg*per+per).forEach((o,i) => { const cx = 14 + (i%5)*60, cy = 20 + Math.floor(i/5)*68, p = utById(o.pid), here = o.uid === cur, elsewhere = !here && eq_in(o.uid);
     utCard(g,cx,cy,46,56,p,o.rarity,0); if (here) { g.strokeStyle = '#ffffff'; g.lineWidth = 1.2; rrect(g,cx-1,cy-1,48,58,3); g.stroke(); T('PLAYING', cx+23, cy+58, '#7ddc8a', 2.8, 'center'); }
@@ -20749,21 +20846,21 @@ function utPicker(g){
   if (U.err) T(String(U.err).toUpperCase(), 160, 157, '#ff8b7b', 3.2, 'center');
   fbBtn(g,'utpkrm',12,164,64,11,'REMOVE',{size:3.8,line:'#ff6b6b',on:!!cur}); fbBtn(g,'utpkpgp',100,164,22,11,'<',{size:4.6}); T('PAGE '+(P.pg+1)+'/'+pages+'   '+list.length+' CARDS', 160, 167, '#cfd8f4', 3.4, 'center'); fbBtn(g,'utpkpgn',198,164,22,11,'>',{size:4.6}); fbBtn(g,'utpkclose',244,164,64,11,'CLOSE',{size:3.8});
 }
-function eq_in(uid){ const l = utSrv.lineup || {}, k = Object.keys(l).find(s => l[s] === uid); return k ? utSlotLabel(k) : ''; }
+function eq_in(uid){ const l = utLU(), k = Object.keys(l).find(s => l[s] === uid); return k ? utSlotLabel(k) : ''; }
 /* QUICK LINEUP: the best overall (with the rarity bonus) at every position, never the same card twice */
 function utQuickLineup(){
-  const U = FB.ut; if (!U || U.busy) return; const next = Object.assign({}, utSrv.lineup), used = new Set(), byPos = {};
-  utOwned().forEach(o => { const p = utById(o.pid); if (!p) return; (byPos[p.pos] = byPos[p.pos] || []).push(o); });
+  const U = FB.ut; if (!U || U.busy) return; const next = Object.assign({}, utLU()), used = new Set(), byPos = {};
+  utPool().forEach(o => { const p = utById(o.pid); if (!p) return; (byPos[p.pos] = byPos[p.pos] || []).push(o); });
   Object.keys(byPos).forEach(k => byPos[k].sort((a,b) => utEff(b)-utEff(a) || (utById(b.pid).overall||0)-(utById(a.pid).overall||0)));
   Object.keys(UT_LSLOT).forEach(slot => { const pos = UT_LSLOT[slot]; let best = null; pos.forEach(ps => { (byPos[ps] || []).forEach(o => { if (!used.has(o.uid) && (!best || utEff(o) > utEff(best))) best = o; }); });
     if (best) { used.add(best.uid); next[slot] = best.uid; } });
   const before = utTeamOvr(); U.busy = true; U.err = ''; U.msg = '';
-  utApi('lineup', { lineup:next }).then(d => { U.busy = false; if (d && d.ok) { utApply(d); fbSfx('tick'); U.msg = 'BEST PLAYERS IN - TEAM OVR '+before+' -> '+utTeamOvr(); } else U.err = (d && d.err) || 'failed'; });
+  utApi(U.tmode ? 'tlineup' : 'lineup', { lineup:next }).then(d => { U.busy = false; if (d && d.ok) { utApply(d); fbSfx('tick'); U.msg = 'BEST PLAYERS IN - TEAM OVR '+before+' -> '+utTeamOvr(); } else U.err = (d && d.err) || 'failed'; });
 }
 function utEquip(slot, uid){
-  const U = FB.ut; if (U.busy) return; const next = Object.assign({}, utSrv.lineup), cur = next[slot];
+  const U = FB.ut; if (U.busy) return; const next = Object.assign({}, utLU()), cur = next[slot];
   if (uid) { Object.keys(next).forEach(k => { if (next[k] === uid && k !== slot) { if (cur) next[k] = cur; else delete next[k]; } }); next[slot] = uid; } else delete next[slot];     // picking a man who plays elsewhere swaps the two
-  U.busy = true; U.err = ''; utApi('lineup', { lineup:next }).then(d => { U.busy = false; if (d && d.ok) { utApply(d); fbSfx('tick'); } else U.err = (d && d.err) || 'failed'; });
+  utLuSave(next);
 }
 
 /* ---------------------------------------------------------------- TRADING: both players build an offer, then BOTH type their password and press ACCEPT on the same version of the offers */
@@ -20902,7 +20999,16 @@ function utRevAdvance(){                  // SPACE / a click anywhere that is no
   const n = utRevOrder(v)[0]; if (n) utRevFlip(v, n.i);
 }
 function utRevFlipAll(){ const v = FB.ut.rev; if (!v || v.stage !== 'spread') return; v.queue = utRevOrder(v).map(c => c.i); v.nextAt = 0; }
+function utLtdBack(g,x,y,w,h){                            // the Season LTD pack: Wednesday Night Football colours
+  const k = w/46, t = performance.now()/1000; g.save(); g.shadowColor = '#ff2440'; g.shadowBlur = (10 + 4*Math.sin(t*4))*k;
+  const gr = g.createLinearGradient(x,y,x,y+h); gr.addColorStop(0,'#06081a'); gr.addColorStop(.6,'#14257a'); gr.addColorStop(1,'#3a0610'); g.fillStyle = gr; rrect(g,x,y,w,h,3*k); g.fill(); g.shadowBlur = 0;
+  g.strokeStyle = '#ff2440'; g.lineWidth = 1.6*k; rrect(g,x+0.7*k,y+0.7*k,w-1.4*k,h-1.4*k,3*k); g.stroke();
+  g.save(); rrect(g,x,y,w,h,3*k); g.clip(); g.fillStyle = 'rgba(255,36,64,.9)'; for (let i = 0; i < 2; i++) { const sx = x + w*0.36 + i*w*0.16; g.beginPath(); g.moveTo(sx, y+h*0.2); g.lineTo(sx+w*0.1, y+h*0.2); g.lineTo(sx+w*0.02, y+h*0.32); g.lineTo(sx-w*0.08, y+h*0.32); g.closePath(); g.fill(); }
+  const sy = y + ((t*28*k) % (h+10*k)) - 5*k; g.fillStyle = 'rgba(255,255,255,.12)'; g.fillRect(x, sy, w, 3*k); g.restore();
+  T('WNF', x+w/2, y+h/2-5*k, '#ffffff', 10*k, 'center'); T('SEASON LTD', x+w/2, y+h/2+7*k, '#ff4458', 3.4*k, 'center'); T('WEDNESDAY NIGHT FOOTBALL', x+w/2, y+h-8*k, '#c9d0e6', 1.9*k, 'center'); g.restore();
+}
 function utCardBack(g,x,y,w,h,gl){
+  if (FB.ut && FB.ut.rev && FB.ut.rev.pack === 'ltd') return utLtdBack(g,x,y,w,h);
   const k = w/46, t = performance.now()/1000; g.save(); g.shadowColor = gl || '#89cff0'; g.shadowBlur = (gl ? 12 : 6)*k;
   const gr = g.createLinearGradient(x,y,x+w,y+h); gr.addColorStop(0,'#173a7a'); gr.addColorStop(.55,'#14275e'); gr.addColorStop(1,'#4a1d64'); g.fillStyle = gr; rrect(g,x,y,w,h,3*k); g.fill();
   g.strokeStyle = gl || '#9adcff'; g.lineWidth = 1.5*k; rrect(g,x+0.6*k,y+0.6*k,w-1.2*k,h-1.2*k,3*k); g.stroke(); g.shadowBlur = 0;
@@ -21064,6 +21170,7 @@ function utCardSkills(g, x, y, w, k, p, rar){
     T(ab, x+17*k, yy, 'rgba(255,255,255,.92)', 2.05*k, 'left'); T(String(Math.min(99, q.rating+b)), x+w-3*k, yy, '#ffffff', 2.3*k, 'right'); });
 }
 function utCard(g,x,y,w,h,p,rar,dup){
+  if (p && p.ltd) { utLtdCard(g,x,y,w,h,p,dup); return; }
   const k = w/46, R = UT_RAR[rar] || UT_RAR.Common, t = performance.now()/1000, A = (p && p.appearance) || {};
   const jc = A.jersey_hex || '#1f5fd6', ac = A.accent_hex || '#ffd24a', hc = A.helmet_hex || '#143f95';
   g.save();
@@ -21144,9 +21251,10 @@ function utDetail(g,v){
     UT_ATTR.forEach((key,i) => { const val = p.attributes ? p.attributes[key] : null; if (val == null) return; row(UT_ATTR_LBL[i], val, y); y += RH; });       // only the ratings this position actually has
     const sk = (p.skills || []).filter(q => q && q.name && q.rating != null);
     if (sk.length) { y += 1.5; T(p.pos === 'QB' ? 'QUARTERBACK SKILLS' : 'POSITION SKILLS', x, y, '#ff8ad8', 3.2, 'left'); y += 7; sk.forEach(q => { row(String(q.name).toUpperCase(), q.rating, y); y += RH; }); } }
-  { const eq = v.uid && utEquippedSet().has(v.uid), val = utSellValue(v.pid, v.rar);
+  if (p.ltd) { g.fillStyle = '#b3121e'; g.fillRect(8, 166, 232, 12); T('WNF EXCLUSIVE - EXPIRES AFTER TOURNAMENT', 124, 167.4, '#ffffff', 3.4, 'center'); T('CANNOT BE SOLD, TRADED OR UPGRADED', 124, 173, '#ffd0d6', 2.3, 'center'); }
+  else { const eq = v.uid && utEquippedSet().has(v.uid), val = utSellValue(v.pid, v.rar);
     fbBtn(g,'utsell',130,167,110,10, eq ? 'IN YOUR LINEUP - CANNOT SELL' : (v.cf ? 'TAP AGAIN: SELL FOR '+val+' COINS' : 'SELL FOR '+val+' COINS'),{size:3.4,col:v.cf?'#ff8b7b':'#ffd24a',on:!eq && !!v.uid}); }
-  { const cost = utUpCost(v.pid, v.rar), nx = utSrv.cfg && utSrv.cfg.upgrade ? utSrv.cfg.upgrade.order[utSrv.cfg.upgrade.order.indexOf(v.rar)+1] : '';
+  if (!p.ltd) { const cost = utUpCost(v.pid, v.rar), nx = utSrv.cfg && utSrv.cfg.upgrade ? utSrv.cfg.upgrade.order[utSrv.cfg.upgrade.order.indexOf(v.rar)+1] : '';
     fbBtn(g,'utup',8,167,118,10, !cost ? 'MAX RARITY' : (v.uc ? 'TAP AGAIN: -'+cost+' COINS' : 'UPGRADE TO '+String(nx).toUpperCase()+'  '+cost),{size:3.3,col:v.uc?'#ff8b7b':'#7ddc8a',on:!!cost && utSrv.coins>=cost && !!v.uid}); }
   { const me = FB.utTeams && (FB.utTeams.me || FB.utTeams.host), ur = me && me.ur ? Object.values(me.ur).find(u => u && u.jersey) : null, j = (ur && ur.jersey) || FB.look.home || '#1f5fd6', ac = (ur && ur.accent) || '#ffd24a', cols = [j, ac, '#ffffff'], ci = utCleatIdx(v.pid), cur = ci != null ? ci : ((p.jersey|0) % 3);   // cleats: pick one of your team's three colours for this player
     T('CLEATS', 10, 143, '#cfd8f4', 3, 'left'); cols.forEach((c,i) => { g.fillStyle = c; rrect(g, 38+i*15, 141, 12, 7, 2); g.fill(); g.strokeStyle = i===cur ? '#ffd24a' : 'rgba(255,255,255,.35)'; g.lineWidth = i===cur ? 1.2 : 0.5; rrect(g, 38+i*15, 141, 12, 7, 2); g.stroke(); });
@@ -21512,7 +21620,8 @@ function fbUtDraw(g){
   if (t==='menu') { utMenu(g); return; }
   if (gated) { utGate(g); return; }
   if (t==='faces') { utFacesScreen(g); return; }
-  if (t==='team') { if (U.bench) { utBenchDraw(g); return; } utTeamScreen(g); fbBtn(g,'utbench',248,169,68,9,'SELL BENCH',{size:2.8,col:'#ffd24a'}); return; }
+  if (U.tmode && t !== 'team') U.tmode = false;                 // the tournament lineup editor is only the team tab
+  if (t==='team') { if (U.bench && !U.tmode) { utBenchDraw(g); return; } utTeamScreen(g); if (U.tmode) utTourLuBanner(g); else fbBtn(g,'utbench',248,169,68,9,'SELL BENCH',{size:2.8,col:'#ffd24a'}); return; }
   if (t==='play') { utSeasonScreen(g); return; }
   if (t==='pass') { utPassScreen(g); return; }
   if (t==='chal') { utChalScreen(g); return; }
@@ -21533,7 +21642,7 @@ function fbUtDraw(g){
   else if (t==='rew') utRewards(g,102);
   else if (t==='kick') utKickShop(g,102);
 }
-function utBenchList(){ const EL = utEffLineup(), used = new Set(Object.values(EL || {}).concat(Object.values(utSrv.lineup || {}))); return utOwned().filter(o => !used.has(o.uid)).map(o => ({ o, p:utById(o.pid), v:utSellValue(o.pid, o.rarity) })).filter(e => e.p).sort((a,b) => b.v - a.v || (b.p.overall||0) - (a.p.overall||0)); }
+function utBenchList(){ const EL = utEffLineup(), used = new Set(Object.values(EL || {}).concat(Object.values(utSrv.lineup || {}))); return utOwned().filter(o => !used.has(o.uid) && !utLtdCardOwned(o)).map(o => ({ o, p:utById(o.pid), v:utSellValue(o.pid, o.rarity) })).filter(e => e.p).sort((a,b) => b.v - a.v || (b.p.overall||0) - (a.p.overall||0)); }
 function utBenchDraw(g){                                   // every card that is not starting: who he is, what he sells for, tick and sell
   const U = FB.ut, B = U.bench, L = utBenchList(), per = 12, pages = Math.max(1, Math.ceil(L.length/per)); B.pg = Math.min(Math.max(0, B.pg|0), pages-1);
   uiMark(g,'SELL BENCH',160,12,9,'#ffffff','center',-0.04); fbBtn(g,'utbenchx',4,4,44,11,'< BACK',{size:4.2}); if (utSrv.token) T(utSrv.coins+' C', 316, 5, '#ffd24a', 4, 'right');
@@ -21593,7 +21702,7 @@ function fbUtAct(id){
   if (id==='utsideO' || id==='utsideD') { U.side = id==='utsideO' ? 'off' : 'def'; U.pick = null; fbSfx('tick'); return true; }
   if (id==='utjersey') { utJerseyShow(); return true; }
   if (/^utslot_/.test(id)) { U.pick = { slot:id.slice(7), pg:0 }; U.luCf = null; U.err = ''; fbSfx('tick'); return true; }
-  if (/^utbn_/.test(id)) { const m = /^utbn_(.+)_(\d)$/.exec(id); if (m) { const cur = utSrv.lineup[m[1]], eq = utEquippedSet(), b = utSlotCards(m[1]).filter(o => (!cur || o.uid !== cur) && !eq.has(o.uid))[+m[2]]; if (b) utEquip(m[1], b.uid); } return true; }
+  if (/^utbn_/.test(id)) { const m = /^utbn_(.+)_(\d)$/.exec(id); if (m) { const cur = utLU()[m[1]], eq = utEquippedSet(), b = utSlotCards(m[1]).filter(o => (!cur || o.uid !== cur) && !eq.has(o.uid))[+m[2]]; if (b) utEquip(m[1], b.uid); } return true; }
   if (id==='utquick') { utQuickLineup(); return true; }
   if (id==='utsnew') { const S = utSeasonNew(5, 1); utSeasonSave(S); fbSfx('tick'); return true; }
   if (id==='utsdraft') { if (U.busy) return true; U.busy = true; U.err = ''; utApi('draftget').then(d => { U.busy = false; if (d && d.ok) { const keep = utSrv.season; utApply(d); utSrv.season = keep; U.draft = { offers:d.draft.offers, picked:d.draft.picked }; } else U.err = (d && d.err) || 'cannot reach the server (it may need the update)'; }); return true; }
@@ -21608,11 +21717,12 @@ function fbUtAct(id){
   if (id==='utxfpp') { if (U.xfo) U.xfo.pg = Math.max(0, U.xfo.pg-1); return true; }
   if (id==='utxfpn') { if (U.xfo) U.xfo.pg++; return true; }
   if (/^utxfc\d+$/.test(id)) { if (U.busy || !U.xfo) return true; const o = utXfList()[+id.slice(5)]; if (!o) return true; U.busy = true; U.err = ''; utApi(utXfOn(o) ? 'xfunequip' : 'xfequip', { uid:o.uid }).then(d => { U.busy = false; if (d && d.ok) { utApply(d); fbSfx('tick'); } else U.err = (d && d.err) || 'failed'; }); return true; }
-  if (/^utpk\d+$/.test(id)) { const P = U.pick; if (!P) return true; const o = utSlotCards(P.slot)[+id.slice(4)]; if (o) { const at = eq_in(o.uid); if (at && utSrv.lineup[P.slot] !== o.uid) { U.err = 'ALREADY STARTING AT '+at; fbSfx('tick'); return true; } U.err = ''; utEquip(P.slot, o.uid); U.pick = null; } return true; }
+  if (/^utpk\d+$/.test(id)) { const P = U.pick; if (!P) return true; const o = utSlotCards(P.slot)[+id.slice(4)]; if (o) { const at = eq_in(o.uid); if (at && utLU()[P.slot] !== o.uid) { U.err = 'ALREADY STARTING AT '+at; fbSfx('tick'); return true; } U.err = ''; utEquip(P.slot, o.uid); U.pick = null; } return true; }
   if (id==='utpkrm') { if (U.pick) { utEquip(U.pick.slot, null); U.pick = null; } return true; }
   if (id==='utpkpgp') { if (U.pick) U.pick.pg = Math.max(0, (U.pick.pg|0)-1); return true; }
   if (id==='utpkpgn') { if (U.pick) U.pick.pg = (U.pick.pg|0)+1; return true; }
   if (id==='utpkclose') { U.pick = null; U.err = ''; return true; }
+  if ((id==='utup' || id==='utsell') && U.view && String(U.view.pid).indexOf('LTD-') === 0) return true;      // LTD cards: no selling, no upgrades
   if (id==='utup') { const v = U.view; if (!v || !v.uid || U.busy) return true; const cost = utUpCost(v.pid, v.rar); if (!cost || utSrv.coins < cost) { U.err = !cost ? 'ALREADY LEGENDARY' : 'NOT ENOUGH COINS'; return true; }
     if (!v.uc) { v.uc = true; return true; } v.uc = false; U.busy = true; U.err = '';
     utApi('cardup', { uid:v.uid }).then(d => { U.busy = false; if (d && d.ok) { utApply(d); if (U.view) U.view.rar = d.rarity; U.msg = 'UPGRADED TO '+String(d.rarity).toUpperCase(); fbSfx('tick'); } else U.err = (d && d.err) || 'failed'; }); return true; }
@@ -21627,11 +21737,11 @@ function fbUtAct(id){
   if (id==='utteamL') { U.tp = U.tp==='lines' ? 'lineup' : 'lines'; fbSfx('tick'); return true; }
   if (/^utls_/.test(id)) {
     const slot = id.slice(5), ok = UT_LSLOT[slot]; if (!ok || U.busy) return true;
-    const pool = utOwned().filter(o => { const p = utById(o.pid); return p && ok.includes(p.pos); }).sort((a,b) => (utById(b.pid).overall||0)-(utById(a.pid).overall||0));
+    const pool = utPool().filter(o => { const p = utById(o.pid); return p && ok.includes(p.pos); }).sort((a,b) => (utById(b.pid).overall||0)-(utById(a.pid).overall||0));
     if (!pool.length) { U.err = 'NO OWNED CARD FITS '+slot; return true; }
-    const cur = utSrv.lineup[slot], i = pool.findIndex(o => o.uid===cur), nxt = pool[(i+1) % pool.length];
-    const next = Object.assign({}, utSrv.lineup, { [slot]: nxt.uid }); U.busy = true; U.err = '';
-    utApi('lineup', { lineup: next }).then(d => { U.busy = false; if (d && d.ok) { utApply(d); fbSfx('tick'); } else U.err = (d && d.err) || 'failed'; });
+    const cur = utLU()[slot], i = pool.findIndex(o => o.uid===cur), nxt = pool[(i+1) % pool.length];
+    const next = Object.assign({}, utLU(), { [slot]: nxt.uid });
+    utLuSave(next);
     return true;
   }
   if (/^utlu_/.test(id)) { if (U.busy) return true; if (U.luCf !== id.slice(5)) { U.luCf = id.slice(5); return true; } U.luCf = null; U.busy = true; U.err = ''; utApi('upgrade', { slot: id.slice(5) }).then(d => { U.busy = false; if (d && d.ok) { utApply(d); fbSfx('tick'); } else U.err = (d && d.err) || 'failed'; }); return true; }
@@ -22676,7 +22786,7 @@ function fbLobbyDraw(g){
   if (PARTY.npc && !PARTY.on) T(PARTY.npc.name+' SUITS UP AS YOUR W1',160,55,'#7ddc8a',5,'center');
   fbBtn(g,'lobbyback',6,5,76,12,'< BACK TO THE FIELD',{size:4.6});
   fbBtn(g,'party',6,19,76,10,PARTY.on ? 'PARTY  '+PARTY.code.toUpperCase() : 'PLAY WITH A FRIEND',{size:4.4,line:'#7ddc8a',tc:'#c9f7d0'});
-  T('BUILD v131',314,174,'#8fa0cc',4,'right');   // so you can tell which build is live
+  T('BUILD v132',314,174,'#8fa0cc',4,'right');   // so you can tell which build is live
   fbBtn(g,'tut',100,141,58,13,'TUTORIAL',{size:5,line:'#ffd24a',tc:'#ffe9a8'}); fbBtn(g,'howlobby',162,141,58,13,'HOW TO PLAY',{size:4.4,line:'#ffd24a',tc:'#ffe9a8'});
   fbBtn(g,'shop',6,141,90,13,'PLAY SHOP',{size:5.5,line:'#7ddc8a',tc:'#c9f7d0'});
   fbBtn(g,'stats',224,141,90,13,'MY STATS',{size:5.5,line:'#6fd0ff',tc:'#cfeeff'});

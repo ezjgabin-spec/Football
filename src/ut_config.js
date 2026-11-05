@@ -174,14 +174,18 @@ export const DRAFT = { cards: 3, tierWeights: { S: 12, A: 33, B: 55 }, rarityWei
 // DEV STATUS: type this code in the DEV STATUS circle to become a verified dev (blue check + the power to give packs). Set DEV_CODE in the Cloudflare dashboard to change it without a redeploy.
 export const DEV = { code: 'leekknicks', maxPacksPerGive: 10 };
 export const SEASON = { reward: { playoff: 1000, final: 1000, champ: 2000 }, pack: { playoff: 'standard', final: 'premium', champ: 'elite' }, minGames: { playoff: 8, final: 10, champ: 11 } };   // only the best result of a season pays; each reward is a pack plus coins
-// TOURNAMENTS - anyone with the start code can open one (sign-up window + entry fee). Sign-up gives one tournament-only LTD player; the LTD card is taken back when it ends.
-// Seeding (for byes and the bracket): total wins, then head-to-head among the tied players, then total points scored.
+// WEDNESDAY NIGHT FOOTBALL - a fully automatic weekly tournament. Every Wednesday at 8:00 PM New York time sign-up closes and the bracket is built by the server.
+// Sign-up gives one free Season LTD pack (one tournament-only player); every round has a 5-minute check-in; the LTD card is taken back when the tournament ends.
+// Seeding (for byes and the bracket): total wins, then head-to-head among the tied players, then total points scored, then who signed up first.
 export const TOUR = {
-  code: 'dartmoney',
-  maxFee: 1000000, signupMin: [1, 1440], startDelayMin: [0, 60],
-  noShowMinutes: 10,                                  // one player reported a result and the other never did: the report stands after this long
-  ltdBoost: 4,                                         // LTD (red tier) cards: the player's card +4 on every rating, Legendary rarity
-  ltdPool: ['WR-0002','WR-0001','WR-0004','QB-0089','QB-0076','QB-0077','TE-0209','TE-0208','RB-0134','RB-0135','CB-0308','LB-0266','EDGE-0386'],
+  code: 'dartmoney',                                   // the owner's code: set an entry fee, start early, cancel, settle a game
+  wnf: { tz: 'America/New_York', dow: 3, hour: 20, minute: 0 },     // Wednesday 8:00 PM, daylight saving handled by the time zone
+  maxFee: 1000000, startDelayMin: [0, 1440],
+  checkInMinutes: 5,                                   // both players have 5 minutes to READY UP when their round opens
+  noShowMinutes: 10,                                   // one player reported the result and the other never did: the report stands after this long
+  gameMaxMinutes: 75,                                  // a game that was started but never reported by anyone: both players are out (nobody gets stuck)
+  ltdBoost: 3,                                         // Season LTD cards: the player's card +3 on every rating (capped at 99)
+  ltdPool: ['WR-0002','WR-0001','CB-0308','RB-0134','RB-0135','QB-0076','QB-0077','LB-0266'],   // Season LTD Nabers + JSN, Season 3 LTD Gonzalez, Bijan, Gibbs, Allen, Mahomes, Warner (equal odds)
   prize: { 1: { card: 'S1-NABERS' }, 2: { coins: 5000, packs: { elite: 1 } }, 3: { coins: 2500, packs: { premium: 2 } } },
   special: { 'S1-NABERS': { base: 'WR-0002', label: 'SEASON 1 LIMITED EDITION' } }
 };

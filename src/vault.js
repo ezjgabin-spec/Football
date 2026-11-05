@@ -115,7 +115,7 @@ export class Vault extends DurableObject {
     const a = this.acct(), d = this.sql.exec('SELECT * FROM daily WHERE day=?', today()).toArray()[0] || { coins: 0, games: 0 };
     const packs = {}; this.sql.exec('SELECT kind, COUNT(*) c FROM packs GROUP BY kind').toArray().forEach(r => { packs[r.kind] = r.c; });
     return { user: a.user, coins: a.coins, cards: this.sql.exec('SELECT uid,pid,rarity,src FROM cards ORDER BY got, uid').toArray().map(c => ({ uid: c.uid, pid: c.pid, rarity: c.rarity, sb: this.soulbound(c.src) ? 1 : 0 })), packs,
-      lines: this.lineLevels(), lineup: this.lineupRows(), stats: this.statsRow(), jersey: this.metaGet('jersey'), pass: this.passState(), xf: this.xfState(), chal: this.chalState(), season: this.metaGet('season'), seasonClaimed: this.seasonClaimed(), dev: this.metaGet('dev') === '1',
+      lines: this.lineLevels(), lineup: this.lineupRows(), tlineup: (() => { try { return JSON.parse(this.metaGet('tlu') || '{}'); } catch (e) { return {}; } })(), stats: this.statsRow(), jersey: this.metaGet('jersey'), pass: this.passState(), xf: this.xfState(), chal: this.chalState(), season: this.metaGet('season'), seasonClaimed: this.seasonClaimed(), dev: this.metaGet('dev') === '1',
       today: { coins: d.coins, games: d.games }, ledger: this.sql.exec('SELECT ts,delta,bal,why FROM ledger ORDER BY id DESC LIMIT 12').toArray(), cfg: this.publicCfg() };
   }
   kickerBuy(b) {
@@ -130,13 +130,19 @@ export class Vault extends DurableObject {
     return j({ ok: true, ...this.state() });
   }
   statsRow() { const r = this.sql.exec('SELECT wins, losses, ties, pf, pa FROM stats WHERE id=1').toArray()[0]; return r || { wins: 0, losses: 0, ties: 0, pf: 0, pa: 0 }; }
-  snap(tour) {
+  snap(tour, tid) {
     const cards = {}; this.sql.exec('SELECT uid,pid,rarity FROM cards').toArray().forEach(c => { cards[c.uid] = c; });
-    const lineup = {}; const lu = this.lineupRows(); for (const slot in lu) if (cards[lu[slot]]) lineup[slot] = { pid: cards[lu[slot]].pid, rarity: cards[lu[slot]].rarity };
+    const lineup = {}; const lu = this.lineupRows(); for (const slot in lu) if (cards[lu[slot]]) lineup[slot] = { uid: lu[slot], pid: cards[lu[slot]].pid, rarity: cards[lu[slot]].rarity };
     const xf = {}; this.sql.exec('SELECT uid FROM xfactor').toArray().forEach(r => { const c = cards[r.uid]; if (c && this.xfOk(c.pid, c.rarity)) for (const slot in lu) if (lu[slot] === r.uid) xf[slot] = 1; });
-    if (tour) { const c = this.sql.exec("SELECT uid, pid, rarity FROM cards WHERE src LIKE 'ltd:%' ORDER BY got DESC LIMIT 1").toArray()[0];   // tournament game: your LTD player starts at his position
-      if (c) { const cat = CATALOG.find(x => x[0] === c.pid), pos = cat ? cat[2] : ''; const slot = Object.keys(LINES.lineup).find(sl => LINES.lineup[sl].includes(pos) && !(lineup[sl] && lineup[sl].ltd)) ;
-        if (slot) lineup[slot] = { uid: c.uid, pid: c.pid, rarity: c.rarity, ltd: 1 }; } }
+    if (tour) {                                                  // a tournament game: the tournament lineup (if one was saved) over the normal one, plus this tournament's LTD player - never an expired one
+      const allc = {}; this.sql.exec('SELECT uid,pid,rarity,src FROM cards').toArray().forEach(c => { allc[c.uid] = c; }); const okc = c => c && (!String(c.src || '').startsWith('ltd:') || (tid && c.src === 'ltd:' + tid));
+      let tl = {}; try { tl = JSON.parse(this.metaGet('tlu') || '{}') || {}; } catch (e) {}
+      for (const slot in tl) { const c = allc[tl[slot]]; if (!(slot in LINES.lineup) || !okc(c)) continue; const cat = CATALOG.find(x => x[0] === c.pid); if (!cat || !LINES.lineup[slot].includes(cat[2])) continue;
+        for (const sl in lineup) if (lineup[sl] && lineup[sl].uid === c.uid) delete lineup[sl]; lineup[slot] = { uid: c.uid, pid: c.pid, rarity: c.rarity, ltd: String(c.src || '').startsWith('ltd:') ? 1 : 0 }; delete xf[slot]; }
+      const c = tid ? this.sql.exec('SELECT uid, pid, rarity FROM cards WHERE src=? LIMIT 1', 'ltd:' + tid).toArray()[0] : null;
+      if (c && !Object.values(lineup).some(e => e && e.uid === c.uid)) { const cat = CATALOG.find(x => x[0] === c.pid), pos = cat ? cat[2] : ''; const slot = Object.keys(LINES.lineup).find(sl => LINES.lineup[sl].includes(pos));
+        if (slot) { lineup[slot] = { uid: c.uid, pid: c.pid, rarity: c.rarity, ltd: 1 }; delete xf[slot]; } }
+    }
     return { user: this.acct().user, lineup, lines: this.lineLevels(), stats: this.statsRow(), jersey: this.metaGet('jersey'), xf };
   }
   matchPay(b) {
@@ -419,7 +425,8 @@ export class Vault extends DurableObject {
   tradeLink(b) { this.sql.exec('INSERT INTO trades (id,other,status,ts) VALUES (?,?,?,?) ON CONFLICT(id) DO UPDATE SET status=excluded.status, ts=excluded.ts', String(b.tid), String(b.other), String(b.status), Date.now()); return j({ ok: true }); }
   tradeList() { return j({ ok: true, trades: this.sql.exec('SELECT id, other, status, ts FROM trades ORDER BY ts DESC LIMIT 20').toArray() }); }
   cardUp(b) {
-    const c = this.sql.exec('SELECT uid, pid, rarity FROM cards WHERE uid=?', String(b.uid || '')).toArray()[0]; if (!c) return j({ ok: false, err: 'no such card' }, 404);
+    const c = this.sql.exec('SELECT uid, pid, rarity, src FROM cards WHERE uid=?', String(b.uid || '')).toArray()[0]; if (!c) return j({ ok: false, err: 'no such card' }, 404);
+    if (String(c.src || '').startsWith('ltd:') || String(c.pid).startsWith('LTD-')) return j({ ok: false, err: 'WNF LTD cards can not be upgraded' }, 409);
     const cat = CATALOG.find(x => x[0] === c.pid), cost = upgradeCost(cat ? cat[1] : 'F', c.rarity); if (!cost) return j({ ok: false, err: 'already Legendary' }, 409);
     const next = UPGRADE.order[UPGRADE.order.indexOf(c.rarity) + 1]; let enough = true;
     this.ctx.storage.transactionSync(() => {
@@ -457,6 +464,15 @@ export class Vault extends DurableObject {
     }); } catch (e) { return j({ ok: false, err: String(e.message || e) }, 400); }
     return j({ ok: true, ...this.state() });
   }
+  setTourLineup(b) {                                        // WNF: a lineup used only in tournament games (it may hold this tournament's LTD card)
+    const want = b.lineup && typeof b.lineup === 'object' ? b.lineup : null; if (!want) return j({ ok: false, err: 'no lineup sent' }, 400);
+    const out = {}, seen = new Set();
+    for (const slot of Object.keys(want)) { if (!(slot in LINES.lineup)) return j({ ok: false, err: 'unknown slot ' + slot }, 400); const uidv = want[slot]; if (!uidv) continue;
+      const c = this.sql.exec('SELECT uid, pid FROM cards WHERE uid=?', String(uidv)).toArray()[0]; if (!c) return j({ ok: false, err: 'not owned' }, 400);
+      const p = CATALOG.find(x => x[0] === c.pid) || (c.pid === KICKERS.starter ? [c.pid, 'F', 'K'] : null); if (!p || !LINES.lineup[slot].includes(p[2])) return j({ ok: false, err: 'wrong position for ' + slot }, 400);
+      if (seen.has(c.uid)) return j({ ok: false, err: 'same card twice' }, 400); seen.add(c.uid); out[slot] = c.uid; }
+    this.metaSet('tlu', JSON.stringify(out)); return j({ ok: true, ...this.state() });
+  }
   upgradeLine(b) {
     const slot = String(b.slot || ''); if (!(slot in LINES.slots)) return j({ ok: false, err: 'unknown line slot' }, 400);
     const g = LINES.slots[slot], mates = Object.keys(LINES.slots).filter(k => LINES.slots[k] === g);
@@ -485,12 +501,18 @@ export class Vault extends DurableObject {
       if (act === 'i_tstats') { const a = this.acct(); if (!a) return j({ ok: false }, 404); return j({ ok: true, stats: this.statsRow() }); }
       if (act === 'i_tfee') { const fee = Math.max(0, Math.floor(+b.fee || 0)); if (!this.acct()) return j({ ok: false, err: 'no account' }, 404); if (this.acct().coins < fee) return j({ ok: false, err: 'the entry fee is ' + fee + ' coins' }, 402);
         if (fee) this.add(-fee, 'tournament entry ' + String(b.tid || '')); return j({ ok: true, ...this.state() }); }
-      if (act === 'i_trefund') { const fee = Math.max(0, Math.floor(+b.fee || 0)); if (fee) this.add(fee, 'tournament refund ' + String(b.tid || '')); return j({ ok: true }); }
-      if (act === 'i_tltd') { const tid = String(b.tid || ''), have = this.sql.exec('SELECT uid, pid, rarity FROM cards WHERE src=?', 'ltd:' + tid).toArray()[0]; if (have) return j({ ok: true, card: have, ...this.state() });
-        const base = TOUR.ltdPool[Math.floor(Math.random() * TOUR.ltdPool.length)], u = uid(), card = { uid: u, pid: 'LTD-' + base, rarity: 'Legendary' };
-        this.sql.exec('INSERT INTO cards (uid,pid,rarity,got,src) VALUES (?,?,?,?,?)', u, card.pid, card.rarity, Date.now(), 'ltd:' + tid); this.ledger(0, 'tournament LTD pack: ' + card.pid); return j({ ok: true, card, ...this.state() }); }
-      if (act === 'i_tdrop') { const n = this.sql.exec('SELECT COUNT(*) c FROM cards WHERE src=?', 'ltd:' + String(b.tid || '')).toArray()[0].c; this.sql.exec('DELETE FROM cards WHERE src=?', 'ltd:' + String(b.tid || '')); if (n) this.ledger(0, 'tournament over: LTD card returned'); return j({ ok: true }); }
-      if (act === 'i_tprize') { const pz = b.prize || {}; if (pz.coins) this.add(Math.floor(pz.coins), 'tournament place ' + (b.place | 0));
+      if (act === 'i_trefund') { const fee = Math.max(0, Math.floor(+b.fee || 0)); if (b.once) { const k = 'trefund:' + String(b.tid || ''); if (this.metaGet(k)) return j({ ok: true }); this.metaSet(k, '1'); } if (fee) this.add(fee, 'tournament refund ' + String(b.tid || '')); return j({ ok: true }); }
+      if (act === 'i_tltd') { const tid = String(b.tid || ''); if (!/^[a-z0-9]{4,40}$/.test(tid)) return j({ ok: false, err: 'bad tournament' }, 400);
+        const have = this.sql.exec('SELECT uid, pid, rarity FROM cards WHERE src=?', 'ltd:' + tid).toArray()[0]; if (have) return j({ ok: true, card: have, ...this.state() });   // one pack per tournament, ever
+        if (this.metaGet('tltd:' + tid)) return j({ ok: true, card: null, ...this.state() });
+        const base = TOUR.ltdPool[Math.floor(Math.random() * TOUR.ltdPool.length)], u = uid(), card = { uid: u, pid: 'LTD-' + base, rarity: 'Common' };
+        this.ctx.storage.transactionSync(() => { this.sql.exec('INSERT INTO cards (uid,pid,rarity,got,src) VALUES (?,?,?,?,?)', u, card.pid, card.rarity, Date.now(), 'ltd:' + tid); this.metaSet('tltd:' + tid, card.pid); });
+        this.ledger(0, 'WNF Season LTD pack: ' + card.pid); return j({ ok: true, card, ...this.state() }); }
+      if (act === 'i_tdrop') { const src = 'ltd:' + String(b.tid || ''), gone = this.sql.exec('SELECT uid FROM cards WHERE src=?', src).toArray().map(r => r.uid);
+        if (gone.length) { this.sql.exec('DELETE FROM cards WHERE src=?', src); this.sql.exec('DELETE FROM xfactor WHERE uid IN (' + gone.map(() => '?').join(',') + ')', ...gone);
+          let tl = {}; try { tl = JSON.parse(this.metaGet('tlu') || '{}') || {}; } catch (e) {} for (const k in tl) if (gone.includes(tl[k])) delete tl[k]; this.metaSet('tlu', JSON.stringify(tl)); this.ledger(0, 'WNF over: the LTD card expired'); }
+        return j({ ok: true }); }
+      if (act === 'i_tprize') { const pz = b.prize || {}, key = 'tprize:' + String(b.tid || ''); if (this.metaGet(key)) return j({ ok: true, already: true }); this.metaSet(key, String(b.place | 0)); if ((b.place | 0) === 1) this.metaSet('wnfTitles', String((parseInt(this.metaGet('wnfTitles') || '0', 10) || 0) + 1)); if (pz.coins) this.add(Math.floor(pz.coins), 'tournament place ' + (b.place | 0));
         for (const k in (pz.packs || {})) if (UT.packs[k]) for (let i = 0; i < Math.min(5, pz.packs[k] | 0); i++) this.sql.exec('INSERT INTO packs (kind,got) VALUES (?,?)', k, Date.now());
         if (pz.card && TOUR.special[pz.card]) this.sql.exec('INSERT INTO cards (uid,pid,rarity,got,src) VALUES (?,?,?,?,?)', uid(), pz.card, 'Legendary', Date.now(), 'tour:' + String(b.tid || ''));
         this.ledger(0, 'tournament place ' + (b.place | 0) + ' prize'); return j({ ok: true }); }
@@ -503,7 +525,7 @@ export class Vault extends DurableObject {
       if (act === 'i_tlink') return this.tradeLink(b);
       if (act === 'i_wlock') return this.wagerLock(b);
       if (act === 'i_wsettle') return this.wagerSettle(b);
-      if (act === 'i_snap') return j({ ok: true, snap: this.snap(!!b.tour) });                 // internal: only the Match object calls these two
+      if (act === 'i_snap') return j({ ok: true, snap: this.snap(!!b.tour, String(b.tid || '')) });                 // internal: only the Match object calls these two
       if (act === 'i_pay') { const r = this.matchPay(b); return j({ ok: true, ...r, stateOut: this.state() }); }
       if (act === 'register') return await this.register(b);
       if (act === 'login') return await this.login(b);
@@ -528,6 +550,7 @@ export class Vault extends DurableObject {
       if (act === 'tradelist') return this.tradeList();
       if (act === 'sell') return this.sell(b);
       if (act === 'lineup') return this.setLineup(b);
+      if (act === 'tlineup') return this.setTourLineup(b);
       if (act === 'kickbuy') return this.kickerBuy(b);
       if (act === 'upgrade') return this.upgradeLine(b);
       if (act === 'gamestart') return this.gameStart(b);
