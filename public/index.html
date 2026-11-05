@@ -20418,7 +20418,7 @@ function fbLobbyGo(d){
 /* ---- DEV STATUS: stand in the circle at the back of the lobby and type the code. All it does: a blue check by your name + a DEV tag above it. */
 function fbDevOn(){ if (typeof utSrv !== 'undefined' && utSrv.token) return utSrv.dev === true; if (FB.devStatus === undefined) { try { FB.devStatus = localStorage.getItem('fb_devstatus_v1') === '1'; } catch(e){ FB.devStatus = false; } } return !!FB.devStatus; }   // signed in: the server says who is a dev
 function fbDevSet(on){ FB.devStatus = !!on; try { localStorage.setItem('fb_devstatus_v1', on ? '1' : '0'); } catch(e){} }
-function fbCheck(){}                            // v136: the blue check is part of the NAME now (ntagAfter draws it wherever a verified dev's name is written)
+function fbCheck(){}                            // v137: the blue check is part of the NAME now (ntagAfter draws it wherever a verified dev's name is written)
 function fbCheckDraw(g, cx, cy, r){ g.fillStyle = '#1d9bf0'; g.beginPath(); g.arc(cx,cy,r,0,6.3); g.fill(); g.strokeStyle = '#ffffff'; g.lineWidth = Math.max(0.5, r*0.32); g.beginPath(); g.moveTo(cx-r*0.5,cy+r*0.05); g.lineTo(cx-r*0.12,cy+r*0.45); g.lineTo(cx+r*0.55,cy-r*0.42); g.stroke(); }
 function fbDevName(){ return String((typeof utSrv !== 'undefined' && utSrv.user) || (typeof devName === 'function' ? devName() : 'PLAYER')).toUpperCase(); }
 function fbDevTag(g, x, y, name){            // name plate with the blue check, DEV above it
@@ -20501,7 +20501,125 @@ function fbLobbyWalkDraw(g){
   if (FB.lobbyDwell > 0 && FB.lobbyNear) { const d = FB_LPADS.find(q => q.id===FB.lobbyNear); if (d) { fbPanel(g,100,150,120,12,0.8); g.fillStyle = 'rgba(255,255,255,.18)'; g.fillRect(104,159,112,2); g.fillStyle = d.col; g.fillRect(104,159,112*clamp(FB.lobbyDwell/0.55,0,1),2); T('GOING TO  '+d.name,160,152.4,'#ffffff',4.2,'center'); } }
 
   if (PV2.state==='ready') T('MODELS: PLAYER BLAKEALLEN25 - HELMET EXODUSKS - CLEATS LISENHAO - TROPHY G_BORY32 (SKETCHFAB, CC BY 4.0)', 160, 176.6, '#5d6a8f', 2.1, 'center');
-  T('BUILD v136',314,174,'#8fa0cc',4,'right'); { const us = uoStatus(); if (us) T(us, 6, 174, UO.state==='off' ? '#ff8b7b' : '#6f7ea8', 3, 'left'); }
+  try { onlPanelDraw(g); } catch(e){ console.error('onl', e); }
+  T('BUILD v137',314,174,'#8fa0cc',4,'right'); { const us = uoStatus(); if (us) T(us, 6, 174, UO.state==='off' ? '#ff8b7b' : '#6f7ea8', 3, 'left'); }
+}
+/* ===================== WHO'S ONLINE: a live list in the lobby (signed-in players + what they are doing), chat and party invites.
+   Anything sent to you pops up as a small red note in the top corner, wherever you are in the game. ===================== */
+const ONL = { ws:null, wsAt:0, key:'', me:'', list:[], chats:{}, unread:{}, st:'', ping:0, pg:0, hide:false, mute:new Set(), chatWith:'' };
+try { JSON.parse(localStorage.getItem('onl_mute') || '[]').forEach(u => ONL.mute.add(u)); } catch(e){}
+try { ONL.hide = localStorage.getItem('onl_hide') === '1'; } catch(e){}
+function onlKey(){ return (typeof utSrv !== 'undefined' && utSrv.token) ? utSrv.user + ':' + utSrv.token : 'anon'; }
+function onlConnect(){
+  if (typeof WebSocket === 'undefined' || typeof utBase !== 'function') return; const base = utBase(); if (!base) return;
+  const key = onlKey();
+  if (ONL.ws && ONL.key !== key) { const w = ONL.ws; ONL.ws = null; try { w.onclose = null; w.close(); } catch(e){} ONL.wsAt = 0; }   // signed in / out: reconnect as the new you
+  if (ONL.ws) return; const now = performance.now(); if (now - ONL.wsAt < 5000) return; ONL.wsAt = now; ONL.key = key;
+  let url = base.replace(/\/+$/, '').replace(/^http/, 'ws') + '/api/online/ws';
+  if (utSrv.token) url += '?user=' + encodeURIComponent(utSrv.user) + '&token=' + encodeURIComponent(utSrv.token);
+  try { const ws = new WebSocket(url); ONL.ws = ws; ONL.st = '';
+    ws.onmessage = e => { if (e.data === 'pong') return; let m = null; try { m = JSON.parse(e.data); } catch(_){ return; } try { onlOn(m); } catch(err){ console.error('onl', err); } };
+    ws.onclose = ws.onerror = () => { if (ONL.ws === ws) ONL.ws = null; };
+  } catch(e){ ONL.ws = null; }
+}
+function onlSend(o){ try { if (ONL.ws && ONL.ws.readyState === 1) { ONL.ws.send(JSON.stringify(o)); return true; } } catch(e){} return false; }
+function onlOn(m){
+  if (m.k === 'hello') { ONL.me = m.me || ''; ONL.list = m.list || []; }
+  else if (m.k === 'list') ONL.list = m.list || [];
+  else if (m.k === 'msg') { const f = String(m.from || ''); if (!f || ONL.mute.has(f)) return;
+    if (m.kind === 'chat') { (ONL.chats[f] = ONL.chats[f] || []).push({ from:f, text:m.text, ts:m.ts }); if (ONL.chats[f].length > 80) ONL.chats[f].shift(); if (ONL.chatWith !== f || !document.getElementById('onlChat')) ONL.unread[f] = (ONL.unread[f]|0) + 1; onlChatRender(); }
+    onlToast(m); }
+  else if (m.k === 'sent') { if (m.inv) onlToast({ kind:'note', text:'PARTY INVITE SENT TO ' + String(m.to).toUpperCase() }); else { (ONL.chats[m.to] = ONL.chats[m.to] || []).push({ from:ONL.me, text:m.text, ts:m.ts }); onlChatRender(); } }
+  else if (m.k === 'err') onlToast({ kind:'note', text:String(m.err || 'could not send').toUpperCase() });
+}
+function onlStatus(){
+  if (typeof FB === 'undefined' || !FB.on) return 'PLAYING'; const sc = FB.scr;
+  if (sc === 'lobby') return (typeof TOUR !== 'undefined' && TOUR.open) ? 'AT WNF' : 'LOBBY'; if (sc === 'ut') return 'ULTIMATE TEAM';
+  if (FB.s && FB.s.train) return 'PLAY TRAINING'; if (typeof FBN !== 'undefined' && FBN.on) return FBN.mode === 'vs' ? 'ONLINE 1V1' : 'ONLINE CO-OP'; return 'IN A GAME';
+}
+function onlTick(){ onlConnect(); if (!ONL.ws || ONL.ws.readyState !== 1) return; const st = onlStatus(); if (st !== ONL.st) { ONL.st = st; onlSend({ k:'st', st }); }
+  const t = performance.now(); if (t - ONL.ping > 25000) { ONL.ping = t; try { ONL.ws.send('ping'); } catch(e){} } }
+setInterval(() => { try { onlTick(); } catch(e){} }, 1000);
+function onlEsc(t){ return String(t == null ? '' : t).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c])); }
+function onlNameHtml(u){ const U = String(u).toUpperCase(); let e = null; try { e = ntagMap().get(U); } catch(_){}            // the same tags as on the canvas: blue check, yellow caution
+  return '<b>' + onlEsc(U) + '</b>' + (e && e.dev ? ' <span style="color:#1d9bf0">&#10004;</span>' : '') + (e && e.warn ? ' <span title="' + onlEsc(e.warn) + '" style="color:#ffcc00">&#9888;</span>' : ''); }
+/* the lobby panel (it goes away as soon as you go into anything) */
+function onlPanelDraw(g){
+  const L = ONL.list.filter(x => x.u !== ONL.me), n = L.length, signed = typeof utSrv !== 'undefined' && !!utSrv.token;
+  if (ONL.hide) { fbBtn(g,'onl_show',236,30,80,10,"WHO'S ONLINE  (" + n + ')',{ size:3.2, col:'#7ddc8a' }); return; }
+  const x = 236, y = 30, w = 80, per = 9, pages = Math.max(1, Math.ceil(n/per)); ONL.pg = Math.min(ONL.pg, pages-1);
+  const rows = Math.max(1, Math.min(per, n - ONL.pg*per)), h = 15 + rows*11 + (pages > 1 ? 10 : 0) + (signed ? 0 : 7);
+  uiPanel(g, x, y, w, h, { r:3, fill:'rgba(6,10,22,.84)', line:'#7ddc8a' });
+  T("WHO'S ONLINE  " + n, x+3, y+2.6, '#7ddc8a', 3.3, 'left'); fbBtn(g,'onl_hide',x+w-15,y+1.6,13,7,'HIDE',{ size:2.4 });
+  if (!ONL.ws) T('CONNECTING...', x+3, y+12, '#9fb0dc', 2.6, 'left'); else if (!n) T('NOBODY ELSE ONLINE RIGHT NOW', x+3, y+12, '#9fb0dc', 2.3, 'left');
+  L.slice(ONL.pg*per, ONL.pg*per + per).forEach((p,i) => { const yy = y + 11 + i*11, un = ONL.unread[p.u]|0, muted = ONL.mute.has(p.u);
+    T(p.u.toUpperCase().slice(0, 12), x+3, yy, muted ? '#7f8db0' : '#ffffff', 2.8, 'left'); T(muted ? 'MUTED' : String(p.st || ''), x+3, yy+4.3, '#7f8db0', 2, 'left');
+    fbBtn(g,'onl_c_'+p.u, x+w-31, yy, 15, 8.5, un ? un + ' NEW' : 'CHAT', { size:2.2, col:un ? '#ff4d4d' : '#6fd0ff', on:un > 0 });
+    fbBtn(g,'onl_i_'+p.u, x+w-15, yy, 13, 8.5, 'INV', { size:2.3, col:'#ffd24a' }); });
+  if (pages > 1) { const yy = y + 13 + rows*11; fbBtn(g,'onl_pp',x+3,yy,14,7,'<',{ size:3 }); T((ONL.pg+1)+'/'+pages, x+w/2, yy+1.6, '#cfd8f4', 2.4, 'center'); fbBtn(g,'onl_pn',x+w-17,yy,14,7,'>',{ size:3 }); }
+  if (!signed) T('SIGN IN TO CHAT + INVITE', x+3, y+h-6, '#ffd24a', 2.3, 'left');
+}
+function onlAct(id){
+  const signed = typeof utSrv !== 'undefined' && !!utSrv.token;
+  if (id === 'onl_hide' || id === 'onl_show') { ONL.hide = id === 'onl_hide'; try { localStorage.setItem('onl_hide', ONL.hide ? '1' : '0'); } catch(e){} fbSfx('tick'); return; }
+  if (id === 'onl_pp' || id === 'onl_pn') { ONL.pg = Math.max(0, ONL.pg + (id === 'onl_pn' ? 1 : -1)); return; }
+  const u = id.slice(6); if (!u) return;
+  if (!signed) { onlToast({ kind:'note', text:'SIGN IN TO ULTIMATE TEAM TO CHAT AND INVITE' }); try { utAuthShow(true); } catch(e){} return; }
+  if (/^onl_c_/.test(id)) { onlChatOpen(u); fbSfx('tick'); return; }
+  if (/^onl_i_/.test(id)) { onlInvite(u); fbSfx('tick'); return; }
+}
+async function onlInvite(u){                                         // invite = your party code; no party yet? one is opened for you first
+  if (!PARTY.on) { onlToast({ kind:'note', text:'OPENING YOUR PARTY...' }); try { await partyCreate(String(utSrv.user || 'PLAYER').toUpperCase()); } catch(e){} }
+  if (!PARTY.on || !PARTY.code) { onlToast({ kind:'note', text:'COULD NOT OPEN A PARTY - TRY AGAIN' }); return; }
+  if (PARTY.leader && PARTY.other) { onlToast({ kind:'note', text:'YOUR PARTY IS FULL (' + String(PARTY.other).toUpperCase() + ' IS IN IT)' }); return; }
+  if (!onlSend({ k:'inv', to:u, code:PARTY.code })) onlToast({ kind:'note', text:'NOT CONNECTED - TRY AGAIN IN A SECOND' });
+}
+function onlJoin(code){ try { partyShow(); } catch(e){} try { partyJoin(code, String((utSrv && utSrv.user) || 'PLAYER').toUpperCase()); } catch(e){ console.error(e); } }
+/* the chat window */
+function onlChatOpen(u){
+  ONL.chatWith = u; ONL.unread[u] = 0; let w = document.getElementById('onlChat');
+  if (!w) {
+    w = document.createElement('div'); w.id = 'onlChat';
+    w.style.cssText = 'position:fixed;right:12px;bottom:12px;width:310px;max-width:92vw;z-index:2147482000;background:#0b1428;border:2px solid #6fd0ff;border-radius:10px;color:#fff;font:13px monospace;box-shadow:0 8px 30px rgba(0,0,0,.6)';
+    w.innerHTML = '<div style="display:flex;align-items:center;gap:6px;padding:7px 9px;border-bottom:1px solid #24406e"><div id="onlChatT" style="flex:1;letter-spacing:.06em"></div>'
+      + '<button id="onlChatM" style="background:#3a2a2a;color:#ffb0a0;border:0;border-radius:6px;padding:4px 7px;font:11px monospace;cursor:pointer">MUTE</button>'
+      + '<button id="onlChatI" style="background:#4a3d10;color:#ffd24a;border:0;border-radius:6px;padding:4px 7px;font:11px monospace;cursor:pointer">INVITE</button>'
+      + '<button id="onlChatX" style="background:#1d2a48;color:#fff;border:0;border-radius:6px;padding:4px 8px;font:12px monospace;cursor:pointer">X</button></div>'
+      + '<div id="onlChatL" style="height:190px;overflow:auto;padding:8px 9px;line-height:1.45"></div>'
+      + '<form id="onlChatF" style="display:flex;gap:6px;padding:7px 9px;border-top:1px solid #24406e;margin:0"><input id="onlChatIn" maxlength="200" autocomplete="off" spellcheck="false" placeholder="TYPE A MESSAGE" style="flex:1;background:#05080f;color:#fff;border:1px solid #4a8dff;border-radius:6px;padding:7px 8px;font:13px monospace">'
+      + '<button id="onlChatS" type="submit" style="background:#1d9bf0;color:#fff;border:0;border-radius:6px;padding:7px 10px;font:12px monospace;cursor:pointer">SEND</button></form>';
+    document.body.appendChild(w);
+    const inp = document.getElementById('onlChatIn'), close = () => { ONL.chatWith = ''; try { w.remove(); } catch(e){} };
+    const send = () => { const v = String(inp.value || '').trim(); if (!v) return; if (!onlSend({ k:'chat', to:ONL.chatWith, text:v })) onlToast({ kind:'note', text:'NOT CONNECTED - TRY AGAIN IN A SECOND' }); inp.value = ''; };
+    // the game's own key handler swallows key presses while a game is running, so Enter is handled by the form (the browser's own submit), not by a key listener
+    document.getElementById('onlChatF').onsubmit = e => { e.preventDefault(); send(); };
+    inp.addEventListener('keydown', e => { if (e.key === 'Escape') close(); }); inp.addEventListener('keyup', e => e.stopPropagation());
+    document.getElementById('onlChatX').onclick = close;
+    document.getElementById('onlChatI').onclick = () => onlInvite(ONL.chatWith);
+    document.getElementById('onlChatM').onclick = () => { const v = ONL.chatWith; if (ONL.mute.has(v)) ONL.mute.delete(v); else ONL.mute.add(v); try { localStorage.setItem('onl_mute', JSON.stringify([...ONL.mute])); } catch(e){} onlChatRender(); };
+  }
+  onlChatRender(); setTimeout(() => { try { document.getElementById('onlChatIn').focus(); } catch(e){} }, 30);
+}
+function onlChatRender(){
+  const w = document.getElementById('onlChat'); if (!w || !ONL.chatWith) return; const u = ONL.chatWith, on = ONL.list.some(x => x.u === u), muted = ONL.mute.has(u);
+  document.getElementById('onlChatT').innerHTML = onlNameHtml(u) + ' <span style="color:' + (on ? '#7ddc8a' : '#8a93ad') + ';font-size:11px">' + (on ? 'ONLINE' : 'OFFLINE') + '</span>';
+  document.getElementById('onlChatM').textContent = muted ? 'UNMUTE' : 'MUTE';
+  const L = document.getElementById('onlChatL'), msgs = ONL.chats[u] || [];
+  L.innerHTML = msgs.length ? msgs.map(m => '<div><span style="color:' + (m.from === ONL.me ? '#6fd0ff' : '#ffb74a') + '">' + onlEsc(String(m.from).toUpperCase()) + ':</span> ' + onlEsc(m.text) + '</div>').join('') : '<div style="color:#8a93ad">SAY HI. MESSAGES ARE NOT SAVED - THEY ONLY GO TO ' + onlEsc(u.toUpperCase()) + "'S OPEN GAME.</div>";
+  L.scrollTop = L.scrollHeight; ONL.unread[u] = 0;
+}
+/* the red notes in the top corner (any screen) */
+function onlToast(m){
+  let box = document.getElementById('onlToasts');
+  if (!box) { box = document.createElement('div'); box.id = 'onlToasts'; box.style.cssText = 'position:fixed;top:8px;right:8px;z-index:2147483100;display:flex;flex-direction:column;align-items:flex-end;gap:6px;pointer-events:none;max-width:70vw'; document.body.appendChild(box); }
+  const t = document.createElement('div'), f = String(m.from || ''), inv = m.kind === 'inv', note = m.kind === 'note';
+  t.style.cssText = 'pointer-events:auto;cursor:pointer;background:' + (note ? 'rgba(60,20,24,.95)' : 'rgba(176,18,30,.96)') + ';border:1px solid #ff7b7b;color:#fff;font:12px monospace;padding:6px 10px;border-radius:8px;max-width:280px;box-shadow:0 4px 14px rgba(0,0,0,.5);line-height:1.4';
+  t.innerHTML = note ? onlEsc(m.text) : inv ? onlNameHtml(f) + ' INVITED YOU TO A PARTY <button style="margin-left:6px;background:#ffd24a;color:#1a1200;border:0;border-radius:5px;padding:2px 8px;font:11px monospace;cursor:pointer">JOIN</button>'
+    : onlNameHtml(f) + ': ' + onlEsc(String(m.text || '').slice(0, 120));
+  t.onclick = () => { try { t.remove(); } catch(e){} if (inv) onlJoin(m.code); else if (!note && f) onlChatOpen(f); };
+  box.appendChild(t); while (box.children.length > 3) box.removeChild(box.firstChild);
+  setTimeout(() => { try { t.remove(); } catch(e){} }, inv ? 25000 : note ? 5000 : 10000);
+  if (!note) { try { fbSfx('tick'); } catch(e){} }
 }
 /* ---------------------------------------------------------------- ULTIMATE TEAM: hub, collection, cards (packs come in the next stage) */
 const UT_KEY = 'blacktop_ut_v1';
@@ -22966,7 +23084,7 @@ function fbLobbyDraw(g){
   if (PARTY.npc && !PARTY.on) T(PARTY.npc.name+' SUITS UP AS YOUR W1',160,55,'#7ddc8a',5,'center');
   fbBtn(g,'lobbyback',6,5,76,12,'< BACK TO THE FIELD',{size:4.6});
   fbBtn(g,'party',6,19,76,10,PARTY.on ? 'PARTY  '+PARTY.code.toUpperCase() : 'PLAY WITH A FRIEND',{size:4.4,line:'#7ddc8a',tc:'#c9f7d0'});
-  T('BUILD v136',314,174,'#8fa0cc',4,'right');   // so you can tell which build is live
+  T('BUILD v137',314,174,'#8fa0cc',4,'right');   // so you can tell which build is live
   fbBtn(g,'tut',100,141,58,13,'TUTORIAL',{size:5,line:'#ffd24a',tc:'#ffe9a8'}); fbBtn(g,'howlobby',162,141,58,13,'HOW TO PLAY',{size:4.4,line:'#ffd24a',tc:'#ffe9a8'});
   fbBtn(g,'shop',6,141,90,13,'PLAY SHOP',{size:5.5,line:'#7ddc8a',tc:'#c9f7d0'});
   fbBtn(g,'stats',224,141,90,13,'MY STATS',{size:5.5,line:'#6fd0ff',tc:'#cfeeff'});
@@ -23156,6 +23274,7 @@ function fbOverDraw(g){
 function fbPtr(e){ const r = canvas.getBoundingClientRect(); return { px:(e.clientX-r.left)/r.width, py:(e.clientY-r.top)/r.height }; }
 function fbBtnAt(px,py){ const x = px*W, y = py*H; return (FB.btns||[]).find(b => x>=b.x && x<=b.x+b.w && y>=b.y && y<=b.y+b.h); }
 function fbAct(id){
+  if (/^onl_/.test(id)) { onlAct(id); return; }
   if (/^nwarn:/.test(id)) { const u = id.slice(6), e = ntagMap().get(u); FB.warnPop = { u, msg:(e && e.warn) || '' }; try { fbSfx('tick'); } catch(e2){} return; }
   if (id === 'nwarnx') { FB.warnPop = null; return; }
   if (/^tour/.test(id) && typeof TOUR !== 'undefined' && TOUR.open) { tourAct(id); return; }
@@ -26506,7 +26625,7 @@ const fbnIsHost = () => FBN.on && FBN.role==='host';
 const fbnIsGuest = () => FBN.on && FBN.role==='guest';
 function fbMain(){ if (FBN.on && FBN.role==='guest') fbnGuestStep(); else { fbStep(); if (FBN.on) fbnHostTick(); } }
 function fbVs(){ return !!(FBN.on && FBN.mode==='vs'); }
-function fbFlip(){ return false; }     // v136: one camera for everyone - behind the offense, on offense AND defense, solo, co-op and online (the same view the online 1v1 uses)
+function fbFlip(){ return false; }     // v137: one camera for everyone - behind the offense, on offense AND defense, solo, co-op and online (the same view the online 1v1 uses)
 function fbDirNow(){ const s = FB.s; return (fbFlip() || (s && s.turn)) ? -1 : 1; }      // after a turnover everyone sees the field from the other end
 function fbVsFix(t){                                                          // drive-screen text is written once (tokens) and read per player
   if (typeof t!=='string' || t.indexOf('{')<0) return t; const g = FBN.role==='guest', on = fbnOtherName();

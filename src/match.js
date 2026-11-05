@@ -326,8 +326,9 @@ export const tourMethods = {
   },
   tNotify() { const msg = JSON.stringify({ k: 'tour', ver: +this.tm('ver') || 0 }); try { for (const ws of this.ctx.getWebSockets('tour')) { try { ws.send(msg); } catch (e) {} } } catch (e) {} },
   tSocket(req) { const pair = new WebSocketPair(); this.ctx.acceptWebSocket(pair[1], ['tour']); try { pair[1].send(JSON.stringify({ k: 'tour', ver: +this.tm('ver') || 0 })); } catch (e) {} return new Response(null, { status: 101, webSocket: pair[0] }); },
-  webSocketMessage(ws, m) { if (m === 'ping') { try { ws.send('pong'); } catch (e) {} } },
-  webSocketClose(ws) { try { ws.close(); } catch (e) {} },
+  webSocketMessage(ws, m) { let tg = []; try { tg = this.ctx.getTags(ws); } catch (e) {} if (tg.includes('on')) return this.onMessage(ws, m); if (m === 'ping') { try { ws.send('pong'); } catch (e) {} } },
+  webSocketClose(ws) { let tg = []; try { tg = this.ctx.getTags(ws); } catch (e) {} try { ws.close(); } catch (e) {} if (tg.includes('on')) this.onBroadcast(ws); },
+  webSocketError(ws) { let tg = []; try { tg = this.ctx.getTags(ws); } catch (e) {} if (tg.includes('on')) this.onBroadcast(ws); },
   tBoard() {                                           // the Hall of Fame leaderboard: titles, finals, match wins, win % (then name) - straight from the stored results
     const B = {}, get = u => B[u] || (B[u] = { user: u, titles: 0, finals: 0, w: 0, l: 0, perfect: 0, events: 0 });
     for (const r of this.sql.exec('SELECT user, COUNT(*) n FROM tchamp GROUP BY user').toArray()) get(r.user).titles = r.n | 0;
@@ -364,6 +365,42 @@ export const tourMethods = {
       me: { entered: !!ent, ltd: myLtd, seed: ent ? ent.seed : null, out: ent ? ent.out : null, place: ent ? ent.place : null,
         game: mine ? { rnd: mine.rnd, slot: mine.slot, opp: mine.a === me ? mine.b : mine.a, host: mine.a === me, st: mine.st, ck: mine.ck, readyMe: mine.a === me ? mine.rda : mine.rdb, readyOpp: mine.a === me ? mine.rdb : mine.rda, ovrMe: mine.a === me ? mine.oa : mine.ob, ovrOpp: mine.a === me ? mine.ob : mine.oa, seedOpp: (ents.find(e => e.user === (mine.a === me ? mine.b : mine.a)) || {}).seed || null, gid: T.tid + 'r' + mine.rnd + 's' + mine.slot } : null } };
     return Object.assign(view, { champs, titles, last });
+  }
+};
+
+// ---- WHO'S ONLINE: every open game page keeps one socket here. Signed-in players are listed (with what they are doing), can chat and send party invites.
+// Anyone else just watches the list. Messages go straight to the other player's open pages; nothing is stored.
+const ON_CLEAN = s => String(s || '').replace(/[\u0000-\u001f<>]/g, ' ').replace(/\s+/g, ' ').trim();
+export const onlineMethods = {
+  onSocket(req) {
+    const user = String(req.headers.get('x-on-user') || '').toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 16), pair = new WebSocketPair();
+    this.ctx.acceptWebSocket(pair[1], user ? ['on', 'u:' + user] : ['on']);
+    try { pair[1].serializeAttachment({ user, st: 'LOBBY', at: Date.now(), last: 0, burst: 0 }); } catch (e) {}
+    try { pair[1].send(JSON.stringify({ k: 'hello', me: user, list: this.onList(null) })); } catch (e) {}
+    if (user) this.onBroadcast(null);
+    return new Response(null, { status: 101, webSocket: pair[0] });
+  },
+  onAtt(ws) { try { return ws.deserializeAttachment() || {}; } catch (e) { return {}; } },
+  onList(skip) {                                         // one row per signed-in player (several tabs = one row)
+    const by = {}; for (const w of this.ctx.getWebSockets('on')) { if (w === skip) continue; const a = this.onAtt(w); if (!a.user) continue; const o = by[a.user]; if (!o || a.at > o.at) by[a.user] = { u: a.user, st: a.st || 'LOBBY', at: a.at || 0 }; }
+    return Object.values(by).sort((x, y) => (x.u < y.u ? -1 : 1)).slice(0, 300);
+  },
+  onBroadcast(skip) { const msg = JSON.stringify({ k: 'list', list: this.onList(skip) }); for (const w of this.ctx.getWebSockets('on')) { if (w === skip) continue; try { w.send(msg); } catch (e) {} } },
+  onSendTo(user, obj) { let n = 0; const s = JSON.stringify(obj); for (const w of this.ctx.getWebSockets('u:' + user)) { try { w.send(s); n++; } catch (e) {} } return n; },
+  onMessage(ws, raw) {
+    if (raw === 'ping') { try { ws.send('pong'); } catch (e) {} return; }
+    let m = null; try { m = JSON.parse(String(raw).slice(0, 2000)); } catch (e) { return; } if (!m || typeof m !== 'object') return;
+    const a = this.onAtt(ws), now = Date.now(), reply = o => { try { ws.send(JSON.stringify(o)); } catch (e) {} };
+    if (m.k === 'st') { const st = ON_CLEAN(m.st).toUpperCase().slice(0, 22) || 'LOBBY'; if (st !== a.st) { a.st = st; a.at = now; try { ws.serializeAttachment(a); } catch (e) {} if (a.user) this.onBroadcast(null); } return; }
+    if (m.k !== 'chat' && m.k !== 'inv') return;
+    if (!a.user) return reply({ k: 'err', err: 'sign in to chat' });
+    a.burst = Math.max(0, (a.burst || 0) - (now - (a.last || 0)) / 1500) + 1; a.last = now; try { ws.serializeAttachment(a); } catch (e) {}
+    if (a.burst > 5) return reply({ k: 'err', err: 'slow down - too many messages' });          // about one message every 1.5 s, with a small burst
+    const to = String(m.to || '').toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 16); if (!to || to === a.user) return;
+    if (m.k === 'chat') { const text = ON_CLEAN(m.text).slice(0, 200); if (!text) return;
+      const n = this.onSendTo(to, { k: 'msg', kind: 'chat', from: a.user, text, ts: now }); reply(n ? { k: 'sent', to, text, ts: now } : { k: 'err', err: to + ' is not online' }); return; }
+    const code = String(m.code || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 10); if (code.length < 4) return reply({ k: 'err', err: 'no party to invite to' });
+    const n = this.onSendTo(to, { k: 'msg', kind: 'inv', from: a.user, code, text: 'INVITED YOU TO A PARTY', ts: now }); reply(n ? { k: 'sent', to, inv: true, ts: now } : { k: 'err', err: to + ' is not online' });
   }
 };
 
@@ -433,6 +470,7 @@ export class Matchmaker extends DurableObject {
     return j({ ok: false, err: 'unknown' }, 404);
   }
   async fetch(req) {
+    if (req.headers.get('Upgrade') === 'websocket' && new URL(req.url).pathname === '/api/online/ws') return this.onSocket(req);   // who's online (this object used with the name 'online')
     if (req.headers.get('Upgrade') === 'websocket') { this.tInit(); return this.tSocket(req); }       // the live tournament feed
     const b = await req.json(), act = new URL(req.url).pathname.split('/').pop(), now = Date.now();
     if (/^e(start|check|claim|release|bind)$/.test(act)) return this.email(b, act, now);
@@ -472,4 +510,4 @@ export class Matchmaker extends DurableObject {
     return j({ ok: false, err: 'unknown' }, 404);
   }
 }
-Object.assign(Matchmaker.prototype, tourMethods);   // the tournament methods live on the same object (name 'tour')
+Object.assign(Matchmaker.prototype, tourMethods, onlineMethods);   // the tournament methods live on the same object (name 'tour')

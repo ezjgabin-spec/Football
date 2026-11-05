@@ -30,6 +30,14 @@ export default {
       if (!room.startsWith('blk-')) return new Response('bad room', { status: 400 });
       return env.ROOMS.get(env.ROOMS.idFromName(room)).fetch(req);
     }
+    if (url.pathname === '/api/online/ws') {                                  // WHO'S ONLINE + chat + party invites: one live socket per open game page
+      if (req.headers.get('Upgrade') !== 'websocket') return new Response('expected a websocket', { status: 426 });
+      const user = String(url.searchParams.get('user') || '').toLowerCase(), token = String(url.searchParams.get('token') || '');
+      let who = '';
+      if (/^[a-z0-9_]{3,16}$/.test(user) && token) { const r = await env.VAULT.get(env.VAULT.idFromName('ut:' + user)).fetch('https://vault/ping', { method: 'POST', body: JSON.stringify({ user, token }) }).catch(() => null); if (r && r.ok) who = user; }   // signed in = listed and can chat; otherwise watch only
+      const h = new Headers(req.headers); h.set('x-on-user', who);
+      return env.MM.get(env.MM.idFromName('online')).fetch(new Request(req, { headers: h }));
+    }
     if (url.pathname === '/api/tour/ws') {                                    // the live WNF feed: a ping whenever the bracket changes
       if (req.headers.get('Upgrade') !== 'websocket') return new Response('expected a websocket', { status: 426 });
       return env.MM.get(env.MM.idFromName('tour')).fetch(req);
