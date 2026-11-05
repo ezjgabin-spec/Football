@@ -481,6 +481,7 @@ export class Vault extends DurableObject {
     try {
       if (act === 'i_exists') return j({ ok: !!this.acct() });
       if (act === 'i_devgrant') return this.devGrant(b);
+      if (act === 'i_isdev') return j({ ok: true, dev: this.metaGet('dev') === '1' });
       if (act === 'i_tstats') { const a = this.acct(); if (!a) return j({ ok: false }, 404); return j({ ok: true, stats: this.statsRow() }); }
       if (act === 'i_tfee') { const fee = Math.max(0, Math.floor(+b.fee || 0)); if (!this.acct()) return j({ ok: false, err: 'no account' }, 404); if (this.acct().coins < fee) return j({ ok: false, err: 'the entry fee is ' + fee + ' coins' }, 402);
         if (fee) this.add(-fee, 'tournament entry ' + String(b.tid || '')); return j({ ok: true, ...this.state() }); }

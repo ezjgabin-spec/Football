@@ -17460,7 +17460,7 @@ function pv2Prep(root){
   root.traverse(o => { if (!o.isMesh) return; o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false;
     if (!o.geometry.attributes.normal) o.geometry.computeVertexNormals();
     const ms = Array.isArray(o.material) ? o.material : [o.material];
-    ms.forEach(m => { if (!m) return; if (m.name==='Bodymat') { m.transparent = false; m.alphaTest = 0.5; m.depthWrite = true; }
+    ms.forEach(m => { if (!m) return; if (m.name==='Bodymat') { m.transparent = false; m.alphaTest = 0.5; m.depthWrite = true; if (m.map && m.map.image) PV2.bodyImg = m.map.image; }
       if (m.name==='shirt_0' && m.map && m.map.image) PV2.shirtImg = m.map.image; if (m.name==='shirt_0' && m.normalMap && m.normalMap.image) PV2.shirtNrm = m.normalMap.image;
       if (m.name==='pants' && m.map && m.map.image) PV2.pantsImg = m.map.image; }); });
 }
@@ -17611,15 +17611,16 @@ function pv2PantsTex(U){
   const t = new THREE.CanvasTexture(P.c); t.flipY = false; t.anisotropy = 4; fbvSrgb(t); PV2.pants[U.key] = t; return t;
 }
 function pv2SkinOf(p){ return (p.ur && p.ur.skin) || p.skinHex || (p.rig && p.rig.skinHex) || '#c58c5f'; }
+function pv2FaceOf(p){ const id = (p.ur && p.ur.id && String(p.ur.id).indexOf('LINE-') !== 0) ? p.ur.id : 'gen:' + (p.ur && p.ur.name || '') + p.role + (p.side||'') + (p.num|0); return faceOf(id, pv2SkinOf(p)); }
 function pv2Dress(p){
-  const v = p && p.rig && p.rig.fbModel; if (!v) return; const U = pv2Uniform(p), jt = pv2Jersey(p, U), pt = pv2PantsTex(U), sk = new THREE.Color(pv2SkinOf(p)), base = new THREE.Color('#d9a587');
+  const v = p && p.rig && p.rig.fbModel; if (!v) return; const U = pv2Uniform(p), jt = pv2Jersey(p, U), pt = pv2PantsTex(U), FC = pv2FaceOf(p), ftx = pv2FaceTex(FC), sk = new THREE.Color(FC ? FC.skin : pv2SkinOf(p)), base = new THREE.Color('#d9a587');
   const tint = new THREE.Color(Math.min(1.2, sk.r/base.r), Math.min(1.2, sk.g/base.g), Math.min(1.2, sk.b/base.b)), cleat = pv2Cleat(p, U);
   v.traverse(o => { if (!o.isMesh) return;
     if (!o.userData.pv2Own) { o.material = Array.isArray(o.material) ? o.material.map(m => m && m.clone()) : o.material && o.material.clone(); o.userData.pv2Own = true; }
     (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => { if (!m) return; const n = m.name;
       if (n==='shirt_0') { if (jt) { m.map = jt; m.color.set('#ffffff'); } const nm = pv2ShirtNormal(); if (nm) m.normalMap = nm; }
       else if (n==='pants') { if (pt) { m.map = pt; m.color.set('#ffffff'); } else m.color.set(U.p); }
-      else if (n==='Bodymat') m.color.copy(tint);
+      else if (n==='Bodymat') { if (ftx) { m.map = ftx; m.color.set('#ffffff'); } else m.color.copy(tint); }   // his face + skin
       else if (n==='Default') m.color.set(U.so);                         // socks
       else if (n==='Fabric-Silk') m.color.set(U.s1);                    // arm sleeve
       else if (n==='Fabric-Linen') m.color.set('#f2f2f2');              // wristbands
@@ -17721,6 +17722,158 @@ function pv2DressGear(p, U, cleat){
     else if (n === 'Chinstrap1Mtl') m.color.set('#e8eaee');
     else if (n === 'Material.006' || n === 'Material.009') m.color.set('#2a2e36');
     m.needsUpdate = true; });
+}
+/* ===================== FACES: 100 generic, unique faces. Each one drives the Ultimate Team card portrait AND the 3D player's face texture + skin.
+   Players are assigned a face by the owner/devs (stored on the server); until then each player gets the face whose skin tone is closest to his card's. ===================== */
+const FACE_SKINS = ['#f3d2b8','#e9c09c','#d9a77f','#c88e64','#b0764d','#9a6240','#83512f','#6c4126','#58331d','#452715'];
+const FACE_HAIRC = { black:'#141010', dkbrown:'#2e1d12', brown:'#4a2f1b', ltbrown:'#7a5432', blond:'#c9a25a', red:'#8a3b1c', bleach:'#e6d39a', grey:'#8d8a86' };
+const FACE_HAIR = ['bald','buzz','short','fade','hightop','curly','locs','braids','waves','mohawk','long','afro'];
+const FACE_BEARD = ['none','stubble','mustache','goatee','chin','full','boxed'];
+const FACE_EYEC = ['#3b2414','#5a3a22','#2f5d8a','#4f7a4a','#7d6a3e'];
+const FACES = (() => {
+  let s = 20261105; const r = () => (s = (s * 1103515245 + 12345) % 2147483648) / 2147483648, pick = a => a[Math.floor(r() * a.length)];
+  const out = [], seen = new Set();
+  for (let i = 0; out.length < 100 && i < 5000; i++) {
+    const sk = out.length < 58 ? 4 + Math.floor(r() * 6) : Math.floor(r() * 5);          // a roster-like mix of skin tones
+    const dark = sk >= 4, hairStyles = dark ? ['bald','buzz','fade','hightop','curly','locs','braids','waves','afro','short','mohawk'] : ['bald','buzz','short','fade','curly','long','mohawk','waves','locs'];
+    const hair = pick(hairStyles), hc = dark ? (r() < 0.12 ? 'bleach' : r() < 0.2 ? 'dkbrown' : 'black') : pick(['dkbrown','brown','ltbrown','blond','black','red','brown','dkbrown']);
+    const f = { i: out.length, skin: FACE_SKINS[sk], sk, hair, hc: FACE_HAIRC[hc], hcn: hc, beard: pick(FACE_BEARD), bc: FACE_HAIRC[hc === 'bleach' ? 'black' : hc],
+      brow: Math.floor(r() * 4), eye: dark ? pick(FACE_EYEC.slice(0,2)) : pick(FACE_EYEC), shape: Math.floor(r() * 4), nose: Math.floor(r() * 3), lips: Math.floor(r() * 3), age: r() < 0.15 };
+    const key = [f.sk, f.hair, f.hcn, f.beard, f.brow, f.shape].join('|'); if (seen.has(key)) continue; seen.add(key); out.push(f);
+  }
+  return out;
+})();
+FB.faceMap = FB.faceMap || {};
+function faceHash(s){ let h = 2166136261; for (const c of String(s)) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
+function faceAuto(pid, skinHex){                           // no assignment yet: the faces nearest his card's skin tone, one picked steadily from his id
+  const c = new THREE.Color(skinHex || '#a8744f'), d = FACES.map(f => { const q = new THREE.Color(f.skin); return [Math.abs(q.r-c.r)+Math.abs(q.g-c.g)+Math.abs(q.b-c.b), f.i]; }).sort((a,b) => a[0]-b[0]).slice(0, 14);
+  return d[faceHash(pid) % d.length][1];
+}
+function faceOf(pid, skinHex){ pid = faceKey(pid); if (pid != null && FB.faceMap[pid] != null && FACES[FB.faceMap[pid]]) return FACES[FB.faceMap[pid]]; return FACES[faceAuto(pid || 'x', skinHex)]; }
+function faceShade(hex, k){ const c = new THREE.Color(hex); c.multiplyScalar(k); return '#'+c.getHexString(); }
+/* the card portrait: a cartoon head (outlines, flat shading) drawn at any size */
+function faceDraw(g, f, cx, cy, rx, ry){
+  const S = Math.min(rx, ry), ol = Math.max(0.35, S*0.07), skin = f.skin, dk = faceShade(skin, 0.78), lw = (w) => { g.lineWidth = w; };
+  const jaw = [1.0, 0.9, 1.08, 0.95][f.shape], wid = [1.0, 0.94, 1.06, 1.0][f.shape];
+  const ex = rx*wid, ey = ry;
+  g.save(); g.lineJoin = 'round'; g.lineCap = 'round'; g.strokeStyle = 'rgba(20,12,8,.9)';
+  // hair behind the head (long / locs / braids / afro)
+  if (f.hair === 'locs' || f.hair === 'long' || f.hair === 'braids') { g.fillStyle = f.hc; g.beginPath(); g.ellipse(cx, cy+ey*0.15, ex*1.12, ey*1.12, 0, Math.PI*1.05, Math.PI*1.95, true); g.lineTo(cx+ex*1.05, cy+ey*0.9); g.lineTo(cx-ex*1.05, cy+ey*0.9); g.closePath(); g.fill(); }
+  if (f.hair === 'afro') { g.fillStyle = f.hc; g.beginPath(); g.ellipse(cx, cy-ey*0.25, ex*1.38, ey*1.05, 0, 0, 6.3); g.fill(); lw(ol); g.stroke(); }
+  // ears
+  g.fillStyle = skin; [-1,1].forEach(sd => { g.beginPath(); g.ellipse(cx+sd*ex*0.98, cy+ey*0.05, ex*0.17, ey*0.22, 0, 0, 6.3); g.fill(); lw(ol*0.8); g.stroke(); });
+  // head
+  const headPath = () => { g.beginPath(); g.moveTo(cx-ex, cy-ey*0.1); g.bezierCurveTo(cx-ex, cy-ey*1.15, cx+ex, cy-ey*1.15, cx+ex, cy-ey*0.1);
+    g.bezierCurveTo(cx+ex, cy+ey*0.55*jaw, cx+ex*0.45, cy+ey*1.02, cx, cy+ey*1.02); g.bezierCurveTo(cx-ex*0.45, cy+ey*1.02, cx-ex, cy+ey*0.55*jaw, cx-ex, cy-ey*0.1); g.closePath(); };
+  headPath(); g.fillStyle = skin; g.fill(); g.save(); g.clip(); g.fillStyle = dk; g.globalAlpha = 0.35; g.beginPath(); g.ellipse(cx+ex*0.55, cy+ey*0.25, ex*0.6, ey*0.95, 0, 0, 6.3); g.fill(); g.globalAlpha = 1;
+  // facial hair (inside the head shape)
+  const bc = f.bc;
+  if (f.beard === 'stubble' || f.age) { g.fillStyle = bc; g.globalAlpha = f.beard === 'stubble' ? 0.28 : 0.12; g.beginPath(); g.ellipse(cx, cy+ey*0.62, ex*0.95, ey*0.5, 0, 0, Math.PI); g.fill(); g.globalAlpha = 1; }
+  if (f.beard === 'full' || f.beard === 'boxed') { g.fillStyle = bc; g.beginPath(); g.moveTo(cx-ex, cy+ey*0.05); g.bezierCurveTo(cx-ex*0.95, cy+ey*(f.beard==='full'?1.15:1.0), cx+ex*0.95, cy+ey*(f.beard==='full'?1.15:1.0), cx+ex, cy+ey*0.05); g.lineTo(cx+ex*0.62, cy+ey*0.3); g.quadraticCurveTo(cx, cy+ey*0.45, cx-ex*0.62, cy+ey*0.3); g.closePath(); g.fill(); }
+  if (f.beard === 'chin') { g.strokeStyle = bc; lw(S*0.16); g.beginPath(); g.moveTo(cx-ex*0.98, cy); g.bezierCurveTo(cx-ex*0.9, cy+ey*1.0, cx+ex*0.9, cy+ey*1.0, cx+ex*0.98, cy); g.stroke(); g.strokeStyle = 'rgba(20,12,8,.9)'; }
+  if (f.beard === 'goatee') { g.fillStyle = bc; g.beginPath(); g.ellipse(cx, cy+ey*0.82, ex*0.28, ey*0.22, 0, 0, 6.3); g.fill(); }
+  if (f.beard === 'mustache' || f.beard === 'goatee' || f.beard === 'full' || f.beard === 'boxed') { g.fillStyle = bc; g.beginPath(); g.ellipse(cx, cy+ey*0.5, ex*0.36, ey*0.08, 0, 0, 6.3); g.fill(); }
+  g.restore();
+  headPath(); g.strokeStyle = 'rgba(20,12,8,.9)'; g.lineWidth = ol; g.stroke();
+  // hair on top
+  g.fillStyle = f.hc;
+  const cap = (h, wf) => { g.beginPath(); g.moveTo(cx-ex*1.02, cy-ey*0.18); g.bezierCurveTo(cx-ex*1.04, cy-ey*(1.15+h), cx+ex*1.04, cy-ey*(1.15+h), cx+ex*1.02, cy-ey*0.18); g.bezierCurveTo(cx+ex*0.8, cy-ey*(0.5+wf), cx-ex*0.8, cy-ey*(0.5+wf), cx-ex*1.02, cy-ey*0.18); g.closePath(); g.fill(); lw(ol*0.8); g.stroke(); };
+  if (f.hair === 'buzz') { g.globalAlpha = 0.55; cap(0.0, 0.05); g.globalAlpha = 1; }
+  else if (f.hair === 'short' || f.hair === 'waves' || f.hair === 'curly' || f.hair === 'braids' || f.hair === 'locs' || f.hair === 'long') cap(f.hair === 'curly' ? 0.18 : 0.08, 0.12);
+  else if (f.hair === 'fade') { g.globalAlpha = 0.45; cap(0.0, 0.05); g.globalAlpha = 1; g.beginPath(); g.ellipse(cx, cy-ey*0.95, ex*0.8, ey*0.32, 0, Math.PI, 6.3); g.fill(); }
+  else if (f.hair === 'hightop') { g.beginPath(); g.rect(cx-ex*0.8, cy-ey*1.6, ex*1.6, ey*0.85); g.fill(); lw(ol*0.8); g.stroke(); g.globalAlpha = 0.45; cap(0.0, 0.05); g.globalAlpha = 1; }
+  else if (f.hair === 'mohawk') { g.globalAlpha = 0.25; cap(0.0, 0.05); g.globalAlpha = 1; g.beginPath(); g.ellipse(cx, cy-ey*1.0, ex*0.22, ey*0.42, 0, 0, 6.3); g.fill(); }
+  else if (f.hair === 'afro') { }
+  if (f.hair === 'waves') { g.strokeStyle = faceShade(f.hc, 1.8); lw(S*0.04); for (let k=0;k<3;k++) { g.beginPath(); g.arc(cx, cy-ey*0.4, ex*(0.5+k*0.15), Math.PI*1.2, Math.PI*1.8); g.stroke(); } g.strokeStyle = 'rgba(20,12,8,.9)'; }
+  if (f.hair === 'curly' || f.hair === 'locs') { g.fillStyle = faceShade(f.hc, 1.5); for (let k=0;k<7;k++) { const a = Math.PI*(1.1+k*0.11); g.beginPath(); g.arc(cx+Math.cos(a)*ex*0.85, cy-ey*0.25+Math.sin(a)*ey*0.85, S*0.09, 0, 6.3); g.fill(); } }
+  // brows
+  g.strokeStyle = f.hcn === 'bleach' ? '#1a120c' : f.hc; const bw = [0.12, 0.17, 0.1, 0.14][f.brow]*S, tilt = [0, 0.08, -0.06, 0.03][f.brow];
+  [-1,1].forEach(sd => { lw(bw); g.beginPath(); g.moveTo(cx+sd*ex*0.18, cy-ey*(0.24+tilt*sd*0)-ey*tilt); g.lineTo(cx+sd*ex*0.62, cy-ey*0.3+ey*tilt); g.stroke(); });
+  // eyes
+  [-1,1].forEach(sd => { const x = cx+sd*ex*0.4, y = cy-ey*0.08; g.fillStyle = '#ffffff'; g.beginPath(); g.ellipse(x, y, ex*0.17, ey*0.1, 0, 0, 6.3); g.fill(); lw(ol*0.7); g.strokeStyle = 'rgba(20,12,8,.9)'; g.stroke();
+    g.fillStyle = f.eye; g.beginPath(); g.arc(x, y, ey*0.085, 0, 6.3); g.fill(); g.fillStyle = '#0a0806'; g.beginPath(); g.arc(x, y, ey*0.04, 0, 6.3); g.fill(); g.fillStyle = '#fff'; g.beginPath(); g.arc(x+ex*0.04, y-ey*0.03, ey*0.022, 0, 6.3); g.fill(); });
+  // nose
+  g.strokeStyle = faceShade(skin, 0.55); lw(ol*0.9); const nw = [0.13, 0.18, 0.22][f.nose]*ex;
+  g.beginPath(); g.moveTo(cx-ex*0.02, cy+ey*0.05); g.quadraticCurveTo(cx-nw, cy+ey*0.32, cx-nw*0.6, cy+ey*0.36); g.moveTo(cx+nw*0.6, cy+ey*0.36); g.quadraticCurveTo(cx+nw, cy+ey*0.32, cx+ex*0.02, cy+ey*0.25); g.stroke();
+  // mouth
+  const lip = [0.06, 0.09, 0.12][f.lips]*ey; g.fillStyle = faceShade(skin, 0.62); g.beginPath(); g.ellipse(cx, cy+ey*0.64, ex*0.28, lip, 0, 0, 6.3); g.fill();
+  g.strokeStyle = 'rgba(30,14,10,.9)'; lw(ol*0.8); g.beginPath(); g.moveTo(cx-ex*0.28, cy+ey*0.64); g.quadraticCurveTo(cx, cy+ey*0.7, cx+ex*0.28, cy+ey*0.64); g.stroke();
+  g.restore();
+}
+/* the 3D face: the model's own head texture recoloured to the face's skin, its baked beard cleared, then this face's brows, eye colour and facial hair painted
+   into the face area of the texture (the head UVs run upside down: a larger y is higher on the face). One texture per face, shared by everyone wearing it. */
+PV2.faceTex = PV2.faceTex || {};
+const FACE_UV = { cx:256, eyeY:897, eyeLX:195, eyeRX:318, browY:926, mouthY:797 };
+function pv2FaceTex(f){
+  if (!f || !PV2.bodyImg) return null; if (PV2.faceTex[f.i]) return PV2.faceTex[f.i];
+  const N = 1024, P = pv2Px(PV2.bodyImg, N, N), d = P.d.data, g = P.g, U = FACE_UV;
+  const tgt = new THREE.Color(f.skin), ref = { r:0.84, g:0.6, b:0.5 }, kr = tgt.r/ref.r, kg = tgt.g/ref.g, kb = tgt.b/ref.b;
+  const keepStub = f.beard === 'stubble' || f.beard === 'full' || f.beard === 'boxed' || f.age;    // faces with stubble keep the model's own (it is good); the clean-shaven lose it
+  for (let y=0;y<N;y++) for (let x=0;x<N;x++) { const i = (y*N+x)*4, r = d[i]/255, gg = d[i+1]/255, b = d[i+2]/255;
+    if (x >= 505 && x <= 625 && y >= 815) continue;                                           // eyeballs and teeth
+    if (!(r > 0.12 && r >= gg*0.95 && gg >= b*0.8)) continue;
+    let rr = r, g2 = gg, b2 = b;
+    if (!keepStub && x < 505 && y > 650 && y < 860 && Math.hypot((x-U.cx)/250, (y-760)/112) < 1 && !(Math.abs(x - U.cx) < 56 && Math.abs(y - U.mouthY) < 12)) {   // the beard zone only (jaw, chin, upper lip)
+      const L = 0.3*r + 0.59*gg + 0.11*b, Ls = 0.3*ref.r + 0.59*ref.g + 0.11*ref.b, w = Math.max(0, Math.min(1, (Ls - 0.03 - L)/0.25)) * 0.9;
+      rr += (ref.r*0.96 - rr)*w; g2 += (ref.g*0.96 - g2)*w; b2 += (ref.b*0.96 - b2)*w; }
+    d[i] = Math.min(255, rr*kr*255); d[i+1] = Math.min(255, g2*kg*255); d[i+2] = Math.min(255, b2*kb*255); }
+  for (let y=815;y<N;y++) for (let x=505;x<625;x++) { const i = (y*N+x)*4, r = d[i], gg = d[i+1], b = d[i+2]; if (b > r + 12 && b < 200) { const e = new THREE.Color(f.eye), L = (r+gg+b)/3/150; d[i] = Math.min(255, e.r*255*L); d[i+1] = Math.min(255, e.g*255*L); d[i+2] = Math.min(255, e.b*255*L); } }   // eye colour
+  P.g.putImageData(P.d, 0, 0);
+  const hair = f.hcn === 'bleach' ? '#2a1d14' : (f.bc || f.hc); g.save(); g.lineCap = 'round'; g.lineJoin = 'round'; g.fillStyle = hair; g.strokeStyle = hair;
+  const soft = (a, fn) => { g.globalAlpha = a; g.filter = 'blur(3px)'; fn(); g.filter = 'none'; };
+  const must = () => { g.beginPath(); g.ellipse(U.cx, U.mouthY + 18, 50, 8, 0, 0, 6.3); g.fill(); };
+  const goat = () => { g.beginPath(); g.ellipse(U.cx, 752, 30, 34, 0, 0, 6.3); g.fill(); };
+  const jawline = (w) => { g.lineWidth = w; g.beginPath(); g.moveTo(52, 862); g.bezierCurveTo(60, 770, 130, 700, U.cx, 694); g.bezierCurveTo(382, 700, 452, 770, 460, 862); g.stroke(); };
+  if (f.beard === 'full') soft(0.62, () => { jawline(64); goat(); must(); });
+  if (f.beard === 'boxed') soft(0.7, () => { jawline(40); goat(); must(); });
+  if (f.beard === 'chin') soft(0.72, () => jawline(20));
+  if (f.beard === 'goatee') soft(0.78, () => { goat(); must(); });
+  if (f.beard === 'mustache') soft(0.8, must);
+  const bw = [6, 9, 5, 7.5][f.brow], tilt = [0, 5, -4, 2][f.brow]; g.lineWidth = bw;
+  soft(0.75, () => [[U.eyeLX, 1],[U.eyeRX, -1]].forEach(([x, inward]) => { g.beginPath(); g.moveTo(x + 30*inward, U.browY - tilt); g.quadraticCurveTo(x, U.browY + 4, x - 32*inward, U.browY + tilt*0.3 - 2); g.stroke(); }));
+  g.restore();
+  const t = new THREE.CanvasTexture(P.c); t.flipY = false; t.anisotropy = 8; fbvSrgb(t); return PV2.faceTex[f.i] = t;
+}
+/* FACE ASSIGNMENT (verified devs): go down the player list and give each player one of the 100 faces. Saved on the server, so everyone sees the same faces. */
+function faceKey(pid){ pid = String(pid || ''); if (pid.indexOf('LTD-') === 0) return pid.slice(4); if (pid === 'S1-NABERS') return 'WR-0002'; return pid; }   // LTD / special cards wear the base player's face
+function faceLoad(){ if (typeof utSrv === 'undefined' || !utSrv.token) return; utApi('faceget', {}).then(d => { if (d && d.ok && d.map) { FB.faceMap = d.map; PV2.faceKey = (PV2.faceKey|0) + 1; try { fbRigs.forEach(p => fbApplyPlayerLook(p)); } catch(e){} } }); }
+function facePlayers(){ const F = FB.ut && FB.ut.fa; return utDB().filter(p => !p.ltd && !p.special && p.pos !== 'K' && (!F || F.pos === 'ALL' || p.pos === F.pos)).sort((a,b) => (a.team||'').localeCompare(b.team||'') || (b.overall||0) - (a.overall||0)); }
+function utFacesScreen(g){
+  const U = FB.ut, F = U.fa || (U.fa = { pos:'ALL', pg:0, sel:null, fpg:0 }), L = facePlayers(), per = 12, pages = Math.max(1, Math.ceil(L.length/per)); F.pg = Math.min(Math.max(0, F.pg), pages-1);
+  if (!F.sel && L.length) F.sel = L[0].id;
+  uiMark(g,'PLAYER FACES',160,10,9,'#ffffff','center',-0.04); fbBtn(g,'utfx',4,4,44,11,'< BACK',{size:4.2});
+  T(Object.keys(FB.faceMap||{}).length+' ASSIGNED  -  TAP A PLAYER, THEN A FACE (IT MOVES TO THE NEXT PLAYER)', 160, 18, '#9fb0dc', 2.6, 'center');
+  ['ALL','QB','RB','WR','TE','EDGE','LB','CB','SAF'].forEach((k,i) => fbBtn(g,'utfp_'+k,6+i*19.5,23,18.5,8,k,{size:2.4,on:F.pos===k,col:'#ffd24a'}));
+  uiPanel(g,6,33,128,128,{ r:3 });
+  L.slice(F.pg*per, F.pg*per+per).forEach((p,j) => { const y = 35 + j*10.4, on = p.id === F.sel, f = faceOf(faceKey(p.id), p.appearance && p.appearance.skin_hex), set = FB.faceMap && FB.faceMap[p.id] != null;
+    if (on) { g.fillStyle = 'rgba(255,210,74,.22)'; g.fillRect(7, y-0.5, 126, 10); }
+    faceDraw(g, f, 13, y+5, 3.6, 4.2); T(p.name.toUpperCase().slice(0,17), 20, y+1.2, on ? '#ffd24a' : '#ffffff', 2.7, 'left'); T((p.team||'FA')+' '+p.pos+'  #'+f.i+(set ? '' : ' AUTO'), 20, y+5.6, set ? '#7ddc8a' : '#7f8db0', 2.2, 'left');
+    FB.btns.push({ id:'utfs_'+p.id, x:7, y:y-0.5, w:126, h:10 }); });
+  fbBtn(g,'utfpp',6,163,20,10,'<',{size:4}); T((F.pg+1)+'/'+pages, 70, 165.5, '#cfd8f4', 3, 'center'); fbBtn(g,'utfpn',114,163,20,10,'>',{size:4});
+  // the 100 faces: 50 per page, 10 x 5
+  const sp = L.find(p => p.id === F.sel), cur = sp ? faceOf(faceKey(sp.id), sp.appearance && sp.appearance.skin_hex) : null;
+  uiPanel(g,138,23,178,150,{ r:3 }); if (sp) T(sp.name.toUpperCase()+'  ('+sp.pos+', '+(sp.team||'FA')+')', 227, 26, '#ffd24a', 3, 'center');
+  for (let k=0;k<50;k++) { const fi = F.fpg*50 + k, f = FACES[fi]; if (!f) break; const col = k % 10, row = (k/10)|0, x = 141 + col*17.4, y = 32 + row*26.5;
+    const on = cur && cur.i === fi; g.fillStyle = on ? 'rgba(255,210,74,.35)' : 'rgba(255,255,255,.05)'; g.fillRect(x, y, 16.4, 25.5);
+    faceDraw(g, f, x+8.2, y+12, 5.6, 6.6); T('#'+fi, x+8.2, y+20.5, on ? '#ffd24a' : '#9fb0dc', 2.2, 'center'); FB.btns.push({ id:'utff_'+fi, x, y, w:16.4, h:25.5 }); }
+  fbBtn(g,'utffp',141,163,40,9,'FACES 1-50',{size:2.6,on:F.fpg===0,col:'#9ee8ff'}); fbBtn(g,'utffn',183,163,40,9,'FACES 51-100',{size:2.6,on:F.fpg===1,col:'#9ee8ff'});
+  fbBtn(g,'utfauto',226,163,44,9,'CLEAR (AUTO)',{size:2.6,col:'#ff9bd6'}); fbBtn(g,'utfnext',272,163,42,9,'NEXT UNSET',{size:2.6,col:'#7ddc8a'});
+  if (U.err) T(String(U.err).toUpperCase(), 227, 176, '#ff8b7b', 2.6, 'center');
+}
+function utFacesAct(id){
+  const U = FB.ut, F = U.fa || (U.fa = { pos:'ALL', pg:0, sel:null, fpg:0 });
+  if (id === 'utfx') { U.tab = 'menu'; return true; }
+  if (/^utfp_/.test(id)) { F.pos = id.slice(5); F.pg = 0; F.sel = null; return true; }
+  if (id === 'utfpp' || id === 'utfpn') { F.pg += id === 'utfpn' ? 1 : -1; return true; }
+  if (id === 'utffp' || id === 'utffn') { F.fpg = id === 'utffn' ? 1 : 0; return true; }
+  if (/^utfs_/.test(id)) { F.sel = id.slice(5); fbSfx('tick'); return true; }
+  const L = facePlayers(), adv = () => { const i = L.findIndex(p => p.id === F.sel); if (i >= 0 && i < L.length-1) { F.sel = L[i+1].id; F.pg = Math.floor((i+1)/12); } };
+  if (id === 'utfnext') { const i = L.findIndex(p => p.id === F.sel), n = L.slice(i+1).concat(L.slice(0, i+1)).find(p => FB.faceMap[p.id] == null); if (n) { F.sel = n.id; F.pg = Math.floor(L.indexOf(n)/12); } return true; }
+  if (/^utff_/.test(id) || id === 'utfauto') { if (!F.sel) return true; const face = id === 'utfauto' ? -1 : +id.slice(5), pid = F.sel;
+    if (face < 0) delete FB.faceMap[pid]; else FB.faceMap[pid] = face; U.err = ''; fbSfx('tick');
+    utApi('faceset', { pid, face }).then(d => { if (!d || !d.ok) U.err = (d && d.err) || 'could not save'; else if (d.map) FB.faceMap = d.map; });
+    if (face >= 0) adv(); return true; }
+  return false;
 }
 function fbAttachPlayerModel(p,template){
   if(!p||!p.rig||p.rig.fbModel)return;
@@ -18476,6 +18629,7 @@ function fbFx(){
   try { fbBenchTick(dt); fbChainTick(); fbCoachTick(dt); } catch(e){ console.error('sideline', e); }
   try { pv2Tick(); } catch(e){}
   try { tourTick(); } catch(e){}
+  try { if (typeof utSrv !== 'undefined' && utSrv.token && FB.faceLoadedFor !== utSrv.user) { FB.faceLoadedFor = utSrv.user; faceLoad(); } } catch(e){}
   try { fbLobbyTick(dt); } catch(e){ console.error('lobby', e); }
   const s = FB.s; fbCrowdUpdate(); try { fbArenaTick(); } catch(e){}
   if (FB.crowdMat) { FB.crowdMat.map.offset.x = Math.sin(now*0.4)*0.012; FB.crowdMat.color.setScalar(0.92+0.1*Math.sin(now*2.1)); }
@@ -20082,7 +20236,7 @@ function fbLobbyWalkDraw(g){
   if (FB.lobbyDwell > 0 && FB.lobbyNear) { const d = FB_LPADS.find(q => q.id===FB.lobbyNear); if (d) { fbPanel(g,100,150,120,12,0.8); g.fillStyle = 'rgba(255,255,255,.18)'; g.fillRect(104,159,112,2); g.fillStyle = d.col; g.fillRect(104,159,112*clamp(FB.lobbyDwell/0.55,0,1),2); T('GOING TO  '+d.name,160,152.4,'#ffffff',4.2,'center'); } }
   fbPanel(g,56,164,208,12,0.6); T('WASD WALK     SHIFT RUN     STEP ON A GLOWING PAD',160,167,'#cfd8f4',4.4,'center');
   if (PV2.state==='ready') T('MODELS: PLAYER BLAKEALLEN25 - HELMET EXODUSKS - CLEATS LISENHAO - TROPHY G_BORY32 (SKETCHFAB, CC BY 4.0)', 160, 176.6, '#5d6a8f', 2.1, 'center');
-  T('BUILD v129',314,174,'#8fa0cc',4,'right'); { const us = uoStatus(); if (us) T(us, 6, 174, UO.state==='off' ? '#ff8b7b' : '#6f7ea8', 3, 'left'); }
+  T('BUILD v130',314,174,'#8fa0cc',4,'right'); { const us = uoStatus(); if (us) T(us, 6, 174, UO.state==='off' ? '#ff8b7b' : '#6f7ea8', 3, 'left'); }
 }
 /* ---------------------------------------------------------------- ULTIMATE TEAM: hub, collection, cards (packs come in the next stage) */
 const UT_KEY = 'blacktop_ut_v1';
@@ -20932,16 +21086,14 @@ function utCard(g,x,y,w,h,p,rar,dup){
   if (p && w >= 34 && p.skills && p.skills.length) utCardSkills(g, x, y, w, k, p, rar);
   const nm = p ? p.name.toUpperCase() : '?';
   T(nm.length > 12*(k<1?1:k) ? nm.slice(0, 11)+'.' : nm, x+w/2, y+22*k, R.ink, 2.7*k, 'center');
-  T(p ? (p.team || 'FA') : '', x+w/2, y+30*k, R.ink, 2.4*k, 'center');
+  T(p ? (p.team || 'FA') : '', x+w/2, y+25.8*k, R.ink, 2.1*k, 'center');
   if (p) { const sk = A.skin_hex || '#c68642', cx = x+w/2, by = y+h-9.5*k, hd = (()=>{ const n = parseInt(String(sk).slice(1),16); return '#'+[(n>>16)&255,(n>>8)&255,n&255].map(v=>Math.max(0,v-45).toString(16).padStart(2,'0')).join(''); })();
     g.save(); g.beginPath(); g.rect(x+2*k, y+31*k, w-4*k, by-(y+31*k)); g.clip();
     const wt = p.game_weight_lb || p.weight_lb || 200, fat = Math.max(0, Math.min(1, (wt-230)/260)), sw = 15*(1+0.4*fat), hx = 4.4*(1+0.95*fat), hy = 5.2*(1+0.22*fat);   // heavier players are drawn wider; the 490 lb kicker fills the card
     g.fillStyle = jc; g.beginPath(); g.moveTo(cx-sw*k, by+2*k); g.quadraticCurveTo(cx-(sw-1)*k, by-6*k, cx-(5+4*fat)*k, by-7*k); g.lineTo(cx+(5+4*fat)*k, by-7*k); g.quadraticCurveTo(cx+(sw-1)*k, by-6*k, cx+sw*k, by+2*k); g.closePath(); g.fill();
     g.strokeStyle = ac; g.lineWidth = 0.9*k; g.beginPath(); g.moveTo(cx-(5+4*fat)*k, by-7*k); g.lineTo(cx, by-4.5*k); g.lineTo(cx+(5+4*fat)*k, by-7*k); g.stroke();
-    g.fillStyle = hd; g.fillRect(cx-(2.2+2.4*fat)*k, by-10*k, (4.4+4.8*fat)*k, 4*k);
-    g.fillStyle = sk; g.beginPath(); g.ellipse(cx, by-13.5*k, hx*k, hy*k, 0, 0, 6.3); g.fill();
-    g.fillStyle = '#1c1410'; g.beginPath(); g.ellipse(cx, by-(13.5+hy*0.6)*k, (hx+0.2)*k, 3*k, 0, Math.PI, 6.3); g.fill();
-    g.fillStyle = '#1c1410'; g.fillRect(cx-(0.6+hx*0.5)*k-1.1*k*0.5, by-13.8*k, 1.1*k, 0.9*k); g.fillRect(cx+(hx*0.5-0.6)*k+0.4*k, by-13.8*k, 1.1*k, 0.9*k);
+    { const fc = faceOf(p.id, A.skin_hex); g.fillStyle = faceShade(fc.skin, 0.8); } g.fillRect(cx-(2.2+2.4*fat)*k, by-10*k, (4.4+4.8*fat)*k, 4*k);
+    faceDraw(g, faceOf(p.id, A.skin_hex), cx, by-13.5*k, hx*k*1.05, hy*k*1.05);   // his face (one of the 100, assigned per player)
     g.restore(); }
   T('TIER '+(p ? p.tier : '-')+'  '+rar.toUpperCase(), x+w/2, y+h-7*k, R.ink, 2.1*k, 'center');
   if (dup > 1) T('X'+dup, x+3*k, y+h-12*k, '#ffd24a', 2.6*k, 'left');
@@ -21012,6 +21164,7 @@ function utMenu(g){
   UT_MENU.forEach(([k,l,sub],i) => { const r = i >> 1, last = i === UT_MENU.length-1 && UT_MENU.length % 2, x = last ? 88 : 12 + (i&1)*152, y = 23 + r*38;
     fbBtn(g,'utm_'+k,x,y,144,34,l,{size:5.6,col:'#ffd24a'}); T(sub, x+72, y+22, '#9fb0dc', 2.2, 'center');
     if (k === 'chal' && nClaim > 0) { g.fillStyle = '#ff8ad8'; g.beginPath(); g.arc(x+138, y+6, 5, 0, 6.3); g.fill(); T(String(nClaim), x+138, y+3, '#0a1230', 5, 'center'); } });
+  if (utSrv.token && fbDevOn()) fbBtn(g,'utfaces',52,4,58,11,'PLAYER FACES',{size:3.2,col:'#1d9bf0'});   // verified devs assign faces
 }
 function utGate(g){
   uiMark(g,'ULTIMATE TEAM',160,7,9,'#ffffff','center',-0.04); fbBtn(g,'utback',4,4,44,11,'< BACK',{size:4.2});
@@ -21351,6 +21504,7 @@ function fbUtDraw(g){
   const t = U.tab || 'menu', gated = !utSrv.token && ['team','coll','packs','open','kick','rew','stat','pass','chal','lb','play'].indexOf(t) >= 0;
   if (t==='menu') { utMenu(g); return; }
   if (gated) { utGate(g); return; }
+  if (t==='faces') { utFacesScreen(g); return; }
   if (t==='team') { if (U.bench) { utBenchDraw(g); return; } utTeamScreen(g); fbBtn(g,'utbench',248,169,68,9,'SELL BENCH',{size:2.8,col:'#ffd24a'}); return; }
   if (t==='play') { utSeasonScreen(g); return; }
   if (t==='pass') { utPassScreen(g); return; }
@@ -21399,6 +21553,8 @@ function fbUtClose(){ FB.scr = 'lobby'; FB.ut = null; FB.camSnap = true; try { f
 function fbUtAct(id){
   const U = FB.ut; if (!U) return false;
   if (id==='utback' && U.draft) { U.draft = null; U.err = ''; return true; }
+  if (U.tab==='faces' && /^utf/.test(id) && utFacesAct(id)) return true;
+  if (id==='utfaces') { if (!fbDevOn()) return true; U.tab = 'faces'; U.err = ''; faceLoad(); return true; }
   if (id==='utbench') { U.bench = { sel:{}, pg:0, cf:false }; U.err = ''; fbSfx('tick'); return true; }
   if (id==='utbenchx') { U.bench = null; return true; }
   if (U.bench && /^utbr_/.test(id)) { const u = id.slice(5); U.bench.sel[u] = !U.bench.sel[u]; U.bench.cf = false; fbSfx('tick'); return true; }
@@ -22505,7 +22661,7 @@ function fbLobbyDraw(g){
   T('WHEN THE CPU HAS THE BALL YOU CAN PLAY DEFENSE (OR SKIP IT)',160,167,'#aeb9dc',4.6,'center');
   fbBtn(g,'lobbyback',6,5,76,12,'< BACK TO THE FIELD',{size:4.6});
   fbBtn(g,'party',6,19,76,10,PARTY.on ? 'PARTY  '+PARTY.code.toUpperCase() : 'PLAY WITH A FRIEND',{size:4.4,line:'#7ddc8a',tc:'#c9f7d0'});
-  T('BUILD v129',314,174,'#8fa0cc',4,'right');   // so you can tell which build is live
+  T('BUILD v130',314,174,'#8fa0cc',4,'right');   // so you can tell which build is live
   fbBtn(g,'tut',100,141,58,13,'TUTORIAL',{size:5,line:'#ffd24a',tc:'#ffe9a8'}); fbBtn(g,'howlobby',162,141,58,13,'HOW TO PLAY',{size:4.4,line:'#ffd24a',tc:'#ffe9a8'});
   fbBtn(g,'shop',6,141,90,13,'PLAY SHOP',{size:5.5,line:'#7ddc8a',tc:'#c9f7d0'});
   fbBtn(g,'stats',224,141,90,13,'MY STATS',{size:5.5,line:'#6fd0ff',tc:'#cfeeff'});
@@ -29070,7 +29226,7 @@ function fbBreakGo(car,E,all,sev,bt,xf){                        // the runner br
 }
 function fbTackleBegin(car,d,P){
   fbFpMark(car);                               // a tackle that sticks: the runner decelerates over FallTime with the defender attached, then goes down
-  car.wrapBy=d;fbGq().tk=d.role;car.tkImp=P.impV;car.tkUx=P.ux;car.tkUz=P.uz;car.tkFT=P.FT;car.tkT=0;car.tkFac=P.fac;car.tkPow=P.imp;car.tkNx=P.nx;car.tkNz=P.nz;car.tkJoin={};
+  car.wrapBy=d;fbGq().tk=d.role;car.tkImp=P.impV;car.tkUx=P.ux;car.tkUz=P.uz;car.tkFT=P.FT;car.tkT=0;car.tkFac=P.fac;car.tkPow=P.imp;car.tkNx=P.nx;car.tkNz=P.nz;car.tkJoin={};car.tkCat=P.cat;car.tkK=0;
   d.wrapping=true;d.st='tackle';d.tkType=P.cat;d.tkCd=.5;car.st='carry';d.fbTackleClip='defender';d.fbTackleUntil=performance.now()/1000+fbClipLen('defender',0.9);
   if(!(car.wrapSfxT>FB.s.t)){fbSfx('hit');car.wrapSfxT=FB.s.t+1.5;}
   try{uoWrap(car,d,P);}catch(e){console.warn('uo wrap',e);}
@@ -29119,7 +29275,8 @@ function fbWrapStep(car,tacklers,dt){      // MASS 2.0: the successful tackle - 
   const d=car.wrapBy;if(!d||d.down){fbWrapEnd(car);return false;}
   car.tkJoin=car.tkJoin||{};
   tacklers.forEach(o=>{if(o===d||car.tkJoin[o.role]||o.down||o.tackling||(o.eng&&!o.free)||o.stun>0||fbDist(o,car)>1.3)return;car.tkJoin[o.role]=1;const rem=Math.max(0,car.tkFT-car.tkT);car.tkFT=car.tkT+rem*.65;});
-  car.tkT+=dt;const u=clamp(car.tkT/Math.max(.05,car.tkFT),0,1),sp=car.tkImp*car.tkFac*(1-u)*(1-u);
+  if(!car.tkK){const cap=car.tkCat==='front'?0.45:car.tkCat==='side'?1.1:2.2,full=car.tkImp*car.tkFac*Math.max(.05,car.tkFT)/3;car.tkK=Math.min(1,cap/Math.max(.01,full));}   // how far he slides after contact follows the picture: a head-on hit stops him (he falls BACK), from behind he falls forward
+  car.tkT+=dt;const u=clamp(car.tkT/Math.max(.05,car.tkFT),0,1),sp=car.tkImp*car.tkFac*car.tkK*(1-u)*(1-u);
   let dx=car.tkUx-car.tkNx*.10*u,dz=car.tkUz-car.tkNz*.10*u;const L=Math.hypot(dx,dz)||1;dx/=L;dz/=L;   // momentum direction kept, a small push from the defender
   fbVel(car,dx*sp,dz*sp,dt,60);car.st='carry';
   if(!(d.uo&&d.uo.anchor===car)){fbMove(d,car.x+car.tkNx*.9,car.z+car.tkNz*.9,Math.max(1,sp+2.5),dt,28);fbFace(d,car.x,car.z);}d.st='tackle';   // he stays on the runner, no teleporting (a library clip glues him to his offset instead)

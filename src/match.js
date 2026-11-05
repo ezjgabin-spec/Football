@@ -281,6 +281,12 @@ export class Matchmaker extends DurableObject {
     if (/^e(start|check|claim|release|bind)$/.test(act)) return this.email(b, act, now);
     if (act === 'lbadd' || act === 'lbget') return this.lb(b, act);
     if (/^t(get|create|join|leave|report|admin)$/.test(act)) return this.tFetch(act, b);
+    if (act === 'fget' || act === 'fset') {                          // player faces (this object used with the name 'faces'): player id -> one of the 100 faces
+      this.sql.exec('CREATE TABLE IF NOT EXISTS fmap (pid TEXT PRIMARY KEY, face INTEGER NOT NULL)');
+      if (act === 'fset') { const pid = String(b.pid || '').slice(0, 40), face = Math.floor(+b.face); if (!/^[A-Za-z0-9_:-]{3,40}$/.test(pid)) return j({ ok: false, err: 'bad player id' }, 400);
+        if (face < 0) this.sql.exec('DELETE FROM fmap WHERE pid=?', pid); else if (face <= 99) this.sql.exec('INSERT INTO fmap (pid, face) VALUES (?,?) ON CONFLICT(pid) DO UPDATE SET face=excluded.face', pid, face); else return j({ ok: false, err: 'faces are 0-99' }, 400); }
+      const map = {}; this.sql.exec('SELECT pid, face FROM fmap').toArray().forEach(r => { map[r.pid] = r.face; }); return j({ ok: true, map });
+    }
     this.sql.exec('DELETE FROM q WHERE ts<?', now - MATCH.queueSeconds * 1000);
     this.sql.exec('DELETE FROM pair WHERE ts<?', now - 120000);
     if (act === 'mcancel') { this.sql.exec('DELETE FROM q WHERE user=?', b.user); return j({ ok: true }); }
