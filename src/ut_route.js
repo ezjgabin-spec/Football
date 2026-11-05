@@ -1,6 +1,6 @@
 // /api/ut/<action>: forwards to the signed-in player's Vault. CORS is open because the game page lives on another address.
 const CORS = { 'access-control-allow-origin': '*', 'access-control-allow-methods': 'POST, OPTIONS', 'access-control-allow-headers': 'content-type', 'access-control-max-age': '86400', 'cache-control': 'no-store' };
-const ACTIONS = new Set(['thof', 'tbracket', 'tmatch', 'tready', 'tlineup', 'faceget', 'faceset', 'tget', 'tcreate', 'tjoin', 'tleave', 'treport', 'tadmin', 'seasonset', 'seasonclaim', 'draftget', 'draftpick', 'devunlock', 'devgive', 'lbget', 'chalclaim', 'emailinfo', 'emailstart', 'emailcheck', 'register', 'login', 'state', 'buy', 'open', 'gamestart', 'gamefinish', 'logout', 'lineup', 'upgrade', 'kickbuy', 'ping', 'sell', 'setjersey', 'cardup', 'passclaim', 'xfequip', 'xfunequip', 'passarm', 'tradelist', 'tradeopen', 'tradeget', 'tradeset', 'tradeaccept', 'tradecancel', 'mjoin', 'mreport', 'mstake', 'mwcancel', 'mforfeit', 'mqueue', 'mpoll', 'mcancel']);
+const ACTIONS = new Set(['tagget', 'tagset', 'thof', 'tbracket', 'tmatch', 'tready', 'tlineup', 'faceget', 'faceset', 'tget', 'tcreate', 'tjoin', 'tleave', 'treport', 'tadmin', 'seasonset', 'seasonclaim', 'draftget', 'draftpick', 'devunlock', 'devgive', 'lbget', 'chalclaim', 'emailinfo', 'emailstart', 'emailcheck', 'register', 'login', 'state', 'buy', 'open', 'gamestart', 'gamefinish', 'logout', 'lineup', 'upgrade', 'kickbuy', 'ping', 'sell', 'setjersey', 'cardup', 'passclaim', 'xfequip', 'xfunequip', 'passarm', 'tradelist', 'tradeopen', 'tradeget', 'tradeset', 'tradeaccept', 'tradecancel', 'mjoin', 'mreport', 'mstake', 'mwcancel', 'mforfeit', 'mqueue', 'mpoll', 'mcancel']);
 export async function utRoute(req, env) {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
   const act = new URL(req.url).pathname.split('/').pop();
@@ -21,6 +21,15 @@ export async function utRoute(req, env) {
     if (!who.ok) return new Response(who.body, { status: who.status, headers: Object.assign({ 'content-type': 'application/json' }, CORS) });
     const wk = (() => { const n = new Date(), t = new Date(Date.UTC(n.getUTCFullYear(), n.getUTCMonth(), n.getUTCDate())); t.setUTCDate(t.getUTCDate() - ((t.getUTCDay() + 6) % 7)); return 'w' + t.toISOString().slice(0, 10); })();
     const rr = await env.MM.get(env.MM.idFromName('lb')).fetch('https://m/lbget', { method: 'POST', body: JSON.stringify({ board: String(b.board || ''), user, week: wk }) });
+    return new Response(rr.body, { status: rr.status, headers: Object.assign({ 'content-type': 'application/json' }, CORS) });
+  }
+  if (act === 'tagget' || act === 'tagset') {                                          // name tags: everyone signed in reads them; only verified devs warn a player (and devs list themselves for the blue check)
+    const who = await stub.fetch('https://vault/ping', { method: 'POST', body: JSON.stringify({ user, token: b.token }) });
+    if (!who.ok) return new Response(who.body, { status: who.status, headers: Object.assign({ 'content-type': 'application/json' }, CORS) });
+    const dv = await stub.fetch('https://vault/i_isdev', { method: 'POST', body: JSON.stringify({ user }) }).then(x => x.json()).catch(() => ({})), T = env.MM.get(env.MM.idFromName('tags'));
+    await T.fetch('https://m/wdev', { method: 'POST', body: JSON.stringify({ user, on: !!dv.dev }) }).catch(() => {});
+    if (act === 'tagset' && !dv.dev) return new Response('{"ok":false,"err":"only verified devs can warn players"}', { status: 403, headers: CORS });
+    const rr = await T.fetch('https://m/' + (act === 'tagset' ? 'wset' : 'wget'), { method: 'POST', body: JSON.stringify({ target: b.target, msg: b.msg, by: user }) });
     return new Response(rr.body, { status: rr.status, headers: Object.assign({ 'content-type': 'application/json' }, CORS) });
   }
   if (act === 'faceget' || act === 'faceset') {                                       // player faces: anyone signed in reads the map, only verified devs change it

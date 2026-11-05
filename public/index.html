@@ -15185,6 +15185,7 @@ function uiMark(g,txt,x,y,size,col,align,rot){
   g.font = size+'px GMark, Impact, sans-serif'; g.textAlign = align||'left'; g.textBaseline = 'alphabetic';
   g.lineJoin = 'round'; g.lineWidth = size*0.22; g.strokeStyle = 'rgba(8,10,18,.9)'; g.strokeText(txt,0,0);
   g.fillStyle = col||'#ffffff'; g.fillText(txt,0,0); g.restore();
+  if (typeof ntagAfter === 'function' && typeof ctx !== 'undefined' && g === ctx) { g.font = size+'px GMark, Impact, sans-serif'; g.textAlign = align||'left'; ntagAfter(g, txt, x, y, size, align, 'alphabetic'); }
 }
 function uiIcon(g,kind,x,y,s,col){
   g.save(); g.translate(x,y); g.fillStyle = col||'#fff'; g.strokeStyle = col||'#fff'; g.lineWidth = s*0.16; g.lineCap = 'round'; g.lineJoin = 'round';
@@ -17745,11 +17746,15 @@ const FACES = (() => {
 })();
 FB.faceMap = FB.faceMap || {};
 function faceHash(s){ let h = 2166136261; for (const c of String(s)) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
-function faceAuto(pid, skinHex){                           // no assignment yet: the faces nearest his card's skin tone, one picked steadily from his id
-  const c = new THREE.Color(skinHex || '#a8744f'), d = FACES.map(f => { const q = new THREE.Color(f.skin); return [Math.abs(q.r-c.r)+Math.abs(q.g-c.g)+Math.abs(q.b-c.b), f.i]; }).sort((a,b) => a[0]-b[0]).slice(0, 14);
-  return d[faceHash(pid) % d.length][1];
+function faceAuto(pid, skinHex){                           // no assignment yet: only faces MADE for his skin tone (same tone group), one picked steadily from his id
+  const c = new THREE.Color(skinHex || '#a8744f'), tone = FACE_SKINS.map((h,i) => { const q = new THREE.Color(h); return [Math.abs(q.r-c.r)+Math.abs(q.g-c.g)+Math.abs(q.b-c.b), i]; }).sort((a,b) => a[0]-b[0])[0][1];
+  let d = FACES.filter(f => f.sk === tone).map(f => f.i); for (let w = 1; d.length < 6 && w < 10; w++) d = FACES.filter(f => Math.abs(f.sk - tone) <= w).map(f => f.i);
+  return d[faceHash(pid) % d.length];
 }
-function faceOf(pid, skinHex){ pid = faceKey(pid); if (pid != null && FB.faceMap[pid] != null && FACES[FB.faceMap[pid]]) return FACES[FB.faceMap[pid]]; return FACES[faceAuto(pid || 'x', skinHex)]; }
+const FACE_TINT = {};
+function faceTint(f, skinHex){                              // the same face in HIS skin colour (the card's skin tone is the real one; the face only brings the features)
+  if (!f || !skinHex || !/^#[0-9a-f]{6}$/i.test(skinHex)) return f; const k = f.i + ':' + skinHex.toLowerCase(); return FACE_TINT[k] || (FACE_TINT[k] = Object.assign({}, f, { skin:skinHex.toLowerCase(), key:k })); }
+function faceOf(pid, skinHex){ pid = faceKey(pid); const f = (pid != null && FB.faceMap[pid] != null && FACES[FB.faceMap[pid]]) ? FACES[FB.faceMap[pid]] : FACES[faceAuto(pid || 'x', skinHex)]; return faceTint(f, skinHex); }
 function faceShade(hex, k){ const c = new THREE.Color(hex); c.multiplyScalar(k); return '#'+c.getHexString(); }
 /* the card portrait: a cartoon head (outlines, flat shading) drawn at any size */
 function faceDraw(g, f, cx, cy, rx, ry){
@@ -17805,7 +17810,7 @@ function faceDraw(g, f, cx, cy, rx, ry){
 PV2.faceTex = PV2.faceTex || {};
 const FACE_UV = { cx:256, eyeY:897, eyeLX:195, eyeRX:318, browY:926, mouthY:797 };
 function pv2FaceTex(f){
-  if (!f || !PV2.bodyImg) return null; if (PV2.faceTex[f.i]) return PV2.faceTex[f.i];
+  if (!f || !PV2.bodyImg) return null; const fk = f.key || f.i; if (PV2.faceTex[fk]) return PV2.faceTex[fk];
   const N = 1024, P = pv2Px(PV2.bodyImg, N, N), d = P.d.data, g = P.g, U = FACE_UV;
   const tgt = new THREE.Color(f.skin), ref = { r:0.84, g:0.6, b:0.5 }, kr = tgt.r/ref.r, kg = tgt.g/ref.g, kb = tgt.b/ref.b;
   const keepStub = f.beard === 'stubble' || f.beard === 'full' || f.beard === 'boxed' || f.age;    // faces with stubble keep the model's own (it is good); the clean-shaven lose it
@@ -17832,7 +17837,7 @@ function pv2FaceTex(f){
   const bw = [6, 9, 5, 7.5][f.brow], tilt = [0, 5, -4, 2][f.brow]; g.lineWidth = bw;
   soft(0.75, () => [[U.eyeLX, 1],[U.eyeRX, -1]].forEach(([x, inward]) => { g.beginPath(); g.moveTo(x + 30*inward, U.browY - tilt); g.quadraticCurveTo(x, U.browY + 4, x - 32*inward, U.browY + tilt*0.3 - 2); g.stroke(); }));
   g.restore();
-  const t = new THREE.CanvasTexture(P.c); t.flipY = false; t.anisotropy = 8; fbvSrgb(t); return PV2.faceTex[f.i] = t;
+  const t = new THREE.CanvasTexture(P.c); t.flipY = false; t.anisotropy = 8; fbvSrgb(t); return PV2.faceTex[fk] = t;
 }
 /* FACE ASSIGNMENT (verified devs): go down the player list and give each player one of the 100 faces. Saved on the server, so everyone sees the same faces. */
 function faceKey(pid){ pid = String(pid || ''); if (pid.indexOf('LTD-') === 0) return pid.slice(4); if (pid === 'S1-NABERS') return 'WR-0002'; return pid; }   // LTD / special cards wear the base player's face
@@ -17853,7 +17858,7 @@ function utFacesScreen(g){
   // the 100 faces: 50 per page, 10 x 5
   const sp = L.find(p => p.id === F.sel), cur = sp ? faceOf(faceKey(sp.id), sp.appearance && sp.appearance.skin_hex) : null;
   uiPanel(g,138,23,178,150,{ r:3 }); if (sp) T(sp.name.toUpperCase()+'  ('+sp.pos+', '+(sp.team||'FA')+')', 227, 26, '#ffd24a', 3, 'center');
-  for (let k=0;k<50;k++) { const fi = F.fpg*50 + k, f = FACES[fi]; if (!f) break; const col = k % 10, row = (k/10)|0, x = 141 + col*17.4, y = 32 + row*26.5;
+  for (let k=0;k<50;k++) { const fi = F.fpg*50 + k, f = faceTint(FACES[fi], sp && sp.appearance && sp.appearance.skin_hex); if (!f) break; const col = k % 10, row = (k/10)|0, x = 141 + col*17.4, y = 32 + row*26.5;
     const on = cur && cur.i === fi; g.fillStyle = on ? 'rgba(255,210,74,.35)' : 'rgba(255,255,255,.05)'; g.fillRect(x, y, 16.4, 25.5);
     faceDraw(g, f, x+8.2, y+12, 5.6, 6.6); T('#'+fi, x+8.2, y+20.5, on ? '#ffd24a' : '#9fb0dc', 2.2, 'center'); FB.btns.push({ id:'utff_'+fi, x, y, w:16.4, h:25.5 }); }
   fbBtn(g,'utffp',141,163,40,9,'FACES 1-50',{size:2.6,on:F.fpg===0,col:'#9ee8ff'}); fbBtn(g,'utffn',183,163,40,9,'FACES 51-100',{size:2.6,on:F.fpg===1,col:'#9ee8ff'});
@@ -18723,9 +18728,11 @@ function fbSetup(play){
   if (play.push) { fbPlace(fbBy('RB'), los-2.75, -0.1, 0, 'ready'); fbPlace(fbBy('TE'), los-2.75, 0.9, 0, 'ready'); fbPlace(fbBy('W3'), los-1.2, -2.8, 0, 'ready'); }   // the tush push: two men stacked behind the QB
   // defense picks a call
   const D = FBD[FB.diff], r = Math.random();
-  s.dmode = s.keepD ? s.keepD : s.defMode ? (s.dcall || 'zone') : (FBN.on && FBN.mode==='vs') ? (FBN.gcall || 'zone') : fbLearnCall(r);
+  const trD = (s.train && !s.defMode) ? s.trD : null;                 // PLAY TRAINING: the CPU defense runs the call / drawn D you picked for it
+  s.dmode = s.keepD ? s.keepD : s.defMode ? (s.dcall || 'zone') : (FBN.on && FBN.mode==='vs') ? (FBN.gcall || 'zone') : (typeof trD === 'string') ? trD : fbLearnCall(r);
   let cpuPlan = null;                                                  // V79: the CPU builds its OWN defense for every play (any alignment, any assignment, any personnel)
-  if (!s.defMode && !s.tutMode && !FBN.on && !FB.noCpuPlan) {
+  if (trD && typeof trD === 'object') { cpuPlan = fbDPlanCopy(trD); s.cpuPlan = cpuPlan; s.dmode = 'custom'; }
+  else if (!s.defMode && !s.tutMode && !FBN.on && !FB.noCpuPlan && !trD) {
     if (s.keepD==='custom' && s.cpuPlan) cpuPlan = s.cpuPlan;
     else { try { s.cpuCall = s.dmode; cpuPlan = fbCpuDPlan(play, s.dmode); } catch(e){ cpuPlan = null; console.error('cpuD', e); } }
     s.cpuPlan = cpuPlan; if (cpuPlan) s.dmode = 'custom';
@@ -18805,6 +18812,8 @@ function fbLearnCall(r){
   return 'zone';
 }
 function fbStartLive(){
+  { const s0 = FB.s; if (s0 && s0.daudPend && FB.scr === 'pre') { const id = s0.daudPend.id; s0.daudPend = null; try { fbAudibleDApply(id); } catch(e){ console.error(e); } } }   // caught mid-audible: the new call still stands
+  { const s0 = FB.s; if (s0) fbDef().forEach(d => { d.adjTo = null; d.adjSpd = 0; }); }       // whoever is still running to his spot plays his new job from where he is
   const s = FB.s, play = s.play, los = s.los, run = fbIsRun(play);
   s.ending = false; s.res = null; s.daudPend = null; s.live = true; s.t = 0; FB.scr = 'live'; s.phase = 'live'; s.audN = ''; s.audF = 0; s.clockRun = true; s.pcOn = false;
   const q = fbBy('QB'), D = FBD[FB.diff]; s.q0x = q.x;
@@ -18816,6 +18825,7 @@ function fbStartLive(){
     const rt = fbRouteFor(p, play, los);
     p.route = rt; p.ri = 0; if (rt) { p.spd = (play.t==='run' ? (p.role==='RB' ? 9.8 : 7.6) : FB_SP[k.charAt(0)==='W'?'W':k] * 0.97) * fbRm(p); if (play.t==='run') p.auto = true; }
   });
+  fbOff().forEach(p => { p.bend = !!(fbIsCustom(play) && play.bend && play.bend[p.role] && p.route && p.route.length && !(play.car === p.role)); p.bendAt = null; p.sbt = null; });
   fbOff().forEach(p => { p.mto = null; p.btg = null; p.blkr = !!(fbIsCustom(play) && play.blk && play.blk[p.role]) || !!(play.hotBlk && play.hotBlk[p.role]) || (p.role==='RB' && !!s.backIn && !run && !play.pa && !play.spike && !play.kneel && !play.push && !play.sneak); });   // V46 (12): the back stays in
   if (q.st==='point') { q.st = 'ready'; } q.face = 0; s.motion = false;
   fbHutVoice();
@@ -18988,6 +18998,7 @@ function fbLive(dt){
     if (s.turn) { const ch = s.carrier; if (!ch) { const bb = s.ball; if (bb && bb.x!==undefined) fbMove(p, bb.x, bb.z, FB_SP[k.charAt(0)==='W'?'W':k]*fbRm(p)*0.9, dt, 34); p.st = 'ready'; return; }   // a loose ball: everyone goes after it
       const tg=fbReturnPursuit(p,ch); fbMove(p,tg.x,tg.z, FB_SP[k.charAt(0)==='W'?'W':k]*fbRm(p), dt, 34); p.st = 'ready'; return; }
     if (s.caught && p!==s.ctl && p!==s.carrier) { fbBlockAI(p,dt); return; }
+    if (p.bend && p!==s.carrier && !p.carry && p.route && p.ri >= p.route.length) { fbSpotBlock(p,dt); return; }   // he ran his route: now he blocks right there
     if (run && p!==s.carrier && (play.t==='run' ? p.role!=='RB' : (!p.route || p.blkr))) { fbRunBlock(p,dt); return; }
     if (p.route && p.ri < p.route.length) fbRouteStep(p,dt);
     else if (!p.route && (p.role==='RB' || p.blkr) && !run) { const t = s.eng.find(e => e.d.rusher && !e.d.free); /* RB stays to pass-block */ fbBlockRB(p,dt); }
@@ -19042,6 +19053,17 @@ function fbReturnPursuit(p,car){
   return {x:clamp(car.x+car.vx*lead,1,119),z:clamp(car.z+car.vz*lead+edge,-FB_Z+1,FB_Z-1)};
 }
 function fbBlockRB(p,dt){p.blocking=true;p.st='ready';}
+function fbSpotBlock(p, dt){                                       // a route that ends in a block: at his spot he squares up the nearest defender and gets between him and the ball
+  const s = FB.s, sp = p.bendAt || (p.bendAt = { x:p.x, z:p.z }), car = s.carrier || fbBy('QB'), k = fbKind(p.role), spd = (FB_SP[k.charAt(0)==='W' ? 'W' : k] || 7)*fbRm(p)*0.85;
+  let d = p.sbt; if (d && (d.down || d.tackling || fbDist(d, p) > 7 || (d.shedFrom === p && d.shedT2 > s.t))) d = p.sbt = null;
+  if (!d) d = p.sbt = fbDef().filter(x => !x.down && !x.tackling && !(x.shedFrom === p && x.shedT2 > s.t) && Math.hypot(x.x - sp.x, x.z - sp.z) < 6.5).sort((a,b) => fbDist(a,p) - fbDist(b,p))[0] || null;
+  if (!d) { fbMove(p, sp.x, sp.z, spd*0.6, dt, 26); p.st = 'ready'; fbFace(p, car.x, car.z); p.sbT0 = 0; return; }   // nobody there yet: hold the spot, ready
+  const ax = car.x - d.x, az = car.z - d.z, L = Math.hypot(ax, az) || 1;
+  fbMove(p, d.x + ax/L*0.95, d.z + az/L*0.95, spd, dt, 30); fbFace(p, d.x, d.z);
+  if (fbDist(p, d) < 1.3) { p.st = 'block'; p.blockContact = d.blockContact = true; if (!p.sbT0) { p.sbT0 = s.t; p.sbLen = 1.7 + Math.random()*0.9; } const hold = 0.86 + 0.06*Math.min(1, (p.ur && p.ur.blk ? p.ur.blk - 1 : 0) + 0.5); d.vx *= hold; d.vz *= hold;
+    if (s.t - p.sbT0 > (p.sbLen || 2)) { d.shedFrom = p; d.shedT2 = s.t + 1.4; p.sbt = null; p.sbT0 = 0; } }   // a block lasts about two seconds, then he gets off it
+  else { p.st = 'ready'; p.sbT0 = 0; }
+}
 
 function fbRunBlock(p, dt){
   const s = FB.s, car = s.carrier || fbBy('RB');
@@ -19649,12 +19671,12 @@ function fbSnapNow(){
 const FB_XP_P = 0.95, FB_FG_MAX = 62;   // extra-point success and field-goal range are the same for the CPU and for the user's opponent
 const FB_PLAYCLOCK = 20, FB_PC = 40;   // the play clock is 40 seconds from the whistle
 function fbDefenseSet(){ const s = FB.s; if (!s || s.tutMode) return true;
-  const walking = fbDef().some(d => d.adjTo && d!==s.dctl && d!==s.gdc);                                       // FIX: an adjustment that was asked for gets to finish (bounded: the defense can not stall the snap)
-  if (!s.hurry) return s.preT >= 1.25 && (s.preT >= 3.0 || !walking);
-  return s.preT >= 3.25 && !fbOff().some(p => p.mto || Math.hypot(p.vx||0, p.vz||0) > 0.8) && (s.preT >= 5 || !walking); }   // FIX: a defender jiggling can not force a delay of game   // hurry up: 2 extra seconds, and nobody is still moving   // the defense has lined up and made its pre-snap read
+  if (!s.hurry) return s.preT >= 1.25;                                                                         // a defense still moving (an audible, an adjustment) does not stop the snap: it gets caught moving
+  return s.preT >= 3.25 && !fbOff().some(p => p.mto || Math.hypot(p.vx||0, p.vz||0) > 0.8); }   // FIX: a defender jiggling can not force a delay of game   // hurry up: 2 extra seconds, and nobody is still moving   // the defense has lined up and made its pre-snap read
 // The game clock runs from the snap through any in-bounds play and the huddle until the next snap; it stops on incompletions, out of bounds, scores, turnovers and timeouts.
 function fbClockStep(){
-  const s = FB.s; if (!s || s.tutMode || s.coachCut || FB.intro || FB.scr==='howto') return;   // the coach's moment, the HOW TO PLAY gate and the intro camera cost no game time
+  const s = FB.s; if (s && s.train) { s.pcT = FB_PC; return; }          // PLAY TRAINING: no game clock, no play clock
+  if (!s || s.tutMode || s.coachCut || FB.intro || FB.scr==='howto') return;   // the coach's moment, the HOW TO PLAY gate and the intro camera cost no game time
   const sc = FB.scr, dt = 1/60, between = sc==='call' || sc==='dcall' || sc==='hold' || sc==='pre';
   if (s.pcOn && (between || sc==='dead' || sc==='impact') && !s.tdcLive) {
     s.pcT = Math.max(0, s.pcT - dt);
@@ -19741,6 +19763,7 @@ function fbClockUI(g){
   if (!s.defMode && !s.pat && !s.conv && !(s.fourth && !s.fourthSel) && (sc==='call' || sc==='pre') && 127 - s.los <= fbUtFgMax() && !coopG) fbBtn(g,'fgany',116,24,88,10,'FIELD GOAL  (G)  '+Math.round(127 - s.los)+' YD',{size:4,line:'#7ddc8a',tc:'#c9f7d0'});
   if (fbSpecialOk('kneel') && !coopG) { fbBtn(g,'kneel',206,15,34,10,'KNEEL (K)',{size:3.6,line:'#8fd0ff',tc:'#cfeeff'}); fbBtn(g,'spike',242,15,34,10,'SPIKE (X)',{size:3.6,line:'#8fd0ff',tc:'#cfeeff'}); if (fbSpecialOk('tpush')) fbBtn(g,'tpush',278,15,38,10,'PUSH (P)',{size:3.6,line:'#ffd24a',tc:'#ffe9a8'}); }
   if (sc==='call' && !s.defMode && !s.pat && !s.conv && !(s.fourth && !s.fourthSel) && !coopG) { const pa = gstV ? !!s.paG : !!s.paOn; fbBtn(g,'patog',236,3,74,10,'PLAY ACTION '+(pa?'ON':'OFF')+'  (A)',{size:3.8,on:pa,col:'#ffd24a'}); }
+  if (FB.s && FB.s.train) return;                                   // PLAY TRAINING: no timeouts (the TRAINING button sits here)
   fbBtn(g,'timeout',37,3,64,10,'TIMEOUT  '+n,{size:4.4,line:n>0?'#ffd24a':'#5b6485',tc:n>0?'#ffe9a8':'#7a82a0'});
   fbPanel(g,60,15,42,10,0.8); T('PLAY',72,16.3,'#aeb9dc',3.2,'center'); T(String(pc),92,16.6,pc<=5?'#ff6b6b':'#ffffff',6,'center');
   try { fbClockHint(g); } catch(e){}
@@ -20379,11 +20402,12 @@ function fbLobbyGo(d){
 /* ---- DEV STATUS: stand in the circle at the back of the lobby and type the code. All it does: a blue check by your name + a DEV tag above it. */
 function fbDevOn(){ if (typeof utSrv !== 'undefined' && utSrv.token) return utSrv.dev === true; if (FB.devStatus === undefined) { try { FB.devStatus = localStorage.getItem('fb_devstatus_v1') === '1'; } catch(e){ FB.devStatus = false; } } return !!FB.devStatus; }   // signed in: the server says who is a dev
 function fbDevSet(on){ FB.devStatus = !!on; try { localStorage.setItem('fb_devstatus_v1', on ? '1' : '0'); } catch(e){} }
-function fbCheck(g, cx, cy, r){ g.fillStyle = '#1d9bf0'; g.beginPath(); g.arc(cx,cy,r,0,6.3); g.fill(); g.strokeStyle = '#ffffff'; g.lineWidth = Math.max(0.5, r*0.32); g.beginPath(); g.moveTo(cx-r*0.5,cy+r*0.05); g.lineTo(cx-r*0.12,cy+r*0.45); g.lineTo(cx+r*0.55,cy-r*0.42); g.stroke(); }
+function fbCheck(){}                            // v134: the blue check is part of the NAME now (ntagAfter draws it wherever a verified dev's name is written)
+function fbCheckDraw(g, cx, cy, r){ g.fillStyle = '#1d9bf0'; g.beginPath(); g.arc(cx,cy,r,0,6.3); g.fill(); g.strokeStyle = '#ffffff'; g.lineWidth = Math.max(0.5, r*0.32); g.beginPath(); g.moveTo(cx-r*0.5,cy+r*0.05); g.lineTo(cx-r*0.12,cy+r*0.45); g.lineTo(cx+r*0.55,cy-r*0.42); g.stroke(); }
 function fbDevName(){ return String((typeof utSrv !== 'undefined' && utSrv.user) || (typeof devName === 'function' ? devName() : 'PLAYER')).toUpperCase(); }
 function fbDevTag(g, x, y, name){            // name plate with the blue check, DEV above it
-  const w = name.length*3.7 + 15; uiPanel(g, x-w/2, y-6, w, 9, { r:4, fill:'rgba(12,19,36,.82)', line:'#1d9bf0' }); Tn(name, x-3.5, y-4.2, '#ffffff', 4.4, 'center'); fbCheck(g, x+w/2-6, y-1.6, 2.9);
-  const tw = 3*3.9 + 13; uiPanel(g, x-tw/2, y-16, tw, 8.5, { r:4, fill:'rgba(8,28,64,.92)', line:'#1d9bf0' }); Tn('DEV', x-3, y-14.4, '#bfe3ff', 4.2, 'center'); fbCheck(g, x+tw/2-5.2, y-11.7, 2.8);
+  const w = name.length*3.7 + 15; uiPanel(g, x-w/2, y-6, w, 9, { r:4, fill:'rgba(12,19,36,.82)', line:'#1d9bf0' }); Tn(name, x-3.5, y-4.2, '#ffffff', 4.4, 'center');
+  const tw = 3*3.9 + 13; uiPanel(g, x-tw/2, y-16, tw, 8.5, { r:4, fill:'rgba(8,28,64,.92)', line:'#1d9bf0' }); Tn('DEV', x-3, y-14.4, '#bfe3ff', 4.2, 'center'); fbCheckDraw(g, x+tw/2-5.2, y-11.7, 2.8);
 }
 function fbDevStatusOpen(){
   if (document.getElementById('fbDevBox')) return; const on = fbDevOn(), signed = !!(typeof utSrv !== 'undefined' && utSrv.token), cfg = (signed && utSrv.cfg && utSrv.cfg.packs) || {};
@@ -20396,18 +20420,27 @@ function fbDevStatusOpen(){
         + '<div style="text-align:left;font-size:12px;color:#8fd0ff;letter-spacing:.1em;margin-bottom:6px">GIVE PACKS</div>'
         + '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-bottom:8px"><input id="fbDevTo" type="text" autocomplete="off" spellcheck="false" placeholder="TEAM NAME (blank = me)" '+inp+' style="width:190px"><select id="fbDevPk" '+inp+'>'+packOpts+'</select><input id="fbDevQ" type="number" min="1" max="10" value="1" '+inp+' style="width:60px"></div>'
         + btn('fbDevGive','GIVE','#1d9bf0') + btn('fbDevMe','GIVE ME','#2a7a4a')
+        + '<div style="text-align:left;font-size:12px;color:#ffcc00;letter-spacing:.1em;margin:12px 0 6px">&#9888; WARN A PLAYER (EVERYONE SEES A YELLOW CAUTION SIGN AFTER THEIR NAME - TAP IT = YOUR MESSAGE)</div>'
+        + '<div style="display:flex;flex-direction:column;gap:6px;align-items:stretch;margin-bottom:6px"><input id="fbDevWu" type="text" autocomplete="off" spellcheck="false" placeholder="TEAM NAME TO WARN" '+inp+'>'
+        + '<textarea id="fbDevWm" rows="3" maxlength="240" placeholder="THE MESSAGE PEOPLE SEE WHEN THEY TAP THE SIGN" style="background:#05080f;color:#fff;border:1px solid #ffcc00;border-radius:6px;padding:8px 10px;font:13px monospace;resize:vertical"></textarea></div>'
+        + btn('fbDevWset','SET WARNING','#b38f00') + btn('fbDevWclr','REMOVE WARNING','#5a4a20')
+        + '<div id="fbDevWl" style="text-align:left;font-size:11px;color:#d8c98a;margin-top:6px;max-height:110px;overflow:auto"></div>'
     : '<input id="fbDevIn" type="text" autocomplete="off" spellcheck="false" placeholder="TYPE THE CODE" '+inp+' style="width:210px;text-align:center">')
     + '<div id="fbDevMsg" style="min-height:18px;margin:8px 0;color:#ff8b7b"></div>'
     + (signed && !on ? btn('fbDevGo','UNLOCK','#1d9bf0') : '') + (signed && on ? btn('fbDevOff','TURN OFF','#5a2a2a') : '') + btn('fbDevX','CLOSE','#25304a');
   document.body.appendChild(b); const $ = id => document.getElementById(id), msg = $('fbDevMsg'), close = () => { try { b.remove(); } catch(e){} }, say = (t, ok) => { msg.style.color = ok ? '#7ddc8a' : '#ff8b7b'; msg.textContent = t; };
   const stop = el => { if (!el) return; el.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Escape') close(); }); el.addEventListener('keyup', e => e.stopPropagation()); };
-  ['fbDevIn','fbDevTo','fbDevQ'].forEach(id => stop($(id)));
+  ['fbDevIn','fbDevTo','fbDevQ','fbDevWu','fbDevWm'].forEach(id => stop($(id)));
   if ($('fbDevGo')) { const go = () => { const v = String($('fbDevIn').value || '').trim(); if (!v) return; say('CHECKING...', true); utApi('devunlock', { code:v }).then(d => { if (d && d.ok) { utApply(d); close(); fbMsg('DEV STATUS UNLOCKED', '#4da3ff', 110); try { fbSfx('td'); } catch(e){} } else { say((d && d.err) || 'cannot reach the server', false); $('fbDevIn').value = ''; } }); }; $('fbDevGo').onclick = go; $('fbDevIn').addEventListener('keydown', e => { if (e.key === 'Enter') go(); }); setTimeout(() => { try { $('fbDevIn').focus(); } catch(e){} }, 30); }
   if ($('fbDevOff')) $('fbDevOff').onclick = () => utApi('devunlock', { off:1 }).then(d => { if (d && d.ok) { utApply(d); close(); fbMsg('DEV STATUS OFF', '#9fb0dc', 80); } });
   const give = toMe => { const to = toMe ? (utSrv.user||'') : String($('fbDevTo').value || '').trim() || (utSrv.user||''), pack = $('fbDevPk').value, qty = Math.max(1, Math.min(10, parseInt($('fbDevQ').value, 10) || 1)); say('SENDING...', true);
     utApi('devgive', { to, pack, qty }).then(d => { if (d && d.ok) { utApply(d); say('GAVE '+d.gave+' x '+pack.toUpperCase()+' TO '+String(d.to).toUpperCase(), true); } else say((d && d.err) || 'failed', false); }); };
   if ($('fbDevGive')) $('fbDevGive').onclick = () => give(false); if ($('fbDevMe')) $('fbDevMe').onclick = () => give(true);
   $('fbDevX').onclick = close;
+  const wlist = () => { const L = $('fbDevWl'); if (!L) return; const k = Object.keys(NTAG.warns || {}); L.innerHTML = k.length ? k.map(u => '<div style="margin:3px 0"><b style="color:#ffcc00">&#9888; ' + u.toUpperCase().replace(/</g,'') + '</b> - ' + String(NTAG.warns[u]).replace(/</g,'&lt;') + '</div>').join('') : 'NOBODY IS WARNED'; };
+  const wset = clear => { const target = String($('fbDevWu').value || '').trim().toLowerCase(), m = clear ? '' : String($('fbDevWm').value || '').trim(); if (!target) { say('TYPE A TEAM NAME', false); return; } if (!clear && !m) { say('TYPE THE MESSAGE', false); return; }
+    say('SAVING...', true); utApi('tagset', { target, msg:m }).then(d => { if (d && d.ok) { NTAG.warns = d.warns || {}; NTAG.devs = d.devs || NTAG.devs; NTAG.ver++; NTAG.at = performance.now(); wlist(); say(clear ? 'WARNING REMOVED FROM ' + target.toUpperCase() : 'WARNING SET ON ' + target.toUpperCase(), true); } else say((d && d.err) || 'failed', false); }); };
+  if ($('fbDevWset')) { $('fbDevWset').onclick = () => wset(false); $('fbDevWclr').onclick = () => wset(true); $('fbDevWu').oninput = () => { const v = NTAG.warns[String($('fbDevWu').value || '').trim().toLowerCase()]; if (v != null) $('fbDevWm').value = v; }; ntagLoad(true); setTimeout(wlist, 900); wlist(); }
 }
 function fbLobbyStep(dt){
   const av = FB.lobbyAv; fbRigs.forEach(p => { p.anim += 0.015; }); if (!av) return;
@@ -20452,7 +20485,7 @@ function fbLobbyWalkDraw(g){
   if (FB.lobbyDwell > 0 && FB.lobbyNear) { const d = FB_LPADS.find(q => q.id===FB.lobbyNear); if (d) { fbPanel(g,100,150,120,12,0.8); g.fillStyle = 'rgba(255,255,255,.18)'; g.fillRect(104,159,112,2); g.fillStyle = d.col; g.fillRect(104,159,112*clamp(FB.lobbyDwell/0.55,0,1),2); T('GOING TO  '+d.name,160,152.4,'#ffffff',4.2,'center'); } }
 
   if (PV2.state==='ready') T('MODELS: PLAYER BLAKEALLEN25 - HELMET EXODUSKS - CLEATS LISENHAO - TROPHY G_BORY32 (SKETCHFAB, CC BY 4.0)', 160, 176.6, '#5d6a8f', 2.1, 'center');
-  T('BUILD v133',314,174,'#8fa0cc',4,'right'); { const us = uoStatus(); if (us) T(us, 6, 174, UO.state==='off' ? '#ff8b7b' : '#6f7ea8', 3, 'left'); }
+  T('BUILD v134',314,174,'#8fa0cc',4,'right'); { const us = uoStatus(); if (us) T(us, 6, 174, UO.state==='off' ? '#ff8b7b' : '#6f7ea8', 3, 'left'); }
 }
 /* ---------------------------------------------------------------- ULTIMATE TEAM: hub, collection, cards (packs come in the next stage) */
 const UT_KEY = 'blacktop_ut_v1';
@@ -20537,7 +20570,7 @@ function utInit(){
   if (utSrv.inited) return; utSrv.inited = true;
   try { const o = JSON.parse(localStorage.getItem(UT_SESS)||'null'); if (o && o.user && o.token) { utSrv.user = o.user; utSrv.token = o.token; } } catch(e){}
   if (utSrv.token) utApi('state').then(d => { if (d && d.ok) utApply(d); }); }
-function utAuthDone(d){ utSrv.token = d.token; utApply(d); try { localStorage.setItem(UT_SESS, JSON.stringify({ user:utSrv.user, token:utSrv.token })); } catch(e){} }
+function utAuthDone(d){ utSrv.token = d.token; utApply(d); setTimeout(() => { try { ntagLoad(true); } catch(e){} }, 50); try { localStorage.setItem(UT_SESS, JSON.stringify({ user:utSrv.user, token:utSrv.token })); } catch(e){} }
 function utAuthShow(locked){
   let m = document.getElementById('utAuth'); if (m) { m.remove(); }
   m = document.createElement('div'); m.id = 'utAuth';
@@ -21380,7 +21413,7 @@ function utDetail(g,v){
     FB.btns.push({ id:'utcleat_'+v.pid, x:36, y:139, w:48, h:11 }); T('TAP TO CHANGE', 86, 143.4, '#7f8db0', 2.4, 'left'); }
   fbBtn(g,'utclose',244,167,70,10,'CLOSE',{size:4.4});
 }
-const UT_MENU = [['play','SEASON','A 16-TEAM LEAGUE: MAKE THE PLAYOFFS'],['h2h','HEAD TO HEAD','PLAY A FRIEND IN YOUR PARTY - WAGER COINS'],['team','MY TEAM','EDIT YOUR LINEUP, ROSTER AND LINES'],['shop','PACK SHOP','BUY AND OPEN PACKS, KICKERS'],['pass','BATTLE PASS','XP, COINS, PACKS AND BOOSTERS'],['chal','CHALLENGES','DAILY AND WEEKLY GOALS FOR COINS'],['lb','LEADERBOARD','TOP TEAMS THIS WEEK AND ALL TIME']];
+const UT_MENU = [['play','SEASON','A 16-TEAM LEAGUE: MAKE THE PLAYOFFS'],['h2h','HEAD TO HEAD','PLAY A FRIEND IN YOUR PARTY - WAGER COINS'],['team','MY TEAM','EDIT YOUR LINEUP, ROSTER AND LINES'],['shop','PACK SHOP','BUY AND OPEN PACKS, KICKERS'],['pass','BATTLE PASS','XP, COINS, PACKS AND BOOSTERS'],['chal','CHALLENGES','DAILY AND WEEKLY GOALS FOR COINS'],['lb','LEADERBOARD','TOP TEAMS THIS WEEK AND ALL TIME'],['train','PLAY TRAINING','BUILD 10 O + 10 D PLAYS, TEST THEM HEAD TO HEAD']];
 function utMenu(g){
   uiMark(g,'ULTIMATE TEAM',160,7,9,'#ffffff','center',-0.04);
   fbBtn(g,'utback',4,4,44,11,'< BACK',{size:4.2});
@@ -21802,6 +21835,7 @@ function fbUtAct(id){
   if (/^utcleat_/.test(id)) { utCleatPick(id.slice(8), 1); fbSfx('tick'); return true; }
   if (id==='utback') { if (U.xfo) U.xfo = null; else if (U.rev) { if (!U.busy) U.rev = null; } else if (U.view) U.view = null; else if (U.tab==='team' && U.pick) U.pick = null; else if (U.tab==='coll') U.tab = 'team'; else if (U.tab==='stat') U.tab = 'h2h'; else if (U.tab && U.tab!=='menu') U.tab = 'menu'; else fbUtClose(); fbSfx('tick'); return true; }
   if (id==='utclose') { U.view = null; return true; }
+  if (id==='utm_train') { utPlayTraining(); return true; }
   if (/^utm_/.test(id)) { const k = id.slice(4); U.tab = k==='shop' ? 'packs' : k; U.pg = 0; U.err = ''; fbSfx('tick'); return true; }
   if (id==='utrewb') { U.tab = 'rew'; return true; }
   if (id==='utstatb') { U.tab = 'stat'; return true; }
@@ -22099,7 +22133,7 @@ function fbEnd(res){
   FB.scr = hasImpact ? 'impact' : 'dead'; s.impactT=hasImpact?impactLeft+0.2:0; s.deadT = 2.5; s.aimShow = false; s.tgtShow = false; s.charging = false;
   const los = s.los; let txt = '', col = '#fff', time = 28;
   const yardTxt = n => (n>=0 ? 'GAIN OF ' : 'LOSS OF ') + Math.abs(Math.round(n)) + (Math.abs(Math.round(n))===1 ? ' YARD' : ' YARDS');
-  const gain = Math.round(res.x - los);
+  const gain = Math.round(res.x - los); s.trGain = gain;
   const pointActor=s.carrier||s.ctl,gainedInPlayDirection=s.turn?Math.round(los-res.x):gain;
   try { fbHlTag(res, Math.abs(gainedInPlayDirection)); } catch(e){}
   if(pointActor&&gainedInPlayDirection>=20&&['tackle','oob','turntackle'].includes(res.type)){s.pointBy=pointActor;}else s.pointBy=null;
@@ -22186,6 +22220,7 @@ function fbDeadStep(){
 function fbAfter(){
   const s = FB.s, k = s.kind;
   if (s.coachCut) fbCoachCutEnd();
+  if (s.train) { fbTrainAfter(); return; }
   if (s.foul && !s.tutMode && !(FBN.on && FBN.role==='guest') && fbFoulOffer()) return;
   if ((k==='td' || k==='pick6' || s.rpBig) && !s.tutMode && !s.rpDone && fbRpStart()) return;   // V46 (27): big gains, turnovers, sacks and 4th downs get the replay too
   if (s.tutMode) { fbTutAfter(); return; }
@@ -22714,7 +22749,9 @@ function fbDiagram(g,x,y,w,h,play,o){
       const al = o.custom.al && o.custom.al[r];
       if (al) { const a = P(F[r][1],F[r][0]), b = P(al[1],al[0]); g.strokeStyle = 'rgba(255,255,255,.55)'; g.setLineDash([1.5,1.5]); g.lineWidth = 0.8; g.beginPath(); g.moveTo(a[0],a[1]); g.lineTo(b[0],b[1]); g.stroke(); g.setLineDash([]); g.fillStyle = 'rgba(255,255,255,.35)'; g.beginPath(); g.arc(a[0],a[1],1.3,0,6.3); g.fill(); }
       if (o.custom.blk && o.custom.blk[r]) { const st = SP(r), [bx,by] = P(st[1],st[0]); g.strokeStyle = FB_COL[r]; g.lineWidth = 1.4; g.beginPath(); g.moveTo(bx,by); g.lineTo(bx,by-6); g.moveTo(bx-3,by-6); g.lineTo(bx+3,by-6); g.stroke(); return; }
-      const ro = o.custom.ro[r]; if (ro && ro.length) line(r, ro, FB_COL[r], o.custom.sel===r ? 1.8 : 1.1);
+      const ro = o.custom.ro[r]; if (ro && ro.length) { line(r, ro, FB_COL[r], o.custom.sel===r ? 1.8 : 1.1);
+        if (o.custom.bend && o.custom.bend[r]) { const st = SP(r), n = ro.length, [ex,ey] = P(st[1]+ro[n-1][1], ro[n-1][0]), [bx,by] = n > 1 ? P(st[1]+ro[n-2][1], ro[n-2][0]) : P(st[1],st[0]), an = Math.atan2(ey-by, ex-bx) + Math.PI/2;
+          g.strokeStyle = '#ffd24a'; g.lineWidth = 1.6; g.beginPath(); g.moveTo(ex - Math.cos(an)*3.4, ey - Math.sin(an)*3.4); g.lineTo(ex + Math.cos(an)*3.4, ey + Math.sin(an)*3.4); g.stroke(); } }
     });
   }
   if (o.custom && o.custom.ro && o.custom.ro.QB && o.custom.ro.QB.length) line('QB', o.custom.ro.QB, '#ffffff', o.custom.sel==='QB' ? 1.8 : 1.1);
@@ -22745,7 +22782,7 @@ function fbvCapsule(g,x,y,w,h,prim,sec){                       // the control st
   if (sec) T(sec,x+w/2,y+(prim ? 10.6 : h/2-2),'#b9c9db',3.3,'center');
 }
 function fbHud(g){
-  const s = FB.s, c = Math.max(0,s.clock), mm = Math.floor(c/60), ss = String(Math.floor(c%60)).padStart(2,'0');
+  const s = FB.s, c = Math.max(0,s.clock), mm = s.train ? '--' : Math.floor(c/60), ss = s.train ? '--' : String(Math.floor(c%60)).padStart(2,'0');      // PLAY TRAINING: no clock
   const A = fbLabA(), B = fbLabB(), x = 100, y = 2, w = 120, h = 14, nmA = String(A==='YOU' && typeof utSrv!=='undefined' && utSrv.user ? utSrv.user : A).toUpperCase().slice(0,7), nmB = String(B).slice(0,7);
   g.fillStyle = 'rgba(5,9,20,.88)'; rrect(g,x,y,w,h,2.5); g.fill(); g.strokeStyle = 'rgba(120,160,230,.4)'; g.lineWidth = 0.4; rrect(g,x,y,w,h,2.5); g.stroke();
   fbvPanel(g, x+1, y+1, 36, h-2, '#2f82f5', '#0f3d9c', 2.2); fbvPanel(g, x+w-37, y+1, 36, h-2, '#e8504e', '#8e1f1f', -2.2);
@@ -22844,6 +22881,8 @@ function fbOverlay(){
   if (sc==='lobby') { if (TOUR.open) tourDraw(g); else if (FB.shop) fbShopDraw(g); else if (FB.stats) fbStatsDraw(g); else if (FB.lobbyPanel) { fbLobbyDraw(g); fbLookDraw(g); } else if (FB.lookOpen) fbLookDraw(g); else fbLobbyWalkDraw(g); }
   else if (sc==='call') fbCallDraw(g);
   else if (sc==='dcall') fbDefCallDraw(g);
+  else if (sc==='train') fbTrainDraw(g);
+  if ((sc==='call' || sc==='dcall' || sc==='pre') && FB.s && FB.s.train) fbBtn(g,'ptr_hub',37,3,64,10,'< TRAINING MENU',{ size:3.6, col:'#7ddc8a' });
   else if (sc==='wait' || sc==='dwait' || sc==='hold') fbnWaitDraw(g);
   else if (sc==='defask') fbDefAskDraw(g);
   else if (sc==='pre' && s.defMode) fbDefPreDraw(g);
@@ -22874,7 +22913,7 @@ function fbOverlay(){
   else if (sc==='half') fbHalfDraw(g);
   else if (sc==='howto') fbHowtoDraw(g);
   else if (sc==='over') fbOverDraw(g);
-  if (FB.training && sc!=='lobby' && sc!=='ut') T('TRAINING LAB - ENDLESS PLAYS - NO COINS', 160, 174, '#7ddc8a', 3.2, 'center');
+  if (FB.training && sc!=='lobby' && sc!=='ut' && sc!=='train') T('PLAY TRAINING - NO CLOCK - NO COINS', 160, 174, '#7ddc8a', 3.2, 'center');
   if (sc==='live') { try { fbRatingsDraw(g); } catch(e){} }
   if (sc==='live') { try { fbBxDraw(g); } catch(e){} if (s.foul) { g.fillStyle = '#ffd24a'; g.fillRect(150,26,8,6); T('FLAG',160,33,'#ffd24a',5,'center'); } }
   try { tdcPickDraw(g); } catch(e){ console.error('tdc pick', e); }
@@ -22884,6 +22923,7 @@ function fbOverlay(){
   try { fbClockUI(g); } catch(e){ console.error('clockui', e); }
   try { devOverlay(g); } catch(e){ console.error('devoverlay', e); }
   if (FB.esc) { FB.btns = []; fbEscDraw(g); }
+  try { ntagLoad(false); if (FB.warnPop) ntagPopDraw(g); } catch(e){ console.error('ntag', e); }
   try { fbSkipUI(g); fbHurryDraw(g); } catch(e){ console.error('hurryui', e); }
 }
 function fbLobbyDraw(g){
@@ -22905,7 +22945,7 @@ function fbLobbyDraw(g){
   if (PARTY.npc && !PARTY.on) T(PARTY.npc.name+' SUITS UP AS YOUR W1',160,55,'#7ddc8a',5,'center');
   fbBtn(g,'lobbyback',6,5,76,12,'< BACK TO THE FIELD',{size:4.6});
   fbBtn(g,'party',6,19,76,10,PARTY.on ? 'PARTY  '+PARTY.code.toUpperCase() : 'PLAY WITH A FRIEND',{size:4.4,line:'#7ddc8a',tc:'#c9f7d0'});
-  T('BUILD v133',314,174,'#8fa0cc',4,'right');   // so you can tell which build is live
+  T('BUILD v134',314,174,'#8fa0cc',4,'right');   // so you can tell which build is live
   fbBtn(g,'tut',100,141,58,13,'TUTORIAL',{size:5,line:'#ffd24a',tc:'#ffe9a8'}); fbBtn(g,'howlobby',162,141,58,13,'HOW TO PLAY',{size:4.4,line:'#ffd24a',tc:'#ffe9a8'});
   fbBtn(g,'shop',6,141,90,13,'PLAY SHOP',{size:5.5,line:'#7ddc8a',tc:'#c9f7d0'});
   fbBtn(g,'stats',224,141,90,13,'MY STATS',{size:5.5,line:'#6fd0ff',tc:'#cfeeff'});
@@ -22948,14 +22988,16 @@ function fbCallDraw(g){
   } else {
     fbCustomEditor(g); const c = s.custom;
     if (FB.benchOpen) fbBenchDraw(g, c); else {
-    { const isB = !!(c.blk && c.blk[c.sel]); fbBtn(g,'cblk',234,47,76,12,isB ? c.sel+' BLOCKS  (TAP = ROUTE)' : 'SET '+c.sel+' TO BLOCK',{ size:4, on:isB, col:'#ffd24a' }); }
-    fbBtn(g,'clr',234,62,76,13,'CLEAR ROUTE',{size:5});
-    fbBtn(g,'clrall',234,78,76,13,'CLEAR ALL',{size:5});
-    const sl = FB.slotCache || (FB.slotCache = fbSlots()); c.slot = c.slot|0;
-    T('SAVE SLOTS',272,96,'#ffd24a',4.6,'center');
-    [0,1,2].forEach(i => fbBtn(g,'slot'+i,234+i*26,103,24,13,(i+1)+(sl[i]?'':' -'),{on:c.slot===i,col:sl[i]?'#7ddc8a':'#8a93ad',size:5.5}));
-    fbBtn(g,'save',234,119,76,12,'SAVE TO SLOT '+(c.slot+1),{size:4.6,line:'#7ddc8a'});
-    T('TAP A SLOT TO LOAD IT',272,134,'#8fa0cc',3.8,'center');
+    { const isB = !!(c.blk && c.blk[c.sel]); fbBtn(g,'cblk',234,47,76,11,isB ? c.sel+' BLOCKS  (TAP = ROUTE)' : 'SET '+c.sel+' TO BLOCK',{ size:3.8, on:isB, col:'#ffd24a' }); }
+    fbBtn(g,'clr',234,60,37,10,'CLEAR ROUTE',{size:3.2}); fbBtn(g,'clrall',273,60,37,10,'CLEAR ALL',{size:3.2});
+    const tr = fbTrainOn(), sl = FB.slotCache || (FB.slotCache = fbSlots()), N = sl.length; c.slot = Math.min(c.slot|0, N-1);
+    T(tr ? 'TRAINING PLAYS (10)' : 'GAME PLAYS',272,72.5,'#ffd24a',3.6,'center');
+    if (N > 3) sl.forEach((p,i) => fbBtn(g,'slot'+i,234+(i%5)*15.4,77+Math.floor(i/5)*11.5,14.4,10.5,String(i+1),{on:c.slot===i,col:p?'#7ddc8a':'#8a93ad',size:3.8}));
+    else sl.forEach((p,i) => fbBtn(g,'slot'+i,234+i*26,77,24,12,String(i+1)+(p?'':' -'),{on:c.slot===i,col:p?'#7ddc8a':'#8a93ad',size:5}));
+    { const yN = N > 3 ? 101 : 92, cur = sl[c.slot]; T((c.name || (cur && cur.name) || 'UNNAMED PLAY').slice(0,18), 272, yN, c.name ? '#ffffff' : '#8fa0cc', 3.2, 'center');
+      fbBtn(g,'cname',234,yN+6,37,10,'NAME IT',{size:3.4,col:'#c7a6ff'}); fbBtn(g,'save',273,yN+6,37,10,'SAVE '+(c.slot+1),{size:3.4,line:'#7ddc8a'});
+      if (tr) { T('SEND TO A GAME SLOT', 272, yN+19, '#9fb0dc', 2.8, 'center'); [0,1,2].forEach(i => fbBtn(g,'cgame'+i,234+i*26,yN+23,24,9,'GAME '+(i+1),{size:2.8,col:'#ffb74a'})); }
+      else T('TAP A SLOT TO LOAD IT', 272, yN+20, '#8fa0cc', 3.2, 'center'); }
     }
     fbBtn(g,'runc',234,141,76,26,'RUN PLAY',{on:true,col:'#7ddc8a',size:8});
   }
@@ -23091,7 +23133,11 @@ function fbOverDraw(g){
 function fbPtr(e){ const r = canvas.getBoundingClientRect(); return { px:(e.clientX-r.left)/r.width, py:(e.clientY-r.top)/r.height }; }
 function fbBtnAt(px,py){ const x = px*W, y = py*H; return (FB.btns||[]).find(b => x>=b.x && x<=b.x+b.w && y>=b.y && y<=b.y+b.h); }
 function fbAct(id){
+  if (/^nwarn:/.test(id)) { const u = id.slice(6), e = ntagMap().get(u); FB.warnPop = { u, msg:(e && e.warn) || '' }; try { fbSfx('tick'); } catch(e2){} return; }
+  if (id === 'nwarnx') { FB.warnPop = null; return; }
   if (/^tour/.test(id) && typeof TOUR !== 'undefined' && TOUR.open) { tourAct(id); return; }
+  if (/^(dtab\d|dcs\d+|dce\d+|dcnew)$/.test(id) && FB.scr === 'dcall') { fbDTabAct(id); return; }
+  if (/^ptr_/.test(id) && FB.s && FB.s.train) { fbTrainAct(id); return; }
   if (FB.esc && /^e(save|claim|del|res)$/.test(id)) { fbEscAct(id); return; }
   if (FB.scr==='ut' && /^ut/.test(id) && fbUtAct(id)) return;
   const s = FB.s;
@@ -23152,6 +23198,8 @@ function fbAct(id){
   else if (id==='pgp' || id==='pgn') { const n = Math.ceil((s.tab===1 ? FBP.run : FBP.pass).length/6); s.pg = ((s.pg|0) + (id==='pgn' ? 1 : n-1)) % n; fbSfx('tick'); }
   else if (id.startsWith('slot')) { fbSlotLoad(+id.slice(4)); fbSfx('tick'); }
   else if (id==='save') { fbSlotSave(s.custom.slot|0); }
+  else if (id==='cname') { const v = fbAskName(s.custom.name); if (v != null) { s.custom.name = v; fbMsg(v ? 'NAMED ' + v + ' - NOW SAVE IT' : 'NAME CLEARED', '#c7a6ff', 70); } }
+  else if (/^cgame\d$/.test(id)) { const i = +id.slice(5), a = fbSlots('game'); a[i] = fbSlotPack(s.custom); if (fbSlotsPut(a, 'game')) fbMsg((a[i].name || 'THIS PLAY') + ' IS NOW GAME PLAY ' + (i+1), '#ffb74a', 80); }
   else if (id.startsWith('play')) { if (FB.scr!=='call') return; const i = +id.slice(4) + (s.pg|0)*6, p = (s.tab===0 ? FBP.pass : FBP.run)[i]; if (p && fbPlayLocked(s.tab===0 ? 'p' : 'r', i)) { fbMsg('LOCKED - UNLOCK IT IN THE PLAY SHOP (FOOTBALL LOBBY)','#ffb74a',110); fbSfx('tick'); return; } if (p) fbCallPlay(Object.assign({t:s.tab===0?'pass':'run'},p)); }
   else if (id==='pers') { if (/^W[123]$/.test(s.custom.sel)) fbPersCycle(s.custom, s.custom.sel); else fbMsg('PICK W1, W2 OR W3 FIRST','#ffd24a',60); }
   else if (id.startsWith('pos')) { s.custom.sel = id.slice(3); fbSfx('tick'); }
@@ -23749,7 +23797,7 @@ function fbJbDraw(){
     g.fillStyle = '#1f5fd6'; g.fillRect(40, h*0.72, 300, h*0.24); g.fillStyle = '#d23a2c'; g.fillRect(w-340, h*0.72, 300, h*0.24);
     g.fillStyle = '#ffffff'; g.font = fbvFont(36); g.fillText(FBN.on ? 'HOME' : String((utSrv && utSrv.user) || 'YOU').toUpperCase().slice(0,10), 130, h*0.79); g.fillText(FBN.on ? 'AWAY' : String(fbLabB()).slice(0,10), w-250, h*0.79);
     g.font = fbvFont(74); g.fillText(String(s.you|0), 130, h*0.89); g.fillText(String(s.cpu|0), w-250, h*0.89);
-    const c = Math.max(0, s.clock||0), mm = Math.floor(c/60), ss = String(Math.floor(c%60)).padStart(2,'0');
+    const c = Math.max(0, s.clock||0), mm = s.train ? '--' : Math.floor(c/60), ss = s.train ? '--' : String(Math.floor(c%60)).padStart(2,'0');
     g.fillStyle = '#ffd24a'; g.font = fbvFont(54); g.fillText(s.ot ? 'OVERTIME' : 'Q'+(s.q||1)+'   '+mm+':'+ss, w/2, h*0.80);
     const dn = ['1ST','2ND','3RD','4TH'][Math.min(3,Math.max(0,(s.down||1)-1))];
     g.fillStyle = '#e8ecf8'; g.font = fbvFont(38); g.fillText(dn+' & '+(s.toGo>=10 && s.first>=110 ? 'GOAL' : Math.max(1,Math.round(s.toGo||10))), w/2, h*0.91);
@@ -23886,7 +23934,7 @@ function fbDefToCall(){
   if (!s.hurry && !FBN.on && (s.toC|0)===0 && s.clockRun && (s.q===2 || s.q===4) && s.clock <= 130 && s.cpu <= s.you) { s.hurry = true; fbMsg('CPU HURRY UP', '#ffd24a', 100); }   // the CPU has no timeouts left and needs the clock
   if (s.down === 4) { if (fbVs()) { s.f4 = 1; } else if (fbDefFourth()) return; }
   s.ending = false; s.celeDone = false; s.res = null; s.carrier = null; s.ctl = null; s.thrown = false; s.handed = false; s.turn = false; s.caught = false;
-  s.cplay = s.hurry ? fbHurryPlay() : fbCpuPlay(); fbSetup(s.cplay);
+  s.cplay = (s.train && s.trO) ? fbSlotPlay(s.trO) || fbCpuPlay() : s.hurry ? fbHurryPlay() : fbCpuPlay(); fbSetup(s.cplay);
   s.ball = { mode:'ground', x:s.los, z:0 }; s.aimShow = false; s.tgtShow = false;
   fbRigs.forEach(p => { p.rig.root.visible = true; });
   s.camFocus = { x:s.los+5, z:0 }; FB.camSnap = true; FB.scr = 'dcall'; s.phase = 'dcall';
@@ -24016,8 +24064,8 @@ function fbShiftApply(){                                            // V46 (11):
 function fbDefAdjustStep(dt){
   const s = FB.s; if (!s) return;
   fbDef().forEach(d => { if (!d.adjTo || d===s.dctl || d===s.gdc) return; const [tx,tz] = d.adjTo;
-    if (Math.hypot(tx-d.x, tz-d.z) < 0.15) { d.x = tx; d.z = tz; d.vx = d.vz = 0; d.adjTo = null; d.base = [tx - s.los, tz]; d.face = Math.PI; const m = FB_MATE.find(([a]) => a===d.role), o = m && fbBy(m[1]); if (o) d.mOff = tz - o.z; return; }
-    fbMove(d, tx, tz, 6, dt, 24); d.st = 'ready'; });
+    if (Math.hypot(tx-d.x, tz-d.z) < 0.15) { d.x = tx; d.z = tz; d.vx = d.vz = 0; d.adjTo = null; d.adjSpd = 0; d.base = [tx - s.los, tz]; d.face = Math.PI; const m = FB_MATE.find(([a]) => a===d.role), o = m && fbBy(m[1]); if (o) d.mOff = tz - o.z; return; }
+    fbMove(d, tx, tz, d.adjSpd || 6, dt, 24); d.st = 'ready'; });
 }
 function fbDefPickAt(px, py){
   let best = null, bd = 1e9;
@@ -24244,8 +24292,9 @@ function fbDefCallDraw(g){
   if (FB.ddraw) { fbDDraw(g); return; }
   const s = FB.s, dn = ['1ST','2ND','3RD','4TH'][Math.min(3,s.down-1)], tg = (s.first >= FB_GOAL) ? 'GOAL' : Math.round(s.toGo);
   fbPanel(g,6,28,152,146,0.82);
-  T('DEFENSIVE CALL',82,33,'#ffd24a',7,'center');
-  T(fbLabB()+' '+dn+' & '+tg+'  AT '+fbSpot(s.yl),82,43,'#cfd8f4',5,'center');
+  fbBtn(g,'dtab0',10,30,70,10,'CALLS',{ on:!s.dtab, size:4.6 }); fbBtn(g,'dtab1',84,30,70,10,'CUSTOM',{ on:!!s.dtab, size:4.6, col:'#7ddc8a' });
+  T(fbLabB()+' '+dn+' & '+tg+'  AT '+fbSpot(s.yl),82,42,'#cfd8f4',4.6,'center');
+  if (s.dtab) { fbDCustomList(g); } else
   FB_DCALLS.forEach((c,i) => {
     const y = 49 + i*17.5, cu = c.id==='custom';
     const sel = s.dcall===c.id; fbBtn(g,'dcall'+i,12,y,140,16,'',{line:sel?'#ffd24a':cu?'#7ddc8a':'#6f7ea8'});
@@ -24257,6 +24306,23 @@ function fbDefCallDraw(g){
   T(['STOUT AGAINST THE RUN','FASTER IN COVERAGE, SOFTER UP FRONT','ALL SPEED - A RUN WILL HURT'][s.dform|0],238,143,'#aeb9dc',3.6,'center');
   fbPanel(g,162,150,152,20,0.7);
   T('THEN CLICK THE DEFENDER YOU WANT',238,154,'#e8ecf8',4.8,'center'); T('1-6 OR CLICK A CALL',238,162,'#8fa0cc',4.5,'center');
+}
+function fbDCustomList(g){                                          // the CUSTOM tab: your saved defenses - tap one to call it, EDIT to change it
+  const s = FB.s, sl = FB.dslotCache || (FB.dslotCache = fbDSlots()), N = sl.length, H = N > 3 ? 11.4 : 17.5;
+  sl.forEach((p,i) => { const y = 49 + i*H, nm = p ? (p.name || 'DEFENSE ' + (i+1)) : 'EMPTY SLOT';
+    fbBtn(g,'dcs'+i,12,y,110,H-1.5,'',{ line:p ? '#7ddc8a' : '#4c5878' });
+    T((i+1)+'  '+nm, 16, y + (N > 3 ? 1.6 : 1.8), p ? '#b9f5c4' : '#8a93ad', N > 3 ? 3.8 : 5, 'left');
+    if (N <= 3) T(p ? fbDSum(p) : 'TAP EDIT TO DRAW ONE', 16, y + 9, '#9fb0dc', 3.2, 'left');
+    fbBtn(g,'dce'+i,124,y,28,H-1.5,p ? 'EDIT' : 'DRAW',{ size:3.6, col:'#c7a6ff' }); });
+  if (N <= 3) { fbBtn(g,'dcnew',12,107,140,13,'+ DRAW A NEW DEFENSE',{ size:4.4, col:'#7ddc8a' }); T('SAVED IN THE EDITOR - PLAY TRAINING HAS 10 MORE', 82, 124, '#8fa0cc', 2.8, 'center'); T('YOUR CUSTOM DS ARE IN THE AUDIBLE MENU TOO (V)', 82, 130, '#8fa0cc', 2.8, 'center'); }
+}
+function fbDTabAct(id){
+  const s = FB.s; if (!s) return;
+  if (/^dtab\d$/.test(id)) { s.dtab = id === 'dtab1' ? 1 : 0; FB.dslotCache = null; fbSfx('tick'); return; }
+  if (id === 'dcnew') { FB.dcus = Object.assign(fbDPlanDefault(), { slot:0, name:'' }); FB.ddraw = true; FB.dsel = null; fbSfx('tick'); return; }
+  const i = +id.replace(/\D/g, ''), p = fbDSlots()[i];
+  if (/^dce/.test(id) || !p) { FB.dcus = p ? fbDLoad(p, i) : Object.assign(fbDPlanDefault(), { slot:i, name:'' }); FB.ddraw = true; FB.dsel = null; fbSfx('tick'); return; }
+  FB.dcus = fbDLoad(p, i); fbAct('ddrun');                          // call it straight away (solo, host or guest: the normal CALL IT path)
 }
 function fbDefLabels(g){
   const s = FB.s;
@@ -24407,28 +24473,46 @@ function fbMotionStep(){
   const wz = ['W1','W2','W3','TE'].map(r => fbBy(r).z).reduce((a,b) => a+b, 0)/4;
   if (s.dmode!=='custom') ['S2'].forEach(r => { const d = fbBy(r); if (!d || d===s.gdc || (s.defMode && d===s.dctl) || !d.base || d.adjTo) return; const tz = clamp(d.base[1] + wz*0.4, -18, 18); if (Math.abs(tz-d.z) > 0.15) fbMove(d, s.los + d.base[0], tz, 6, dt, 20); else { d.vx = d.vz = 0; d.face = Math.PI; } });
 }
-const FB_SLOTKEY = 'blacktop_fb_plays_v1';
-function fbSlots(){ try { const a = JSON.parse(localStorage.getItem(FB_SLOTKEY) || 'null'); if (Array.isArray(a) && a.length===3) return a; } catch(e){} return [null,null,null]; }
-function fbSlotSave(i){
-  const s = FB.s, c = s.custom, a = fbSlots();
-  a[i] = { ro:JSON.parse(JSON.stringify(c.ro)), al:JSON.parse(JSON.stringify(c.al||{})), blk:Object.assign({}, c.blk||{}), pers:Object.assign({}, c.pers||{}), ty:c.ty||'pass', hb:(c.hb||[-4.2,1.2]).slice() };
-  try { localStorage.setItem(FB_SLOTKEY, JSON.stringify(a)); fbMsg('SAVED TO SLOT '+(i+1), '#7ddc8a', 60); } catch(e){ fbMsg('COULD NOT SAVE HERE', '#ff6b6b', 60); }
-  FB.slotCache = null;
+const FB_SLOTKEY = 'blacktop_fb_plays_v1', FB_SLOTKEY_T = 'blacktop_fb_plays_train_v1';      // 3 game plays (any game) + 10 training plays (PLAY TRAINING)
+function fbTrainOn(){ return !!(FB.s && FB.s.train); }
+function fbSlotSet(set){ return set || (fbTrainOn() ? 'train' : 'game'); }
+function fbSlotsRaw(key, n){ try { const a = JSON.parse(localStorage.getItem(key) || 'null'); if (Array.isArray(a)) { const b = a.slice(0, n); while (b.length < n) b.push(null); return b; } } catch(e){} return Array(n).fill(null); }
+function fbSlots(set){ const tr = fbSlotSet(set) === 'train'; return fbSlotsRaw(tr ? FB_SLOTKEY_T : FB_SLOTKEY, tr ? 10 : 3); }
+function fbSlotsPut(a, set){ const tr = fbSlotSet(set) === 'train'; try { localStorage.setItem(tr ? FB_SLOTKEY_T : FB_SLOTKEY, JSON.stringify(a)); FB.slotCache = null; return true; } catch(e){ return false; } }
+function fbNameClean(v){ return String(v || '').toUpperCase().replace(/[^A-Z0-9 '!.&-]/g, '').replace(/\s+/g, ' ').trim().slice(0, 18); }
+function fbSlotPack(c){ return { name:fbNameClean(c.name), ro:JSON.parse(JSON.stringify(c.ro)), al:JSON.parse(JSON.stringify(c.al||{})), blk:Object.assign({}, c.blk||{}), bend:Object.assign({}, c.bend||{}), pers:Object.assign({}, c.pers||{}), ty:c.ty||'pass', hb:(c.hb||[-4.2,1.2]).slice() }; }
+function fbSlotSave(i, set){
+  const s = FB.s, c = s.custom, a = fbSlots(set); a[i] = fbSlotPack(c); const nm = a[i].name || 'PLAY ' + (i+1);
+  if (fbSlotsPut(a, set)) fbMsg('SAVED ' + nm + ' TO ' + (fbSlotSet(set) === 'game' && fbTrainOn() ? 'GAME ' : '') + 'SLOT ' + (i+1), '#7ddc8a', 70); else fbMsg('COULD NOT SAVE HERE', '#ff6b6b', 60);
+}
+function fbSlotFill(c, a){                                          // a saved play -> the editor
+  ['QB','W1','W2','W3','TE','RB'].forEach(r => { c.ro[r] = (a.ro && a.ro[r]) ? a.ro[r].map(p => p.slice()) : []; }); c.ty = a.ty || 'pass'; c.hb = (a.hb || [-4.2,1.2]).slice(); c.pers = Object.assign({}, a.pers||{});
+  c.al = {}; Object.keys(a.al||{}).forEach(r => { if (a.al[r]) c.al[r] = a.al[r].slice(); });
+  c.blk = Object.assign({}, a.blk||{}); c.bend = Object.assign({}, a.bend||{}); c.name = fbNameClean(a.name); return c;
 }
 function fbSlotLoad(i){
   const s = FB.s, c = s.custom, a = fbSlots()[i]; c.slot = i;
-  if (!a) { fbMsg('SLOT '+(i+1)+' IS EMPTY - DRAW A PLAY, THEN SAVE', '#ffd24a', 70); return; }
-  ['QB','W1','W2','W3','TE','RB'].forEach(r => { c.ro[r] = (a.ro && a.ro[r]) ? a.ro[r].map(p => p.slice()) : []; }); c.ty = a.ty || 'pass'; c.hb = (a.hb || [-4.2,1.2]).slice(); c.pers = Object.assign({}, a.pers||{});
-  c.al = {}; Object.keys(a.al||{}).forEach(r => { if (a.al[r]) c.al[r] = a.al[r].slice(); });
-  c.blk = Object.assign({}, a.blk||{}); fbMsg('LOADED SLOT '+(i+1), '#7ddc8a', 50);
+  if (!a) { c.name = ''; fbMsg('SLOT '+(i+1)+' IS EMPTY - DRAW A PLAY, NAME IT, SAVE', '#ffd24a', 80); return; }
+  fbSlotFill(c, a); fbMsg('LOADED ' + (c.name || 'SLOT '+(i+1)), '#7ddc8a', 50);
 }
+function fbSlotPlay(a){ if (!a) return null; const c = fbSlotFill({ sel:'RB', ro:{} }, a); return fbCustomBuild(c); }      // a saved play, ready to run (audibles, PLAY TRAINING)
+function fbAskName(cur){ let v = null; try { v = prompt('Name this play (18 letters max)', cur || ''); } catch(e){} return v == null ? null : fbNameClean(v); }
 function fbCustomDots(){
   const d = FB.diagRect; if (!d) return []; const dm = d.dm, c = FB.s.custom;
   return ['RB','TE','W1','W2','W3'].map(r => { const a = (c.al && c.al[r]) || FB_FORM.shot[r]; return { r, x:dm.cx + a[1]*dm.sx, y:dm.yLos - a[0]*dm.sy }; });
 }
+function fbCustomEnds(){                                         // where each drawn route ends on the diagram (its arrow)
+  const d = FB.diagRect; if (!d) return []; const dm = d.dm, c = FB.s.custom;
+  return ['RB','TE','W1','W2','W3'].map(r => { const ro = c.ro && c.ro[r]; if (!ro || !ro.length || (c.blk && c.blk[r])) return null; const a = (c.al && c.al[r]) || FB_FORM.shot[r], e = ro[ro.length-1];
+    return { r, x:dm.cx + (a[1] + e[1])*dm.sx, y:dm.yLos - e[0]*dm.sy }; }).filter(Boolean);
+}
 function fbCustomDown(x, y){
   const s = FB.s, c = s.custom, now = performance.now();
-  c.al = c.al || {}; c.blk = c.blk || {};
+  c.al = c.al || {}; c.blk = c.blk || {}; c.bend = c.bend || {};
+  { const e = fbCustomEnds().map(o => Object.assign(o, { d:Math.hypot(o.x-x, o.y-y) })).filter(o => o.d < 4.5).sort((a,b) => a.d-b.d)[0];
+    if (e) { if (FB.lastEnd && FB.lastEnd.r === e.r && now - FB.lastEnd.t < 420) { FB.lastEnd = null; c.sel = e.r; c.bend[e.r] = !c.bend[e.r];
+        fbMsg(c.bend[e.r] ? e.r+' RUNS THERE, THEN BLOCKS THERE' : e.r+' RUNS HIS ROUTE (NO BLOCK)', c.bend[e.r] ? '#ffd24a' : '#aeb9dc', 80); fbSfx('tick'); return; }
+      FB.lastEnd = { r:e.r, t:now }; c.sel = e.r; fbSfx('tick'); return; } }                // one click on the arrow just picks him (it does not wipe the route)
   const hit = fbCustomDots().map(o => Object.assign(o, { d:Math.hypot(o.x-x, o.y-y) })).filter(o => o.d < 5.5).sort((a,b) => a.d-b.d)[0];
   if (hit) {
     if (FB.lastDot && FB.lastDot.r===hit.r && now - FB.lastDot.t < 380 && hit.r!=='QB') {   // double click = block / route
@@ -24437,7 +24521,7 @@ function fbCustomDown(x, y){
     }
     FB.lastDot = { r:hit.r, t:now }; c.sel = hit.r; FB.dragDot = { r:hit.r, x0:x, y0:y, moved:false }; fbSfx('tick'); return;
   }
-  c.ro[c.sel] = []; c.blk[c.sel] = false; FB.drawing = true; fbDrawPt(x,y);
+  c.ro[c.sel] = []; c.blk[c.sel] = false; c.bend[c.sel] = false; FB.drawing = true; fbDrawPt(x,y);
 }
 function fbCustomDrag(x, y){
   const s = FB.s, c = s.custom, D = FB.dragDot, d = FB.diagRect; if (!D || !d) return;
@@ -24636,7 +24720,7 @@ function fbPreDefMove(dt){
    ==================================================================== */
 const FB_DROLES = ['DL1','DL2','DL3','DL4','DL5','LB1','LB2','CB1','CB2','S1','S2'];
 const FB_DTARGETS = ['W1','W2','W3','TE','RB'];
-const FB_DKEY = 'blacktop_fb_dplays_v1';
+const FB_DKEY = 'blacktop_fb_dplays_v1', FB_DKEY_T = 'blacktop_fb_dplays_train_v1';      // 3 game defenses + 10 training defenses
 function fbDPlanDefault(){
   const F = FB_FORM.shot, w1 = F.W1[1], w2 = F.W2[1];
   const al = { DL1:[2.0,-4], DL2:[2.0,-2], DL3:[2.0,0], DL4:[2.0,2], DL5:[2.0,4], LB1:[4.6,4.5], LB2:[4.8,-2.5], CB1:[7,w1+1.2], CB2:[7,w2-1.2], S1:[13,-8], S2:[13,8] };
@@ -24661,7 +24745,7 @@ function fbDPosCycle(c, r){
 function fbDPlanCopy(p){ return JSON.parse(JSON.stringify(p)); }
 function fbDPlanClean(p){
   if (!p || typeof p!=='object') return null;
-  const D0 = fbDPlanDefault(), out = { al:{}, as:{} };
+  const D0 = fbDPlanDefault(), out = { al:{}, as:{} }; if (p.name) out.name = fbNameClean(p.name);
   if (p.pos && typeof p.pos==='object') { const ps = {}; FB_DROLES.forEach(r => { if (['DL','LB','CB','S'].includes(p.pos[r])) ps[r] = p.pos[r]; }); if (fbDPosOk(ps)) out.pos = ps; }
   FB_DROLES.forEach(r => {
     const a = p.al && p.al[r];
@@ -24674,8 +24758,12 @@ function fbDPlanClean(p){
   });
   return out;
 }
-function fbDSlots(){ try { const a = JSON.parse(localStorage.getItem(FB_DKEY) || 'null'); if (Array.isArray(a) && a.length===3) return a; } catch(e){} return [null,null,null]; }
-function fbDCus(){ if (!FB.dcus) { const a = fbDSlots(); FB.dcus = Object.assign(fbDPlanClean(a[0]) || fbDPlanDefault(), { slot:0 }); } return FB.dcus; }
+function fbDSlots(set){ const tr = fbSlotSet(set) === 'train'; return fbSlotsRaw(tr ? FB_DKEY_T : FB_DKEY, tr ? 10 : 3); }
+function fbDSlotsPut(a, set){ const tr = fbSlotSet(set) === 'train'; try { localStorage.setItem(tr ? FB_DKEY_T : FB_DKEY, JSON.stringify(a)); FB.dslotCache = null; return true; } catch(e){ return false; } }
+function fbDPack(c){ const p = fbDPlanClean(c); if (p) p.name = fbNameClean(c.name); return p; }
+function fbDLoad(p, i){ const o = fbDPlanClean(p); if (!o) return null; return Object.assign(o, { slot:i, name:fbNameClean(p.name) }); }
+function fbDSum(p){ if (!p) return ''; const n = fbDCount(p.pos), as = p.as || {}, k = { rush:0, man:0, zone:0 }; Object.values(as).forEach(a => { if (a && k[a.t] != null) k[a.t]++; }); return n.DL+'-'+n.LB+'-'+(n.CB+n.S)+'  '+k.rush+' RUSH '+k.man+' MAN '+k.zone+' ZONE'; }
+function fbDCus(){ if (!FB.dcus) { const a = fbDSlots(); FB.dcus = (a[0] && fbDLoad(a[0], 0)) || Object.assign(fbDPlanDefault(), { slot:0 }); } return FB.dcus; }
 
 /* ---------------------------------------------------------------- at the snap */
 function fbDPlanLive(run){
@@ -24759,12 +24847,14 @@ function fbDDraw(g){
   { const n = fbDCount(c.pos); fbBtn(g,'ddpos',10,130,46,13,sel ? 'POS: '+((c.pos&&c.pos[sel])||fbBaseKind(sel))+' >' : 'SWAP POS',{ size:4.2, col:'#c7a6ff' }); T(n.DL+'DL '+n.LB+'LB '+n.CB+'CB '+n.S+'S',33,148,'#c7a6ff',3.2,'center'); }
   T('FAKE A BLITZ: CLOSE', 33, 156, '#8fa0cc', 3.2, 'center'); T('+ DEEP ZONE', 33, 161, '#8fa0cc', 3.2, 'center');
   // right: slots + go
-  const sl = FB.dslotCache || (FB.dslotCache = fbDSlots()); c.slot = c.slot|0;
-  T('SAVE SLOTS',282,46,'#ffd24a',4.4,'center');
-  [0,1,2].forEach(i => fbBtn(g,'ddslot'+i,256+i*18,52,16,13,String(i+1),{ on:c.slot===i, col:sl[i]?'#7ddc8a':'#8a93ad', size:5.5 }));
-  fbBtn(g,'ddsave',256,68,52,12,'SAVE TO '+(c.slot+1),{ size:4.4, line:'#7ddc8a' });
-  fbBtn(g,'ddreset',256,84,52,12,'RESET',{ size:4.6 });
-  fbBtn(g,'ddback',256,100,52,12,'< CALLS',{ size:4.6 });
+  const tr = fbTrainOn(), sl = FB.dslotCache || (FB.dslotCache = fbDSlots()), N = sl.length; c.slot = Math.min(c.slot|0, N-1);
+  T(tr ? 'TRAINING D (10)' : 'GAME DEFENSES',282,45,'#ffd24a',3.4,'center');
+  if (N > 3) sl.forEach((p,i) => fbBtn(g,'ddslot'+i,255+(i%5)*10.8,50+Math.floor(i/5)*10.5,10,9.5,String(i+1),{ on:c.slot===i, col:p?'#7ddc8a':'#8a93ad', size:3.4 }));
+  else sl.forEach((p,i) => fbBtn(g,'ddslot'+i,256+i*18,50,16,12,String(i+1),{ on:c.slot===i, col:p?'#7ddc8a':'#8a93ad', size:5.5 }));
+  { const y0 = N > 3 ? 73 : 65; T((c.name || 'UNNAMED D').slice(0,14), 282, y0, c.name ? '#ffffff' : '#8fa0cc', 3, 'center');
+    fbBtn(g,'ddname',256,y0+5,25,10,'NAME',{ size:3.2, col:'#c7a6ff' }); fbBtn(g,'ddsave',283,y0+5,25,10,'SAVE '+(c.slot+1),{ size:3.2, line:'#7ddc8a' });
+    fbBtn(g,'ddreset',256,y0+17,25,10,'RESET',{ size:3.4 }); fbBtn(g,'ddback',283,y0+17,25,10,'< CALLS',{ size:3.2 });
+    if (tr) { T('TO A GAME SLOT', 282, y0+30, '#9fb0dc', 2.6, 'center'); [0,1,2].forEach(i => fbBtn(g,'ddgame'+i,256+i*17.6,y0+34,16,9,'G'+(i+1),{ size:3, col:'#ffb74a' })); } }
   fbBtn(g,'ddrun',256,142,52,28,'CALL IT',{ on:true, col:'#7ddc8a', size:7.5 });
   FB.ddRect = G;
 }
@@ -24801,9 +24891,11 @@ function fbDAct(id){
   if (id==='ddrush') { if (!sel) { need(); return true; } c.as[sel] = { t:'rush' }; fbSfx('tick'); return true; }
   if (id==='ddman') { if (!sel) { need(); return true; } fbMsg('NOW CLICK THE RECEIVER '+sel+' GUARDS','#ffd24a',70); return true; }
   if (id==='ddpos') { if (!sel) { need(); return true; } const k = fbDPosCycle(c, sel); if (k) { const n = fbDCount(c.pos); fbMsg(sel+' IS NOW A '+k+'  -  '+n.DL+'DL '+n.LB+'LB '+n.CB+'CB '+n.S+'S','#c7a6ff',70); fbSfx('tick'); } else fbMsg('LIMITS: 3-5 DL, 1-4 LB, 2-4 CB, 1-3 S, MAX 6 DBs','#ff8b7b',80); return true; }
-  if (id==='ddreset') { FB.dcus = Object.assign(fbDPlanDefault(), { slot:c.slot|0 }); FB.dsel = null; fbSfx('tick'); return true; }
-  if (id.startsWith('ddslot')) { const i = +id.slice(6), p = fbDSlots()[i]; if (p) { FB.dcus = Object.assign(fbDPlanClean(p), { slot:i }); fbMsg('LOADED SLOT '+(i+1),'#7ddc8a',50); } else { c.slot = i; fbMsg('SLOT '+(i+1)+' IS EMPTY - DRAW A D, THEN SAVE','#ffd24a',60); } FB.dsel = null; fbSfx('tick'); return true; }
-  if (id==='ddsave') { const all = fbDSlots(); all[c.slot|0] = fbDPlanClean(c); try { localStorage.setItem(FB_DKEY, JSON.stringify(all)); fbMsg('SAVED TO SLOT '+((c.slot|0)+1),'#7ddc8a',60); } catch(e){ fbMsg('COULD NOT SAVE HERE','#ff6b6b',60); } FB.dslotCache = null; return true; }
+  if (id==='ddreset') { FB.dcus = Object.assign(fbDPlanDefault(), { slot:c.slot|0, name:'' }); FB.dsel = null; fbSfx('tick'); return true; }
+  if (id==='ddname') { const v = fbAskName(c.name); if (v != null) { c.name = v; fbMsg(v ? 'NAMED '+v+' - NOW SAVE IT' : 'NAME CLEARED','#c7a6ff',70); } return true; }
+  if (/^ddgame\d$/.test(id)) { const i = +id.slice(6), all = fbDSlots('game'); all[i] = fbDPack(c); if (fbDSlotsPut(all, 'game')) fbMsg((c.name || 'THIS D')+' IS NOW GAME DEFENSE '+(i+1),'#ffb74a',80); return true; }
+  if (id.startsWith('ddslot')) { const i = +id.slice(6), p = fbDSlots()[i]; if (p) { FB.dcus = fbDLoad(p, i); fbMsg('LOADED '+(FB.dcus.name || 'SLOT '+(i+1)),'#7ddc8a',50); } else { c.slot = i; fbMsg('SLOT '+(i+1)+' IS EMPTY - DRAW A D, THEN SAVE','#ffd24a',60); } FB.dsel = null; fbSfx('tick'); return true; }
+  if (id==='ddsave') { const all = fbDSlots(); all[c.slot|0] = fbDPack(c); if (fbDSlotsPut(all)) fbMsg('SAVED '+(c.name || 'D')+' TO SLOT '+((c.slot|0)+1),'#7ddc8a',60); else fbMsg('COULD NOT SAVE HERE','#ff6b6b',60); return true; }
   if (id==='ddback') { FB.ddraw = false; FB.dsel = null; return true; }
   return false;
 }
@@ -24811,6 +24903,90 @@ function fbDAct(id){
 /* =====================================================================================
    FOOTBALL  -  drawn run plays, play action, QB runs, audibles, contact drops, "your job" on defense
    ===================================================================================== */
+/* ====================================================================================================
+   PLAY TRAINING: your team and your plays. Build up to 10 offensive and 10 defensive plays (their own slots - your 3 game plays are
+   separate; send any training play to a game slot), then run any play against any other and pick the side you control.
+   No clock, no coins, no record: every rep starts again from the same spot.
+   ==================================================================================================== */
+const FB_TR_OPP = ['DAL','KC','PHI','SF','BUF','DET','BAL','NYG'];
+function utPlayTraining(){
+  if (FB.ut && FB.ut.busy) return; const T0 = FB.trCfg || (FB.trCfg = { div:3, opp:0 });
+  let me = null, cpu = null;
+  try { if (utSrv.token) me = utBuildTeam(utLocalSnap()); } catch(e){ me = null; }
+  try { cpu = utBuildTeam(utLgSnap(FB_TR_OPP[T0.opp % FB_TR_OPP.length], T0.div)); } catch(e){ cpu = null; }
+  FB.trainTeams = { me, cpu }; FB.trainNext = true;
+  fbUtClose(); FB.lobbyPanel = false; FB.esc = false; FB.paused = false;
+  fbStartGame(); const s = FB.s; s.train = true; s.tr = { side:'O', oPick:-1, dPick:'cpu', yl:25, log:[] }; FB.slotCache = null; FB.dslotCache = null; FB.dcus = null;
+  fbTrainHub('');
+}
+function fbTrainHub(last){
+  const s = FB.s; if (!s) return; s.ending = false; s.res = null; s.turn = false; s.carrier = null; s.ctl = null; s.you = 0; s.cpu = 0; s.pat = false; s.conv = false; s.foul = null;
+  s.defMode = false; s.dctl = null; s.trO = null; s.trD = null; s.daudPend = null; s.audPend = null; FB.ddraw = false; FB.audOpen = false; FB.hot = null;
+  fbSeries(s.tr.yl); try { fbSetup(FBP.pass[0]); } catch(e){} s.ball = { mode:'ground', x:s.los, z:0 };
+  FB.scr = 'train'; s.phase = 'train'; s.camFocus = { x:s.los, z:0 }; FB.camSnap = true; if (last != null) s.tr.lastTxt = last;
+}
+function fbTrainOpts(){                                              // what the CPU side can run
+  const s = FB.s, side = s.tr.side;
+  if (side === 'O') { const L = [['cpu','CPU PICKS (SMART D)']]; FB_AUD_D.forEach(([id,n]) => L.push([id, n])); fbDSlots('train').forEach((p,i) => L.push(['td'+i, p ? '* ' + (p.name || 'TRAINING D ' + (i+1)) : (i+1) + ' - EMPTY D SLOT', !p])); return L; }
+  const L = [['cpu','CPU PICKS (SMART O)']]; fbSlots('train').forEach((p,i) => L.push(['to'+i, p ? '* ' + (p.name || 'TRAINING PLAY ' + (i+1)) : (i+1) + ' - EMPTY PLAY SLOT', !p])); return L;
+}
+function fbTrainDraw(g){
+  const s = FB.s, tr = s.tr, side = tr.side, opts = fbTrainOpts(), pick = side === 'O' ? tr.dPick : tr.oPick;
+  fbPanel(g,6,22,308,154,0.9);
+  uiMark(g,'PLAY TRAINING',160,30,9,'#ffffff','center',-0.04); T('YOUR TEAM VS ' + (FB_TR_OPP[(FB.trCfg||{}).opp % FB_TR_OPP.length] || 'CPU') + ' (DIV ' + ((FB.trCfg||{}).div || 3) + ')  -  NO CLOCK, NO COINS, NOTHING ON YOUR RECORD', 160, 33, '#9fb0dc', 2.6, 'center');
+  T('YOU PLAY', 14, 40, '#ffd24a', 3.4, 'left');
+  fbBtn(g,'ptr_sideO',14,45,60,13,'OFFENSE',{ on:side==='O', size:5, col:'#6fd0ff' }); fbBtn(g,'ptr_sideD',78,45,60,13,'DEFENSE',{ on:side==='D', size:5, col:'#ff9b8b' });
+  T(side === 'O' ? 'YOU CALL YOUR PLAY ON THE NEXT SCREEN (YOUR 10 TRAINING PLAYS ARE IN THE CUSTOM TAB)' : 'YOU CALL YOUR D ON THE NEXT SCREEN (YOUR 10 TRAINING DS ARE IN THE CUSTOM TAB)', 14, 61, '#cfd8f4', 2.3, 'left');
+  T(side === 'O' ? 'THE CPU DEFENSE RUNS:' : 'THE CPU OFFENSE RUNS:', 14, 67, '#ff4458', 3.2, 'left');
+  const cols = 2, rows = Math.ceil(opts.length / cols), rh = Math.min(10.5, 88 / rows);
+  opts.forEach(([id, n, empty], i) => { const c = Math.floor(i / rows), r = i % rows, x = 14 + c*90, y = 72 + r*rh, key = side === 'O' ? (id === 'cpu' ? 'cpu' : id) : (id === 'cpu' ? -1 : id);
+    const on = side === 'O' ? tr.dPick === id : (id === 'cpu' ? tr.oPick === -1 : tr.oPick === id);
+    fbBtn(g,'ptr_pick_' + id, x, y, 88, rh - 1.2, String(n).slice(0, 26), { on, size:Math.min(3.4, rh*0.36), col:empty ? '#6b7390' : /^\* /.test(n) ? '#7ddc8a' : '#ffd24a' }); });
+  // right column
+  fbBtn(g,'ptr_go',200,45,108,22,'RUN THE PLAY',{ on:true, size:7, col:'#7ddc8a' });
+  fbBtn(g,'ptr_editO',200,71,108,12,'BUILD / EDIT OFFENSE PLAYS',{ size:3.6, col:'#6fd0ff' });
+  fbBtn(g,'ptr_editD',200,86,108,12,'BUILD / EDIT DEFENSE PLAYS',{ size:3.6, col:'#ff9b8b' });
+  fbBtn(g,'ptr_div',200,101,53,11,'OPP: DIV ' + ((FB.trCfg||{}).div || 3),{ size:3.4, col:'#c7a6ff' }); fbBtn(g,'ptr_team',255,101,53,11,'OPP: ' + (FB_TR_OPP[(FB.trCfg||{}).opp % FB_TR_OPP.length]),{ size:3.4, col:'#c7a6ff' });
+  fbBtn(g,'ptr_spot',200,115,108,11,'BALL ON YOUR ' + tr.yl + (tr.yl === 50 ? '' : '') + '  (TAP TO MOVE)',{ size:3.2 });
+  T('LAST REPS', 202, 130, '#ffd24a', 3, 'left');
+  (tr.log || []).slice(-4).reverse().forEach((e,i) => { T(e.o.slice(0,12) + ' VS ' + e.d.slice(0,10), 202, 135 + i*7, '#cfd8f4', 2.2, 'left'); T(e.txt.slice(0,14), 306, 135 + i*7, e.good ? '#7ddc8a' : '#ff8b7b', 2.3, 'right'); });
+  if (tr.lastTxt) T(tr.lastTxt, 160, 168, '#ffffff', 3.6, 'center');
+  fbBtn(g,'ptr_exit',262,25,46,9,'EXIT',{ size:3.4 });
+}
+function fbTrainAct(id){
+  const s = FB.s, tr = s.tr; if (!tr) return;
+  if (id === 'ptr_hub') { fbTrainHub(null); fbSfx('tick'); return; }
+  if (id === 'ptr_exit') { FB.training = false; FB.trainTeams = null; s.train = false; FB.scr = 'lobby'; fbNewGame(); fbToCall(); FB.scr = 'lobby'; try { fbUtOpen(); } catch(e){} return; }
+  if (id === 'ptr_sideO' || id === 'ptr_sideD') { tr.side = id.slice(-1); fbSfx('tick'); return; }
+  if (/^ptr_pick_/.test(id)) { const k = id.slice(9); if (tr.side === 'O') tr.dPick = k; else tr.oPick = k === 'cpu' ? -1 : k; fbSfx('tick'); return; }
+  if (id === 'ptr_div') { const C = FB.trCfg; C.div = C.div <= 1 ? 5 : C.div - 1; fbTrainTeams(); fbSfx('tick'); return; }
+  if (id === 'ptr_team') { const C = FB.trCfg; C.opp = (C.opp + 1) % FB_TR_OPP.length; fbTrainTeams(); fbSfx('tick'); return; }
+  if (id === 'ptr_spot') { tr.yl = tr.yl >= 80 ? 10 : tr.yl + 15; fbSfx('tick'); return; }
+  if (id === 'ptr_editO') { fbTrainRep('O', true); return; }
+  if (id === 'ptr_editD') { fbTrainRep('D', true); return; }
+  if (id === 'ptr_go') { fbTrainRep(tr.side, false); return; }
+}
+function fbTrainTeams(){ const C = FB.trCfg; try { const cpu = utBuildTeam(utLgSnap(FB_TR_OPP[C.opp % FB_TR_OPP.length], C.div)); FB.trainTeams.cpu = cpu; FB.utTeams = Object.assign(FB.utTeams || {}, { cpu }); utApplyTeams(); } catch(e){} }
+function fbTrainRep(side, edit){                                     // one rep: you on your side, the CPU running the play you picked on the other
+  const s = FB.s, tr = s.tr; s.you = 0; s.cpu = 0; s.trGain = 0; s.res = null;
+  s.trD = null; s.trO = null;
+  if (side === 'O') {
+    const k = tr.dPick; if (k && k !== 'cpu') { if (/^td\d$/.test(k)) { const p = fbDSlots('train')[+k.slice(2)]; s.trD = p ? fbDPlanClean(p) : null; } else s.trD = k; }
+    s.defMode = false; s.dctl = null; fbSeries(tr.yl); s.play0 = null; fbToCall(); if (edit) { s.tab = 2; FB.slotCache = null; }
+  } else {
+    const k = tr.oPick; if (k !== -1 && /^to\d$/.test(k)) s.trO = fbSlots('train')[+k.slice(2)] || null;
+    fbDefStart(tr.yl, 'PLAY TRAINING'); s.dtab = 1; FB.dslotCache = null; if (edit) { FB.dcus = null; fbDCus(); FB.ddraw = true; FB.dsel = null; }
+  }
+  fbSfx('tick');
+}
+function fbTrainAfter(){                                             // the rep is over: what happened, then back to the training menu
+  const s = FB.s, r = s.res || {}, g = s.trGain|0, DM = !!s.defMode;
+  const name = { td:'TOUCHDOWN', inc:'INCOMPLETE', sack:'SACK ' + g, int:'INTERCEPTED', pick6:'PICK SIX', fumble:'FUMBLE', safety:'SAFETY' }[r.type] || ((g >= 0 ? 'GAIN OF ' : 'LOSS OF ') + Math.abs(g));
+  const oN = String((s.play && s.play.n) || 'PLAY').toUpperCase(), dN = String(s.dmode === 'custom' ? ((s.dplan && s.dplan.name) || (DM ? (FB.dcus && FB.dcus.name) : '') || 'CUSTOM D') : ((FB_AUD_D.find(x => x[0] === s.dmode) || [0, s.dmode || 'D'])[1])).toUpperCase();
+  const offGood = r.type === 'td' || (r.type !== 'inc' && r.type !== 'sack' && r.type !== 'int' && r.type !== 'pick6' && r.type !== 'fumble' && g >= 4);
+  (s.tr.log = s.tr.log || []).push({ o:oN, d:dN, txt:name, good:DM ? !offGood : offGood }); if (s.tr.log.length > 30) s.tr.log.shift();
+  fbTrainHub(oN + '  VS  ' + dN + ':  ' + name);
+}
 function fbIsRun(play){ return !!play && (play.t==='run' || play.t==='crun' || play.t==='cqb'); }
 function fbIsCustom(play){ return !!play && (play.t==='custom' || play.t==='crun' || play.t==='cqb'); }
 
@@ -25038,9 +25214,12 @@ const FB_AUD_D = [['zone','COVER 2'],['cover3','COVER 3'],['man','MAN'],['blitz'
 function fbAudCanO(){ const s = FB.s; if (FB.scr!=='pre' || s.tutMode || s.hurry) return false; if (!FBN.on) return !s.defMode; if (FBN.role==='host') return !s.defMode; return FBN.mode==='vs' && !s.defMode; }
 function fbAudCanD(){ const s = FB.s; if (FB.scr!=='pre' || s.tutMode) return false; if (!FBN.on) return !!s.defMode; if (FBN.role==='host') return !!s.defMode; return FBN.mode==='vs' && !!s.defMode; }
 function fbAudibleO(i){                                            // the offense changes its play at the line (keeps the defense's call)
-  const s = FB.s, a = FB_AUD_O[i]; if (!a || FB.scr!=='pre' || s.audPend || (s.pcOn && s.pcT <= 5)) return;   // V46 (26): no audible under 5 on the play clock (host-side rule, both players)
+  const a = FB_AUD_O[i]; if (!a) return; fbAudibleOPlay(a.mk, a.n);
+}
+function fbAudibleOPlay(mk, name){
+  const s = FB.s; if (FB.scr!=='pre' || s.audPend || (s.pcOn && s.pcT <= 5)) return;   // V46 (26): no audible under 5 on the play clock (host-side rule, both players)
   if (s.audLeft===undefined) s.audLeft = 3; if (!(s.audLeft > 0)) { fbMsg('NO AUDIBLES LEFT THIS DRIVE','#ff6b6b',70,'O'); FB.audOpen = false; return; }   // V46 (14): 3 a drive
-  const p = a.mk(); if (!p) return;
+  const p = typeof mk === 'function' ? mk() : mk; if (!p) return; const a = { n:name || p.n || 'CUSTOM' };
   if (p.push && !(s.toGo <= 2.5 || (s.first >= FB_GOAL && FB_GOAL - s.los <= 2.5))) { fbMsg('TUSH PUSH IS FOR 2 YARDS OR LESS','#ff6b6b',60,'O'); FB.audOpen = false; return; }   // FIX: same rule as the play sheet
   s.audLeft--; s.audSpentPre = (s.audSpentPre|0) + 1; fbAudQueue(p, 'AUDIBLE: '+a.n+'  ('+s.audLeft+' LEFT)', 1.5);
 }
@@ -25107,7 +25286,8 @@ function fbPlayMirror(play){                                        // V46 (11):
   if (fbIsRun(play)) { R.forEach(r => { if (ro[r]) p.ro[r] = M(ro[r]); }); return p; }     // a drawn run: the carrier keeps his own path, mirrored
   const F = FB_FORM.shot, zOf = r => (play.al && play.al[r]) ? play.al[r][1] : F[r][1], ord = R.slice().sort((a,b) => zOf(a)-zOf(b));
   if (play.blk) p.blk = {}; if (play.hotBlk) p.hotBlk = {};
-  ord.forEach((r,i) => { const src = ord[ord.length-1-i]; if (ro[src]) p.ro[r] = M(ro[src]); if (play.blk && play.blk[src]) p.blk[r] = true; if (play.hotBlk && play.hotBlk[src]) p.hotBlk[r] = true; });
+  if (play.bend) p.bend = {};
+  ord.forEach((r,i) => { const src = ord[ord.length-1-i]; if (ro[src]) p.ro[r] = M(ro[src]); if (play.bend && play.bend[src]) p.bend[r] = true; if (play.blk && play.blk[src]) p.blk[r] = true; if (play.hotBlk && play.hotBlk[src]) p.hotBlk[r] = true; });
   return p;
 }
 function fbOffAdj(id, fromGuest){                                   // V46 (11/12): the offense READS the safeties (7/8 flip the routes), SLIDES the protection (9) and keeps the back in (0)
@@ -25129,23 +25309,31 @@ function fbOffAdj(id, fromGuest){                                   // V46 (11/1
   return true;
 }
 function fbAudibleD(id){                                           // the defense changes its call at the line (keeps the offense's play). FIX: queued like the offense's (0.5 s), 3 a drive
-  const s = FB.s, a = FB_AUD_D.find(x => x[0]===id); if (!a || FB.scr!=='pre' || (s.pcOn && s.pcT <= 5)) return;   // V46 (26): same limit for the defense
+  const s = FB.s, a = FB_AUD_D.find(x => x[0]===id) || (id==='custom' ? ['custom','CUSTOM D'] : null); if (!a || FB.scr!=='pre' || (s.pcOn && s.pcT <= 5)) return;   // V46 (26): same limit for the defense
   if (s.daudPend) { fbMsg('CHANGING THE CALL...','#ff9b8b',30,'D'); return; }
   if (s.daudLeft===undefined) s.daudLeft = 3; if (!(s.daudLeft > 0)) { fbMsg('NO CALL CHANGES LEFT THIS DRIVE','#ff6b6b',70,'D'); FB.audOpen = false; return; }
   s.daudLeft--; s.daudPend = { id, at:s.preT + 0.5 }; FB.audOpen = false; fbMsg('CHANGING THE CALL...','#ff9b8b',30,'D'); fbSfxAud('tick','D');
 }
 function fbAudibleDApply(id){
-  const s = FB.s, a = FB_AUD_D.find(x => x[0]===id); if (!a || FB.scr!=='pre') return;
+  const s = FB.s, a = FB_AUD_D.find(x => x[0]===id) || (id==='custom' ? ['custom', (FB.s.defMode ? (FB.dcus && FB.dcus.name) : (FBN.gdplan && FBN.gdplan.name)) || 'CUSTOM D'] : null); if (!a || FB.scr!=='pre') return;
   if (s.defMode) s.dcall = id;
   // V81: a defensive audible only re-sets the DEFENSE: the offense keeps its formation, shifts, routes and the play clock keeps running
   const O = fbOff().map(p => ({ p, x:p.x, z:p.z, vx:p.vx, vz:p.vz, face:p.face, st:p.st, mto:p.mto, route:p.route, ri:p.ri, man:p.man, auto:p.auto }));
   const sv = { preT:s.preT, motion:s.motion, shiftGo:s.shiftGo, hwg:s.hwg, setT:s.setT, cpuAud:s.cpuAud, cpuAud2:s.cpuAud2, snapAt:s.snapAt, cam:s.camFocus ? { x:s.camFocus.x, z:s.camFocus.z } : null, snap:FB.camSnap, cc:FB.cam ? Object.assign({}, FB.cam) : null };
+  const Dsv = fbDef().map(d => ({ d, x:d.x, z:d.z, vx:d.vx, vz:d.vz, face:d.face }));          // where the defenders stand right now
   s.keepD = id; fbSetup(s.play); s.keepD = null; s.ball = { mode:'ground', x:s.los, z:0 };
+  Dsv.forEach(o => { const d = o.d, tx = d.x, tz = d.z; if (Math.hypot(tx - o.x, tz - o.z) < 0.15) return;          // they SPRINT to the new spots (no teleport); the new jobs are already theirs
+    Object.assign(d, { x:o.x, z:o.z, vx:o.vx, vz:o.vz, face:o.face }); if (d === s.dctl || d === s.gdc) return; d.adjTo = [tx, tz]; d.adjSpd = 8.6; });
   O.forEach(o => { Object.assign(o.p, { x:o.x, z:o.z, vx:o.vx, vz:o.vz, face:o.face, st:o.st, mto:o.mto, route:o.route, ri:o.ri, man:o.man, auto:o.auto }); });
   Object.assign(s, { preT:sv.preT, motion:sv.motion, shiftGo:sv.shiftGo, hwg:sv.hwg, setT:sv.setT, cpuAud:sv.cpuAud, cpuAud2:sv.cpuAud2 }); if (sv.snapAt!==undefined) s.snapAt = sv.snapAt;
   if (sv.cam) s.camFocus = sv.cam; FB.camSnap = sv.snap; if (sv.cc) FB.cam = sv.cc;
   FB.audOpen = false; fbMsg('DEFENSE AUDIBLE: '+a[1], '#ff9b8b', 80, 'D'); fbSfxAud('tick','D');
   if (FBN.on) { FBN.rv++; FBN.rsend = 3; }
+}
+function fbAudList(o){                                            // what the audible menu offers: the fixed calls, then your saved custom plays (named)
+  const L = o ? FB_AUD_O.map((a,i) => ['aud'+i, a.n]) : FB_AUD_D.map((a,i) => ['daud'+i, a[1]]);
+  try { (o ? fbSlots() : fbDSlots()).slice(0, 3).forEach((p,i) => { if (p) L.push([(o ? 'acs' : 'dcs') + i, '* ' + (p.name || (o ? 'CUSTOM ' : 'CUSTOM D ') + (i+1))]); }); } catch(e){}
+  return L;
 }
 function fbAudDraw(g){
   if (FB.scr!=='pre') { FB.audOpen = false; return; }
@@ -25154,10 +25342,10 @@ function fbAudDraw(g){
   if (!FB.audOpen) return;
   const left = FB.s.audLeft===undefined ? 3 : (FB.s.audLeft|0);
   if (o && left <= 0) { fbPanel(g,212,52,104,30,0.9); T('CHANGE THE PLAY',264,55,'#ffd24a',5,'center'); T('NONE LEFT',264,65,'#ff6b6b',6,'center'); T('3 AUDIBLES A DRIVE - HOT ROUTES / MOTION / READS ARE FREE',264,75,'#ffe9a8',3.2,'center'); return; }   // V46 (14)
-  const list = o ? FB_AUD_O.map((a,i) => ['aud'+i, a.n]) : FB_AUD_D.map((a,i) => ['daud'+i, a[1]]);
-  fbPanel(g,212,52,104,16+list.length*15+(o?6:0),0.9); T(o ? 'CHANGE THE PLAY' : 'CHANGE THE CALL',264,55,'#ffd24a',5,'center');
+  const list = fbAudList(o);
+  fbPanel(g,212,52,104,16+list.length*(list.length > 7 ? 11.5 : 15)+(o?6:0),0.9); T(o ? 'CHANGE THE PLAY' : 'CHANGE THE CALL',264,55,'#ffd24a',5,'center');
   if (o) T('AUDIBLES LEFT: '+left,264,61,left===1 ? '#ff9b8b' : '#ffe9a8',3.8,'center');
-  list.forEach(([id,n],i) => fbBtn(g,id,216,64+(o?6:0)+i*15,96,13,(i+1)+'  '+n,{ size:4.6 }));
+  list.forEach(([id,n],i) => fbBtn(g,/^dcs/.test(id) ? 'daudc'+id.slice(3) : id,216,64+(o?6:0)+i*(list.length > 7 ? 11.5 : 15),96,list.length > 7 ? 10.5 : 13,(i+1)+'  '+n,{ size:list.length > 7 ? 3.8 : 4.6, col:/^(acs|dcs)/.test(id) ? '#7ddc8a' : undefined }));
 }
 function fbAudKey(c){                                              // V opens, 1-5 picks
   if (FB.scr!=='pre') return false;
@@ -25165,13 +25353,15 @@ function fbAudKey(c){                                              // V opens, 1
   if (c==='KeyM' && fbHotCan()) { fbAct('motion'); return true; }
   if (FB.hot && /^Digit[1-5]$/.test(c)) { const i = +c.slice(5)-1; fbAct(FB.hot.r ? 'hotx'+i : 'hotr'+i); return true; }
   if (c==='KeyV' && (fbAudCanO() || fbAudCanD())) { fbAct('audopen'); return true; }
-  if (FB.audOpen && /^Digit[1-6]$/.test(c)) { const i = +c.slice(5)-1; fbAct((fbAudCanO() ? 'aud' : 'daud')+i); return true; }
+  if (FB.audOpen && /^Digit[1-9]$/.test(c)) { const L = fbAudList(fbAudCanO()), e = L[+c.slice(5)-1]; if (e) fbAct(e[0] === 'dcs0' || /^dcs/.test(e[0]) ? 'daudc' + e[0].slice(3) : e[0]); return true; }
   return false;
 }
 function fbAudAct(id){                                             // returns true if handled (host / solo)
   if (id==='audopen') { const s0 = FB.s; if (!FB.audOpen && s0 && s0.pcOn && s0.pcT <= 5) { fbMsg('TOO LATE TO AUDIBLE  -  UNDER 5 ON THE PLAY CLOCK','#ff6b6b',60); fbSfx('tick'); return true; } FB.audOpen = !FB.audOpen; fbSfx('tick'); return true; }   // V46 (26)
   if (/^aud\d$/.test(id)) { if (fbAudCanO()) fbAudibleO(+id.slice(3)); return true; }
   if (/^daud\d$/.test(id)) { const a = FB_AUD_D[+id.slice(4)]; if (a && fbAudCanD()) fbAudibleD(a[0]); return true; }
+  if (/^acs\d$/.test(id)) { const p = fbSlots()[+id.slice(3)]; if (p && fbAudCanO()) fbAudibleOPlay(() => fbSlotPlay(p), p.name || 'CUSTOM PLAY'); return true; }
+  if (/^daudc\d$/.test(id)) { const p = fbDSlots()[+id.slice(5)]; if (p && fbAudCanD()) { FB.dcus = fbDLoad(p, +id.slice(5)); fbAudibleD('custom'); } return true; }
   return false;
 }
 
@@ -25273,10 +25463,10 @@ function fbCustomInfo(c){
 function fbCustomBuild(c){
   fbCustomNorm(c);
   const ro = {}; Object.keys(c.ro).forEach(k => { ro[k] = (c.ro[k]||[]).map(p => p.slice()); });
-  const base = { n:'CUSTOM', pers:Object.assign({}, c.pers||{}), ro, al:JSON.parse(JSON.stringify(c.al||{})), blk:Object.assign({}, c.blk||{}) }, info = fbCustomInfo(c);
-  if (c.ty==='run') { if (info.car) base.blk[info.car] = false; return Object.assign(base, { n:'CUSTOM RUN', t:'crun', hb:c.hb.slice(), car:info.car, mode:info.mode }); }
-  if (c.ty==='pa') return Object.assign(base, { n:'PLAY ACTION', t:'custom', pa:true, hb:c.hb.slice(), fake:info.car });
-  if (c.ty==='qb') return Object.assign(base, { n:'QB RUN', t:'cqb' });
+  const base = { n:c.name || 'CUSTOM', pers:Object.assign({}, c.pers||{}), ro, al:JSON.parse(JSON.stringify(c.al||{})), blk:Object.assign({}, c.blk||{}), bend:Object.assign({}, c.bend||{}) }, info = fbCustomInfo(c);
+  if (c.ty==='run') { if (info.car) { base.blk[info.car] = false; base.bend[info.car] = false; } return Object.assign(base, { n:c.name || 'CUSTOM RUN', t:'crun', hb:c.hb.slice(), car:info.car, mode:info.mode }); }
+  if (c.ty==='pa') return Object.assign(base, { n:c.name || 'PLAY ACTION', t:'custom', pa:true, hb:c.hb.slice(), fake:info.car });
+  if (c.ty==='qb') return Object.assign(base, { n:c.name || 'QB RUN', t:'cqb' });
   return Object.assign(base, { t:'custom' });                       // a pass play keeps the QB's drawn drop / rollout path
 }
 /* ---------------------------------------------------------------- BENCH: sub players on and off for this game (your lineup on the server is not changed) */
@@ -26018,6 +26208,7 @@ function fbCpuReadO(after){                                          // CPU defe
   else if (after) fbMsg('CPU D: RECOGNIZES THE SET', '#ff9b8b', 60);
 }
 function fbCpuAudible(){
+  { const s0 = FB.s; if (s0 && s0.train && ((s0.defMode && s0.trO) || (!s0.defMode && s0.trD))) return; }   // PLAY TRAINING: the play you picked is the play it runs
   const s = FB.s; if (s.cpuAud || s.tutMode || FBN.on) return; s.cpuAud = true;
   if (s.defMode && s.hurry) return;      // a hurried CPU offense can't audible either
   if (!s.defMode) { fbCpuReadO(false); } else {                                                           // CPU offense reads your defensive alignment
@@ -26266,7 +26457,7 @@ const fbnIsHost = () => FBN.on && FBN.role==='host';
 const fbnIsGuest = () => FBN.on && FBN.role==='guest';
 function fbMain(){ if (FBN.on && FBN.role==='guest') fbnGuestStep(); else { fbStep(); if (FBN.on) fbnHostTick(); } }
 function fbVs(){ return !!(FBN.on && FBN.mode==='vs'); }
-function fbFlip(){ const s = FB.s; return !!(s && s.defMode && !fbVs()); }     // V81: online 1v1 = EVERYONE sees the play from behind the QB (solo / co-op defense keeps its own view)
+function fbFlip(){ return false; }     // v134: one camera for everyone - behind the offense, on offense AND defense, solo, co-op and online (the same view the online 1v1 uses)
 function fbDirNow(){ const s = FB.s; return (fbFlip() || (s && s.turn)) ? -1 : 1; }      // after a turnover everyone sees the field from the other end
 function fbVsFix(t){                                                          // drive-screen text is written once (tokens) and read per player
   if (typeof t!=='string' || t.indexOf('{')<0) return t; const g = FBN.role==='guest', on = fbnOtherName();
@@ -26419,6 +26610,8 @@ function fbnHostAct(e){
   if (id==='cplay') { if (FBN.mode==='vs' && s.defMode) { const p = fbnCleanPlay(e.pl); if (p) FBN.gplay = p; } return; }
   if (/^aud\d$/.test(id)) { if (FB.scr==='pre' && FBN.mode==='vs' && s.defMode && !s.hurry && !s.tutMode) fbAudibleO(+id.slice(3)); return; }
   if (/^daud\d$/.test(id)) { const a = FB_AUD_D[+id.slice(4)]; if (a && FB.scr==='pre' && FBN.mode==='vs' && !s.defMode) fbAudibleD(a[0]); return; }
+  if (id==='acsP') { if (FB.scr==='pre' && FBN.mode==='vs' && s.defMode && !s.hurry && !s.tutMode) { const p = fbnCleanPlay(e.pl); if (p) fbAudibleOPlay(p, p.n); } return; }
+  if (id==='daudP') { if (FB.scr==='pre' && FBN.mode==='vs' && !s.defMode) { const p = fbDPlanClean(e.plan); if (p) { FBN.gdplan = p; fbAudibleD('custom'); } } return; }
   if (id==='flagacc' || id==='flagdec') { if (FB.scr==='flag' && FB.flag && (!FB.flag.choice || !fbFlagUserDecides())) fbFlagClose(id==='flagacc'); return; }
   if (id==='hot') { if (FB.scr==='pre' && FBN.mode==='vs' && s.defMode && !s.hurry && !s.tutMode && !s.audPend && FB_HOT_R.includes(e.r)) fbHotRoute(e.r, +e.i|0); return; }
   if (id==='motion') { if (FB.scr==='pre' && FBN.mode==='vs' && s.defMode && !s.hurry && !s.tutMode) fbMotionGo(); return; }
@@ -26632,6 +26825,8 @@ function fbnGuestAct(id){
   if (id.startsWith('play')) { const i = +id.slice(4) + (s.pg|0)*6; fbnEv({ n:'act', id:'play'+i, tab:s.tab|0 }); fbSfx('tick'); return true; }
   if (id==='audopen') return false;
   if (/^d?aud\d$/.test(id)) { fbnEv({ n:'act', id }); FB.audOpen = false; fbSfx('tick'); return true; }
+  if (/^acs\d$/.test(id)) { const p = fbSlots()[+id.slice(3)]; if (p) fbnEv({ n:'act', id:'acsP', pl:fbSlotPlay(p) }); FB.audOpen = false; fbSfx('tick'); return true; }
+  if (/^daudc\d$/.test(id)) { const p = fbDSlots()[+id.slice(5)]; if (p) fbnEv({ n:'act', id:'daudP', plan:fbDPack(p) }); FB.audOpen = false; fbSfx('tick'); return true; }
   if (id==='ddrun') { FB.ddraw = false; FB.dsel = null; s.dcall = 'custom'; fbnEv({ n:'act', id:'dcallC', plan:fbDPlanClean(fbDCus()) }); fbSfx('tick'); return true; }
   if (id.startsWith('dd')) return false;                           // drawing-board buttons work on your own screen
   if (id.startsWith('dcall')) { const c = FB_DCALLS[+id.slice(5)]; if (c) { if (c.id==='custom') { FB.ddraw = true; FB.dsel = null; fbSfx('tick'); return true; } s.dcall = c.id; fbnEv({ n:'act', id }); fbSfx('tick'); } return true; }
@@ -26752,15 +26947,15 @@ function fbnRunCustom(){
 }
 function fbnCleanPlay(p){
   if (!p || typeof p!=='object' || !['custom','crun','cqb'].includes(p.t)) return null;
-  const R = ['QB','W1','W2','W3','TE','RB'], ro = {}, al = {}, blk = {}, pers = {};
+  const R = ['QB','W1','W2','W3','TE','RB'], ro = {}, al = {}, blk = {}, bend = {}, pers = {};
   R.forEach(r => { const a = p.ro && p.ro[r]; ro[r] = Array.isArray(a) ? a.slice(0,40).filter(q => Array.isArray(q) && isFinite(+q[0]) && isFinite(+q[1])).map(q => [clamp(+q[0],-80,80), clamp(+q[1],-80,80)]) : []; });
   ['W1','W2','W3'].forEach(r => { const k = p.pers && p.pers[r]; if (k==='TE' || k==='RB') pers[r] = k; });
   const n = fbPersCount(pers); if (n.WR < 1 || n.TE > 2 || n.RB > 2) return null;
-  ['RB','TE','W1','W2','W3'].forEach(r => { const a = p.al && p.al[r]; if (Array.isArray(a) && isFinite(+a[0]) && isFinite(+a[1])) al[r] = [clamp(+a[0],-12,-0.4), clamp(+a[1],-26,26)]; blk[r] = !!(p.blk && p.blk[r]); });
-  const out = { n:'CUSTOM', t:p.t, pers, ro, al, blk }, hb = Array.isArray(p.hb) && isFinite(+p.hb[0]) && isFinite(+p.hb[1]) ? [clamp(+p.hb[0],-12,2), clamp(+p.hb[1],-12,12)] : [-4.2,1.2];
-  if (p.t==='crun') Object.assign(out, { n:'CUSTOM RUN', hb, car:R.includes(p.car) && p.car!=='QB' ? p.car : 'RB', mode:p.mode==='hand' ? 'hand' : 'toss' });
-  else if (p.t==='cqb') out.n = 'QB RUN';
-  else if (p.pa) Object.assign(out, { n:'PLAY ACTION', pa:true, hb, fake:R.includes(p.fake) && p.fake!=='QB' ? p.fake : 'RB' });
+  ['RB','TE','W1','W2','W3'].forEach(r => { const a = p.al && p.al[r]; if (Array.isArray(a) && isFinite(+a[0]) && isFinite(+a[1])) al[r] = [clamp(+a[0],-12,-0.4), clamp(+a[1],-26,26)]; blk[r] = !!(p.blk && p.blk[r]); bend[r] = !!(p.bend && p.bend[r]); });
+  const nm = String(p.n || '').toUpperCase().replace(/[^A-Z0-9 '!.-]/g, '').slice(0, 18), out = { n:nm || 'CUSTOM', t:p.t, pers, ro, al, blk, bend }, hb = Array.isArray(p.hb) && isFinite(+p.hb[0]) && isFinite(+p.hb[1]) ? [clamp(+p.hb[0],-12,2), clamp(+p.hb[1],-12,12)] : [-4.2,1.2];
+  if (p.t==='crun') Object.assign(out, { n:nm || 'CUSTOM RUN', hb, car:R.includes(p.car) && p.car!=='QB' ? p.car : 'RB', mode:p.mode==='hand' ? 'hand' : 'toss' });
+  else if (p.t==='cqb') out.n = nm || 'QB RUN';
+  else if (p.pa) Object.assign(out, { n:nm || 'PLAY ACTION', pa:true, hb, fake:R.includes(p.fake) && p.fake!=='QB' ? p.fake : 'RB' });
   return out;
 }
 
@@ -28458,17 +28653,54 @@ const MK_STATS = [['DNK',95],['3PT',90],['SPD',85],['DRI',80],['DEF',80]], MK_OV
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 const OS = canvas.width / W;                // overlay scale: 320x180 design space -> real pixels
-function Tn(s,x,y,col,size,align){ ctx.font = (size||8)+'px "Press Start 2P", monospace'; ctx.textAlign = align||'left'; ctx.textBaseline='top'; ctx.fillStyle=col; ctx.fillText(s,x,y); }
+function Tn(s,x,y,col,size,align){ ctx.font = (size||8)+'px "Press Start 2P", monospace'; ctx.textAlign = align||'left'; ctx.textBaseline='top'; ctx.fillStyle=col; ctx.fillText(s,x,y); ntagAfter(ctx, s, x, y, size||8, align, 'top'); }
+/* ---- NAME TAGS: a verified dev's name always ends in the blue check; a player a dev has warned always ends in a yellow caution sign (tap it: the dev's message).
+   It is drawn by the text helpers themselves, so it shows EVERYWHERE a name is written - leaderboards, brackets, lobbies, scoreboards. ---- */
+const NTAG = { at:0, ver:0, warns:{}, devs:[], map:null, key:'' };
+const NTAG_STOP = new Set(['YOU','CPU','HOST','GUEST','PLAYER','TEAM','THE','AND','FOR','READY','WIN','WINS','DEV','BYE','VS','OVER','FINAL','PLAY','GAME','HOME','AWAY','SEASON','LIVE']);
+function ntagMap(){
+  const me = (typeof utSrv !== 'undefined' && utSrv.user) || '', meDev = typeof fbDevOn === 'function' && fbDevOn(); let dn = ''; try { dn = fbDevName(); } catch(e){}
+  const key = NTAG.ver + '|' + me + '|' + meDev + '|' + dn; if (NTAG.map && NTAG.key === key) return NTAG.map;
+  const m = new Map(), add = (u, k, v) => { u = String(u || '').toUpperCase().trim(); if (u.length < 3 || NTAG_STOP.has(u) || !/^[A-Z0-9_]+$/.test(u)) return; const e = m.get(u) || {}; e[k] = v; m.set(u, e); };
+  (NTAG.devs || []).forEach(u => add(u, 'dev', true)); Object.keys(NTAG.warns || {}).forEach(u => add(u, 'warn', NTAG.warns[u]));
+  if (meDev) { add(me, 'dev', true); add(dn, 'dev', true); }
+  NTAG.map = m; NTAG.key = key; return m;
+}
+function ntagCaution(g, cx, cy, r){ g.save(); g.fillStyle = '#ffcc00'; g.strokeStyle = '#1a1200'; g.lineWidth = Math.max(0.4, r*0.18); g.lineJoin = 'round'; g.beginPath(); g.moveTo(cx, cy - r*1.15); g.lineTo(cx + r*1.15, cy + r*0.85); g.lineTo(cx - r*1.15, cy + r*0.85); g.closePath(); g.fill(); g.stroke();
+  g.fillStyle = '#1a1200'; g.fillRect(cx - r*0.12, cy - r*0.55, r*0.24, r*0.8); g.fillRect(cx - r*0.12, cy + r*0.38, r*0.24, r*0.22); g.restore(); }
+function ntagAfter(g, s, x, y, size, align, base){                 // after any text: a tagged name gets its check / caution right behind it
+  if (typeof ctx === 'undefined' || g !== ctx || typeof s !== 'string' || s.length < 3) return; const m = ntagMap(); if (!m.size) return;
+  const re = /[A-Za-z0-9_]+/g; let r, hits = null;
+  while ((r = re.exec(s))) { const t = r[0].toUpperCase(); if (t.length < 3) continue; let e = m.get(t), nm = t;
+    if (!e && t.length >= 9) { for (const [k, v] of m) if (k.length > t.length && k.indexOf(t) === 0) { e = v; nm = k; break; } }   // a name cut short to fit still counts
+    if (e) (hits = hits || []).push([r.index + r[0].length, e, nm]); }
+  if (!hits) return;
+  const full = g.measureText(s).width, left = align === 'center' ? x - full/2 : align === 'right' ? x - full : x;
+  hits.forEach(([end, e, nm]) => { const w = g.measureText(s.slice(0, end)).width, r0 = Math.max(1.5, size*0.5), cy = base === 'top' ? y + size*0.48 : y - size*0.34; let gx = left + w + r0*1.35;
+    if (e.dev) { fbCheckDraw(g, gx, cy, r0); gx += r0*2.5; }
+    if (e.warn) { ntagCaution(g, gx, cy, r0*1.05); if (typeof FB !== 'undefined' && FB.btns) FB.btns.unshift({ id:'nwarn:' + nm, x:gx - r0*1.6, y:cy - r0*1.7, w:r0*3.2, h:r0*3.4 }); } });
+}
+function ntagLoad(force){                                            // the tags come from the server (everyone sees the same ones)
+  if (typeof utSrv === 'undefined' || !utSrv.token) return; const t = performance.now(); if (!force && t - NTAG.at < 60000) return; NTAG.at = t;
+  utApi('tagget', {}).then(d => { if (d && d.ok) { NTAG.warns = d.warns || {}; NTAG.devs = d.devs || []; NTAG.ver++; } });
+}
+function ntagPopDraw(g){                                             // the caution sign was tapped: the dev's message about this player
+  const P = FB.warnPop; if (!P) return; FB.btns = [];
+  g.fillStyle = 'rgba(0,0,0,.55)'; g.fillRect(0, 0, W, H); uiPanel(g, 50, 40, 220, 96, { r:6, fill:'rgba(26,20,4,.97)', line:'#ffcc00' });
+  ntagCaution(g, 70, 56, 7); T('WARNING', 84, 50, '#ffcc00', 6, 'left'); T(String(P.u).toUpperCase(), 84, 59, '#ffffff', 4, 'left');
+  wrapLines(String(P.msg || ''), 3.6, 196).slice(0, 9).forEach((l, i) => Tn(l, 62, 72 + i*6.2, '#fff4c2', 3.6, 'left'));
+  fbBtn(g, 'nwarnx', 130, 122, 60, 11, 'OK', { size:4.6, col:'#ffcc00' });
+}
 const UT_SKIN_MAP = { '#ffd24a':'#ff8ad8', '#cfd8f4':'#dff3fc', '#9fb0dc':'#9ed3ee', '#7ddc8a':'#9ee8ff', '#e8ecf8':'#ffffff', '#6fd0ff':'#89cff0', '#ffe9a0':'#ffd0f0', '#6c789a':'#7fa6c4', '#ffb74a':'#ffb0e4', '#4f5d82':'#6f9fc2', '#6f7fa8':'#8bbbd8', '#ffd9a8':'#ffc9ec' };
 function T(s,x,y,col,size,align){
   if (typeof FB !== 'undefined' && FB.scr === 'ut') {     // Ultimate Team skin: baby blue / white / pink, clean futuristic type
     col = UT_SKIN_MAP[col] || col; ctx.font = '700 '+((size||8)*1.14)+'px "Segoe UI","Helvetica Neue",Arial,sans-serif'; try { ctx.letterSpacing = ((size||8)*0.07)+'px'; } catch(e){}
-    ctx.textAlign = align||'left'; ctx.textBaseline='top'; ctx.fillStyle='rgba(6,10,30,.5)'; ctx.fillText(s,x+0.3,y+0.45); ctx.fillStyle=col; ctx.fillText(s,x,y); try { ctx.letterSpacing = '0px'; } catch(e){} return;
+    ctx.textAlign = align||'left'; ctx.textBaseline='top'; ctx.fillStyle='rgba(6,10,30,.5)'; ctx.fillText(s,x+0.3,y+0.45); ctx.fillStyle=col; ctx.fillText(s,x,y); ntagAfter(ctx, s, x, y, size||8, align, 'top'); try { ctx.letterSpacing = '0px'; } catch(e){} return;
   }
   ctx.font = (size||8)+'px "Press Start 2P", monospace';
   ctx.textAlign = align||'left'; ctx.textBaseline='top';
   ctx.fillStyle='rgba(0,0,0,.62)'; ctx.fillText(s,x+0.45,y+0.65);
-  ctx.fillStyle=col; ctx.fillText(s,x,y);
+  ctx.fillStyle=col; ctx.fillText(s,x,y); ntagAfter(ctx, s, x, y, size||8, align, 'top');
 }
 function miniBall(x,y){ ctx.fillStyle='#0c0b0e'; ctx.fillRect(x-1,y-1,7,7); ctx.fillStyle='#e8762c'; ctx.fillRect(x,y,5,5); ctx.fillStyle='#5a2a10'; ctx.fillRect(x,y+2,5,1); }
 function rrect(g,x,y,w,h,r){ g.beginPath(); g.moveTo(x+r,y); g.arcTo(x+w,y,x+w,y+h,r); g.arcTo(x+w,y+h,x,y+h,r); g.arcTo(x,y+h,x,y,r); g.arcTo(x,y,x+w,y,r); g.closePath(); }

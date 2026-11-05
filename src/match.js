@@ -438,6 +438,15 @@ export class Matchmaker extends DurableObject {
     if (/^e(start|check|claim|release|bind)$/.test(act)) return this.email(b, act, now);
     if (act === 'lbadd' || act === 'lbget') return this.lb(b, act);
     if (/^t(get|create|join|leave|report|admin|ready|tick|hof|bracket|match)$/.test(act)) return this.tFetch(act, b);
+    if (act === 'wget' || act === 'wset' || act === 'wdev') {         // name tags (this object used with the name 'tags'): verified devs (blue check) + warned players (yellow caution with a dev's message)
+      this.sql.exec('CREATE TABLE IF NOT EXISTS twarn (user TEXT PRIMARY KEY, msg TEXT NOT NULL, by TEXT, ts INTEGER); CREATE TABLE IF NOT EXISTS tdev (user TEXT PRIMARY KEY, ts INTEGER)');
+      const nm = u => String(u || '').toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 16);
+      if (act === 'wdev') { const u = nm(b.user); if (u) { if (b.on) this.sql.exec('INSERT INTO tdev (user, ts) VALUES (?,?) ON CONFLICT(user) DO NOTHING', u, Date.now()); else this.sql.exec('DELETE FROM tdev WHERE user=?', u); } }
+      if (act === 'wset') { const u = nm(b.target), msg = String(b.msg || '').replace(/[\u0000-\u001f<>]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 240); if (u.length < 2) return j({ ok: false, err: 'which player?' }, 400);
+        if (!msg) this.sql.exec('DELETE FROM twarn WHERE user=?', u); else this.sql.exec('INSERT INTO twarn (user, msg, by, ts) VALUES (?,?,?,?) ON CONFLICT(user) DO UPDATE SET msg=excluded.msg, by=excluded.by, ts=excluded.ts', u, msg, nm(b.by), Date.now()); }
+      const warns = {}; this.sql.exec('SELECT user, msg FROM twarn').toArray().forEach(r => { warns[r.user] = r.msg; });
+      return j({ ok: true, warns, devs: this.sql.exec('SELECT user FROM tdev ORDER BY ts').toArray().map(r => r.user) });
+    }
     if (act === 'fget' || act === 'fset') {                          // player faces (this object used with the name 'faces'): player id -> one of the 100 faces
       this.sql.exec('CREATE TABLE IF NOT EXISTS fmap (pid TEXT PRIMARY KEY, face INTEGER NOT NULL)');
       if (act === 'fset') { const pid = String(b.pid || '').slice(0, 40), face = Math.floor(+b.face); if (!/^[A-Za-z0-9_:-]{3,40}$/.test(pid)) return j({ ok: false, err: 'bad player id' }, 400);
