@@ -17909,6 +17909,7 @@ function uoInit(){                                     // the library lives next
     try { urInit(); } catch(e){ console.warn('receiving library', e); }
     try { dmInit(); } catch(e){ console.warn('defensive movement library', e); }
     try { qbtLibInit(); } catch(e){ console.warn('QB throw library', e); }
+    try { hoLibInit(); } catch(e){ console.warn('handoff library', e); }
     UO_CORE.forEach(id=>(UO.byId[id]||[]).forEach(c=>uoLoad(c.path).catch(()=>{})));          // the common tackles right away
     m.clips.forEach(c=>{ if(!UO_CORE.includes(c.id)) UO.q.push(c.path); }); uoPump();          // then everything else, slowly, in the background
   }).catch(e=>{ UO.state='off'; UO.err=String(e&&e.message||e); console.warn('tackle animation library unavailable:', UO.err); });
@@ -17929,7 +17930,7 @@ function uoPump(){ if (UO.qOn) return; UO.qOn=true; const next=()=>{ const p=UO.
 function uoClipFor(rg, path){                           // the clip retargeted to one rig: Hips x/z pinned to the rig's rest (MASS moves the player), yaw and Y kept
   const c=UO.clips[path]; if(!c||!rg||!rg.fbBones) return null; rg.fbUoClips=rg.fbUoClips||{}; if(rg.fbUoClips[path]) return rg.fbUoClips[path];
   if(rg.fbV2 && PV2.uo[path]) return rg.fbUoClips[path]=PV2.uo[path];
-  const copy=c.clone(); if(/^def\//.test(path)) copy.tracks=copy.tracks.filter(t=>!/\.position$/.test(t.name)||/Hips\.position$/.test(t.name));
+  const copy=c.clone(); if(/^(def|ho)\//.test(path)) copy.tracks=copy.tracks.filter(t=>!/\.position$/.test(t.name)||/Hips\.position$/.test(t.name));
   const hip=(rg.fbV2 && PV2.S) ? PV2.S.b.mixamorigHips.o : rg.fbBones.mixamorigHips, rest=hip&&hip.position, fix=UO.fix||'rx90', qf=new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0), fix==='rx90'?Math.PI/2:fix==='rxm90'?-Math.PI/2:0), q=new THREE.Quaternion();
   if (rest) copy.tracks.forEach(t=>{
     if(/(?:mixamorig:?)?Hips\.position$/i.test(t.name)){ const v=t.values; for(let i=0;i+2<v.length;i+=3){ const x=v[i],y=v[i+1],z=v[i+2]; let up = fix==='rx90' ? -z : fix==='rxm90' ? z : y; v[i]=rest.x; v[i+1]=Math.max(0.5, up*(UO.yk||1)); v[i+2]=rest.z; } }
@@ -18278,7 +18279,8 @@ function fbChoosePlayerAnimation(p,P){
   if(p.diveT>0||p.slid)return p.slid?'slide':'dive';
   if(p.diving)return 'dive';
   if(p.jumpT>0)return 'catch';
-  if(p.role==='QB'&&(p.qbPh||0)>0&&!p.carry)return qbtAnimKey(p);       // v139: cock / whip / follow-through of the QB throw library (or the qbPass throw)
+  if(p.role==='QB'&&(p.qbPh||0)>0&&!p.carry)return qbtAnimKey(p);       // v140: cock / whip / follow-through of the QB throw library (or the qbPass throw)
+  if(p.hoK){const hk=hoAnimKey(p);if(hk)return hk;}                        // v140: handoff / toss / play-action pair (or the back's solo carry)
   if(p.st==='throw')return 'qbPass';
   if(p.st==='point')return 'point';
   if(p.st==='block'&&fbHasBlockingContact(p))return FB_MODEL.clips&&FB_MODEL.clips.push?'push':'offenseIdle';
@@ -18327,6 +18329,7 @@ function fbTickPlayerAnimation(p,dt){
   }
   if(key.slice(0,3)==='dm:')action.setEffectiveTimeScale(p.dmTs||1);
   if(p.role==='QB'&&(p.qbPh||0)>0&&(key===QB_THROW.legacy.key||(p.qbClip&&key==='dm:'+p.qbClip.path))){action.setEffectiveTimeScale(0);action.time=qbtClipTime(p,action.getClip().duration);}   // the clip follows the throw phase frame by frame
+  if(p.hoK&&key.slice(0,3)==='dm:'&&HO.ids[p.hoK]&&key==='dm:'+HO.ids[p.hoK].path){action.setEffectiveTimeScale(0);action.time=clamp(p.hoT||0,0,action.getClip().duration-0.001);}   // v140: the pair's clock is the game's exchange
   try{dmAdditive(p,rg,nowS);}catch(e){}
   rg.fbMixer.update(dt);
   if(rg.fbPoseTransition){const tr=rg.fbPoseTransition;tr.time+=dt;const u=Math.min(1,tr.time/.12),w=u*u*(3-2*u);tr.bones.forEach(v=>v.bone.quaternion.slerpQuaternions(v.q,v.bone.quaternion.clone(),w));if(u>=1)rg.fbPoseTransition=null;}
@@ -18473,7 +18476,7 @@ function fbBuild(){
 /* ---------------------------------------------------------------- rendering */
 function fbPoseOf(p){
   const S = p.rig.S, h = (x,y) => [x*S,y*S], sp = Math.hypot(p.vx,p.vz), st = p.st;
-  const P = { x:p.x, y:0, z:p.z, faceAbs:p.face, run:sp>0.8, sp:sp*0.16, anim:p.anim, crouch:0, lean:0, tilt:0, spread:0, fh:h(0.5,1.9), bh:h(-0.3,1.9), trackF:false, trackB:false, snap:false };
+  const P = { x:p.x + (p.hoOx||0), y:0, z:p.z + (p.hoOz||0), faceAbs:(p.hoK && p.role==='QB') ? (p.hoF||0) : p.face, run:sp>0.8, sp:sp*0.16, anim:p.anim, crouch:0, lean:0, tilt:0, spread:0, fh:h(0.5,1.9), bh:h(-0.3,1.9), trackF:false, trackB:false, snap:false };
   if (P.run) { const ph = p.anim*0.26, a = Math.sin(ph), b = Math.sin(ph+Math.PI), spd = Math.min(1,sp/9);
     P.fh = h(0.45+0.8*a, 1.35+0.55*Math.max(0,a)+0.1*Math.cos(ph)); P.bh = h(0.45+0.8*b, 1.35+0.55*Math.max(0,b)+0.1*Math.cos(ph+Math.PI));      // bent-elbow arm pump
     P.lean = 0.1+0.16*spd; P.crouch = 0.06+0.1*spd; P.trackF = P.trackB = true; }
@@ -18529,7 +18532,7 @@ function fbRender(){
       fbBall.rotation.order = 'YZX'; fbBall.position.set(gx,gy,gz); fbBall.rotation.set(rx,b.ry||0,0.2); }
     else if (b.mode==='kick') { fbBall.position.set(b.x,b.y,b.z); fbBall.rotation.set(0,0,b.spin||0); }
     else if (b.mode==='cele') { const cb = FB.tdcBall; if (cb) { fbBall.position.set(cb.x,cb.y,cb.z); fbBall.rotation.set(cb.rx||0,0,0.3); } else fbBall.visible = false; }
-    else if (b.mode==='pitch') { fbBall.position.set(b.x,b.y,b.z); fbBall.rotation.set(s.t*14,0,0.3); }
+    else if (b.mode==='pitch') { let hd = false; try { hd = hoBallDraw(b); } catch(e){} if (!hd) { fbBall.position.set(b.x,b.y,b.z); fbBall.rotation.set(s.t*14,0,0.3); } }
     else fbBall.visible = false;
     fbAim.visible = !!s.aimShow || !!(s.thrown && s.tcirc && s.tgtShow && !(fbVs() && s.defMode)); if (!s.aimShow && s.thrown && s.tcirc && fbAim.visible) { fbAim.position.set(s.tcirc.x,0.08,s.tcirc.z); fbAim.material.color.set('#ffffff'); fbAim.rotation.y = s.tcirc.ang; fbAim.scale.set(s.tcirc.a, s.tcirc.c, 1); }
     if (s.aimShow) { const C = fbThrowCircle(s.aim.x, s.aim.z); fbAim.position.set(s.aim.x + (C ? C.ox : 0),0.08,s.aim.z + (C ? C.oz : 0)); fbAim.material.color.set(!s.aimOk?'#ff4d4d':s.aimBehind?'#ffb020':s.aimShort?'#ff8c3a':'#ffffff'); if (C) { fbAim.rotation.y = C.ang; fbAim.scale.set(C.a, C.c, 1); } else fbAim.scale.set(1,1,1); }
@@ -18720,7 +18723,7 @@ function fbRouteFor(p, play, los){
 }
 function fbSetup(play){
   try { utApplyTeams(); } catch(e){}
-  const s = FB.s, los = s.los; s.play = play; s.audPend = null; FB.hot = null; s.xfCat = null; fbRigs.forEach(p => { p.xfBeat = false; p.bullUsed = false; }); s.t = 0; s.live = false; s.throwPend = null; fbRigs.forEach(p => { p.qbPh = 0; p.qbCk = 0; p.qbPump = 0; p.qbt = null; }); s.thrown = false; s.caught = false; s.targetMan = null; s.turn = false; s.ctl = null; s.carrier = null; s.aimShow = false; s.tgtShow = false; s.charge = 0; s.pastLos = false; s.eng = [];
+  const s = FB.s, los = s.los; s.play = play; s.audPend = null; FB.hot = null; s.xfCat = null; fbRigs.forEach(p => { p.xfBeat = false; p.bullUsed = false; }); s.t = 0; s.live = false; s.throwPend = null; fbRigs.forEach(p => { p.qbPh = 0; p.qbCk = 0; p.qbPump = 0; p.qbt = null; p.hoK = null; p.hoT = 0; p.hoOx = 0; p.hoOz = 0; }); s.ho = null; s.hoNo = false; s.thrown = false; s.caught = false; s.targetMan = null; s.turn = false; s.ctl = null; s.carrier = null; s.aimShow = false; s.tgtShow = false; s.charge = 0; s.pastLos = false; s.eng = [];
   const run = play.t==='run', F = FB_FORM[run ? 'ifm' : 'shot'];
   const oq = fbBy('QB');
   fbOff().forEach(p => {
@@ -18960,6 +18963,7 @@ function fbLive(dt){
   }
   if (play.sneak && !s.carrier) { s.carrier = q; }
   fbCustomStep(dt); fbSpecialStep(dt); fbFoulWatch(dt); fbPumpStep(dt);
+  try { hoStep(dt); } catch(e){ console.error('ho', e); hoEnd(true); }
   // ---- user input
   const c = s.ctl;
   if (c && !c.down) {
@@ -19289,7 +19293,7 @@ function fbAimBehind(aim){                              // aiming within 2 yd of
   return fbOff().some(o => ['W1','W2','W3','TE','RB'].includes(o.role) && !o.down && Math.hypot(o.vx||0,o.vz||0) > 6 && Math.hypot(o.x-aim.x, o.z-aim.z) < 2);
 }
 /* ====================================================================================================
-   QB THROWING (v139). One continuous power curve (how long you hold), the QB's arm (Throw Power) and body (planted, stepping in,
+   QB THROWING (v140). One continuous power curve (how long you hold), the QB's arm (Throw Power) and body (planted, stepping in,
    rolling, sprinting, backpedaling, jumping back, off balance, pressure) shape release SPEED and ACCURACY separately.
    The throw is a real motion: the arm cocks while you hold, whips forward when you let go, and the ball leaves the hand on the
    release frame. The flight itself is the same projectile as before (same arcs, same landing math, same catching).
@@ -19423,11 +19427,11 @@ function fbThrowCircle(ax, az, pw){      // where the ball CAN land: radius grow
   const press = fbDef().some(p => !p.down && !(p.eng && !p.free) && p.rusher && fbDist(p,q) < 3.3);
   let r = (2.6 - 2.35*acc + (0.115 - 0.105*acc)*d) * (press ? 1.6 : 1);                 // 60 OVR: huge at any range, wider the deeper he goes. 99 OVR: tiny short and deep.
   const sp = Math.hypot(q.vx||0, q.vz||0), w = clamp(sp/7, 0, 1.3) * (1 - 0.7*acc) * 1.8;   // throwing on the run: bad QBs get a stretched, shifted circle
-  { const P0 = pw != null ? pw : (s.charging ? qbtPower((s.chargeF||0)/60) : 0.5), Bq = qbtBody(q, { x:ax, z:az }, P0); r *= Bq.maC*(1 + 0.12*P0*(1 - qbtAccN(q))); }   // v139: his body and how hard he lets it go
+  { const P0 = pw != null ? pw : (s.charging ? qbtPower((s.chargeF||0)/60) : 0.5), Bq = qbtBody(q, { x:ax, z:az }, P0); r *= Bq.maC*(1 + 0.12*P0*(1 - qbtAccN(q))); }   // v140: his body and how hard he lets it go
   const ux = sp > 0.3 ? q.vx/sp : 1, uz = sp > 0.3 ? q.vz/sp : 0;
   return { r, a:r*(1+w), c:r*(1+0.15*w), ux, uz, ox:ux*r*w*0.5, oz:uz*r*w*0.5, ang:Math.atan2(-uz, ux) };
 }
-function fbThrow(aim, power, cpu, kind, opt){              // v139: starts the throwing motion; qbtRelease() lets the ball go on the release frame
+function fbThrow(aim, power, cpu, kind, opt){              // v140: starts the throwing motion; qbtRelease() lets the ball go on the release frame
   if (FB.esc) return;
   const s = FB.s, q = s.ctl;
   if (!q || q.role!=='QB' || q.carry || q.down || s.thrown || s.throwPend || s.ball.mode!=='held') return;
@@ -20620,7 +20624,7 @@ function fbLobbyWalkDraw(g){
 
   if (PV2.state==='ready') T('MODELS: PLAYER BLAKEALLEN25 - HELMET EXODUSKS - CLEATS LISENHAO - TROPHY G_BORY32 (SKETCHFAB, CC BY 4.0)', 160, 176.6, '#5d6a8f', 2.1, 'center');
   try { onlPanelDraw(g); } catch(e){ console.error('onl', e); }
-  T('BUILD v139',314,174,'#8fa0cc',4,'right'); { const us = uoStatus(); if (us) T(us, 6, 174, UO.state==='off' ? '#ff8b7b' : '#6f7ea8', 3, 'left'); }
+  T('BUILD v140',314,174,'#8fa0cc',4,'right'); { const us = uoStatus(); if (us) T(us, 6, 174, UO.state==='off' ? '#ff8b7b' : '#6f7ea8', 3, 'left'); }
 }
 /* ===================== WHO'S ONLINE: a live list in the lobby (signed-in players + what they are doing), chat and party invites.
    Anything sent to you pops up as a small red note in the top corner, wherever you are in the game. ===================== */
@@ -23202,7 +23206,7 @@ function fbLobbyDraw(g){
   if (PARTY.npc && !PARTY.on) T(PARTY.npc.name+' SUITS UP AS YOUR W1',160,55,'#7ddc8a',5,'center');
   fbBtn(g,'lobbyback',6,5,76,12,'< BACK TO THE FIELD',{size:4.6});
   fbBtn(g,'party',6,19,76,10,PARTY.on ? 'PARTY  '+PARTY.code.toUpperCase() : 'PLAY WITH A FRIEND',{size:4.4,line:'#7ddc8a',tc:'#c9f7d0'});
-  T('BUILD v139',314,174,'#8fa0cc',4,'right');   // so you can tell which build is live
+  T('BUILD v140',314,174,'#8fa0cc',4,'right');   // so you can tell which build is live
   fbBtn(g,'tut',100,141,58,13,'TUTORIAL',{size:5,line:'#ffd24a',tc:'#ffe9a8'}); fbBtn(g,'howlobby',162,141,58,13,'HOW TO PLAY',{size:4.4,line:'#ffd24a',tc:'#ffe9a8'});
   fbBtn(g,'shop',6,141,90,13,'PLAY SHOP',{size:5.5,line:'#7ddc8a',tc:'#c9f7d0'});
   fbBtn(g,'stats',224,141,90,13,'MY STATS',{size:5.5,line:'#6fd0ff',tc:'#cfeeff'});
@@ -23581,7 +23585,7 @@ window.addEventListener('pointerup', e => {
   if (FBN.on && FBN.role==='guest') { fbnGuestUp(); return; }
   if (FB.scr==='live' && s.charging) {
     s.charging = false; const p = s.hover ? fbRay(s.hover.px, s.hover.py, 1.0) : null;
-    const hS = (s.chargeF||0)/60; if (p) { if ((s.chargeF||0) < 12) FB.tapPending = { p, at:performance.now(), h:hS }; else fbThrow(p, qbtPower(hS), false, 'pass'); } s.aimShow = false;   // v139: how long you held = how hard he throws it   // a short click lobs it (after a beat, in case a second click makes it a pump fake)
+    const hS = (s.chargeF||0)/60; if (p) { if ((s.chargeF||0) < 12) FB.tapPending = { p, at:performance.now(), h:hS }; else fbThrow(p, qbtPower(hS), false, 'pass'); } s.aimShow = false;   // v140: how long you held = how hard he throws it   // a short click lobs it (after a beat, in case a second click makes it a pump fake)
   }
 }, true);
 function fbDrawPt(x,y){
@@ -26712,6 +26716,121 @@ function fbStatsDraw(g){
   most.forEach((p,i) => { const y = 103 + i*9.4; T((i+1)+'  '+p.n,156,y,'#fff',4.8,'left'); T(p.c+' CALLS  '+p.y+' YDS',308,y,'#9fb0dc',4.4,'right'); });
 }
 
+/* ===================== v140: HANDOFF + PLAY-ACTION LIBRARY (anim/ho): the QB and the back play one synced pair =====================
+   The game still decides WHEN the exchange happens (the same handoff / toss / fake timing as before); the pair's own events are lined up
+   to it: mesh_start (or toss_release / pull) = the moment the ball starts to move, transfer (or catch) = the moment the back has it.
+   rb_path_m is matched visually: the back (and a little of the QB) is drawn up to 0.75 yd toward the authored path during the mesh only. */
+const HO = { state:'idle', ids:{}, man:null, last:null, cfg:{ warp:0.75, qDrift:0.3, gapToss:2.2, qMove:2.4, qRun:5.2, secureS:0.45 } };
+window.HO_LIB = HO;
+function hoLibInit(){
+  if (HO.state!=='idle' || typeof fetch!=='function' || typeof UO==='undefined' || UO.state!=='ready') return; HO.state = 'loading';
+  fetch(UO.base + 'ho/manifest.json').then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).then(m => {
+    HO.man = m; (m.clips || []).forEach(c => { if (!c || !c.id || !c.file || !c.events) return; c.path = 'ho/' + c.file; HO.ids[c.id] = c; uoLoad(c.path).catch(() => {}); });
+    HO.state = 'ready'; }).catch(() => { HO.state = 'off'; });
+}
+const hoEv = (c, k, d) => c && c.events && c.events[k] != null ? c.events[k] : d;
+function hoOk(id){ const c = HO.ids[id]; if (!c) return null; if (!uoHas(c.path)) { if (!UO.pending[c.path]) uoLoad(c.path).catch(() => {}); return null; } return c; }
+function hoPathAt(c, t){ const P = c && c.pair && c.pair.rb_path_m; if (!P || !P.length) return null; if (t <= P[0].t) return P[0];
+  for (let i = 1; i < P.length; i++) if (P[i].t >= t) { const a = P[i-1], b = P[i], u = (t - a.t)/Math.max(1e-6, b.t - a.t); return { x_m:a.x_m + (b.x_m - a.x_m)*u, z_m:a.z_m + (b.z_m - a.z_m)*u }; }
+  return P[P.length-1]; }
+function hoBase(kind, q, car, rel, s){                       // which pair. rel = where the back will be when the ball reaches him (QB frame, yards: f = downfield, r = to his right)
+  const side = rel.r >= 0 ? 'RIGHT' : 'LEFT', gun = q.x <= s.los - 3.2, gap = Math.hypot(rel.f, rel.r), lat = Math.abs(rel.r), cross = car.z - q.z >= 0 ? 'RIGHT_TO_LEFT' : 'LEFT_TO_RIGHT';
+  if (kind === 'toss') return 'HO_TOSS_' + side;
+  if (kind === 'fake') {
+    if (gun) return 'PA_FAKE_SHOTGUN_' + cross;
+    const qr = q.route && q.route.length ? q.route[q.route.length-1] : null;
+    if (qr && (qr[1] - q.z)*(side === 'RIGHT' ? 1 : -1) < -2.5) return 'PA_BOOT_' + (side === 'RIGHT' ? 'LEFT' : 'RIGHT') + '_AFTER_FAKE_' + side;   // he fakes one way and rolls out the other
+    return lat > 1.2 ? 'PA_FAKE_STRETCH_' + side : 'PA_FAKE_INSIDE_' + side;
+  }
+  if (gap > HO.cfg.gapToss) return 'HO_TOSS_' + side;          // the game's exchange is a short pitch over a few yards: the clip that shows that is the toss
+  if (gun) return 'HO_SHOTGUN_' + cross;
+  return lat < 0.6 ? 'HO_DIVE_' + side : lat < 1.15 ? 'HO_INSIDE_' + side : 'HO_STRETCH_' + side;
+}
+function hoClear(p){ if (!p) return; p.hoK = null; p.hoT = 0; p.hoOx = 0; p.hoOz = 0; }
+function hoEnd(no){ const s = FB.s; if (s) { s.ho = null; if (no) s.hoNo = true; } fbRigs.forEach(hoClear); }
+function hoAnimKey(p){ const c = HO.ids[p.hoK]; return c && uoHas(c.path) ? 'dm:' + c.path : null; }
+const hoSm = u => { u = clamp(u, 0, 1); return u*u*(3 - 2*u); };
+function hoStep(dt){
+  const s = FB.s, play = s && s.play, q = fbBy('QB'); if (!play || !q) return;
+  if (HO.state !== 'ready' || s.turn || s.hoNo) { if (s.ho) hoEnd(true); return; }
+  let H = s.ho; const rt = dt/FB_TS;                          // play time -> clip (real) seconds
+  if (!H) {
+    const kind = play.t === 'run' ? (play.sneak ? null : 'give') : play.t === 'crun' ? (play.mode === 'toss' ? 'toss' : 'give') : play.pa ? 'fake' : null;
+    const car = kind && fbBy(play.t === 'run' ? 'RB' : play.t === 'crun' ? play.car : (play.fake || 'RB'));
+    if (!kind || !car || car === q || s.t > 0.3) { s.hoNo = true; return; }
+    H = s.ho = { kind, car:car.role, st:'appr', t:0, base:null };
+  }
+  const car = fbBy(H.car); if (!car || car.down || q.down) { hoEnd(true); return; }
+  const b = s.ball, mine = b.mode === 'pitch' && b.tg === H.car;
+  if (H.st === 'appr') {
+    if (b.mode === 'held' && b.h === q && q.carry && H.kind !== 'fake') { hoEnd(true); return; }   // past the line: no handoff, the QB keeps it
+    let tev, pd;
+    if (H.kind === 'fake') { const r0 = q.route && q.route[0]; tev = Math.max(0.4, s.paDone || !r0 ? s.t : s.t + Math.hypot(r0[0]-q.x, r0[1]-q.z)/Math.max(1, q.spd || 5)); pd = 0; }
+    else if (H.kind === 'toss') { tev = Math.max(0.2, s.t); pd = 0.42; }
+    else if (play.t === 'run') { tev = 0.5; pd = 0.2; }
+    else { const d = fbDist(car, q), ux = (q.x - car.x)/(d || 1), uz = (q.z - car.z)/(d || 1), cl = ((car.vx||0) - (q.vx||0))*ux + ((car.vz||0) - (q.vz||0))*uz; tev = Math.min(2.4, s.t + (d > 1.6 ? (d - 1.6)/Math.max(2, cl) : 0)); pd = 0.16; }
+    if (mine) tev = s.t;
+    const k = Math.max(0, tev - s.t) + pd, rel = { f:car.x + (car.vx||0)*k - (q.x + (q.vx||0)*k), r:car.z + (car.vz||0)*k - (q.z + (q.vz||0)*k) };
+    const base = hoBase(H.kind, q, car, rel, s), cq = hoOk(base + '_QB'), cr = hoOk(base + '_RB');
+    const a0 = H.kind === 'fake' ? hoEv(cq, 'pull', 0.25) : base.indexOf('HO_TOSS') === 0 ? hoEv(cq, 'toss_release', 0.22) : hoEv(cq, 'mesh_start', 0.18);
+    H.side = rel.r >= 0 ? 'RIGHT' : 'LEFT';
+    if (cq && cr && s.t >= tev - a0*FB_TS) {                 // start the pair so its exchange event lands on the game's
+      const toss = base.indexOf('HO_TOSS') === 0;
+      Object.assign(H, { st:'pre', base, cq, cr, toss, a0, a1: H.kind === 'fake' ? a0 : toss ? hoEv(cq, 'catch', 0.37) : hoEv(cq, 'transfer', 0.25), t:clamp((s.t - (tev - a0*FB_TS))/FB_TS, 0, a0 - 1/60), qOff:false, rOff:false });
+      HO.last = { base, kind:H.kind, at:s.t, rel:{ f:+rel.f.toFixed(2), r:+rel.r.toFixed(2) } };
+    } else {
+      const ap = hoOk(H.side === 'LEFT' ? 'RB_POCKET_APPROACH_LEFT' : 'RB_POCKET_APPROACH'), sp = Math.hypot(car.vx||0, car.vz||0), mps = sp*0.9144*FB_TS;
+      if (ap && H.kind !== 'toss' && !(base.indexOf('HO_TOSS') === 0) && mps > 2.5 && !car.carry) { car.hoK = ap.id; car.hoT = ((car.hoT||0) + rt*clamp(mps/5.68, 0.7, 1.4)) % ap.duration_s; } else hoClear(car);
+      if (s.t > 2.7 || (H.kind !== 'give' && s.t > 1.4)) hoEnd(true);
+      return;
+    }
+  }
+  if (H.st === 'pre') {
+    H.t += rt;
+    if (H.kind === 'fake') { if (s.paDone && b.mode === 'held' && b.h === q) H.st = 'post'; else H.t = Math.min(H.t, H.a0 - 1/60); }
+    else if (mine) { H.st = 'mesh'; b.hf = H.toss ? 'toss' : 'ho'; }
+    else if (b.mode === 'held' && b.h === car) { H.st = 'post'; H.t = Math.max(H.t, H.a1); }
+    else if (b.mode === 'held' && b.h === q && q.carry) { hoEnd(true); return; }
+    else H.t = Math.min(H.t, H.a0 - 1/60);                    // early: hold the reach until the game's exchange starts
+  }
+  if (H.st === 'mesh') {
+    if (mine) { b.hf = H.toss ? 'toss' : 'ho'; const u = clamp((b.t||0)/(b.dur||1), 0, 1); H.t = Math.max(H.t, Math.min(H.a1, H.a0 + (H.a1 - H.a0)*u)); }
+    else { H.st = 'post'; H.t = Math.max(H.t, H.a1); }
+  } else if (H.st === 'post') H.t += rt;
+  // ---- who shows what this frame
+  const C = HO.cfg, qsp = Math.hypot(q.vx||0, q.vz||0), csp = Math.hypot(car.vx||0, car.vz||0);
+  if (!H.qOff && ((q.qbPh||0) > 0 || q.carry && H.kind === 'fake' || H.t >= hoEv(H.cq, 'animation_complete', H.cq.duration_s) - 0.02 || (H.st === 'post' && qsp > C.qRun))) H.qOff = true;
+  if (H.qOff || (H.st === 'pre' && H.kind !== 'fake' && qsp > C.qMove)) hoClear(q); else { q.hoK = H.cq.id; q.hoT = H.t; q.hoF = 0; }   // a fake drops a yard while it plays; a QB running to a far mesh point shows his run until the exchange
+  const rEnd = hoEv(H.cr, 'transition_ready', H.cr.duration_s);
+  if (H.t < rEnd) { car.hoK = H.cr.id; car.hoT = H.t; }
+  else {                                                      // after the pair: a beat of the solo carry (ball high and tight) or the carried-out fake
+    const lp = hoOk((H.kind === 'fake' ? 'RB_FAKE_CARRY' : 'RB_CARRY_SECURE') + (H.side === 'LEFT' ? '_LEFT' : '')), mps = csp*0.9144*FB_TS, k = mps/6.35;
+    if (lp && H.t < rEnd + C.secureS && k > 0.65 && k < 1.5 && (H.kind === 'fake' ? !car.carry : car.carry)) { if (car.hoK !== lp.id) car.hoT = 0; car.hoK = lp.id; car.hoT = ((car.hoT||0) + rt*clamp(k, 0.7, 1.4)) % lp.duration_s; }
+    else { hoClear(car); if (H.qOff || !q.hoK) { hoEnd(); s.hoNo = true; return; } }
+  }
+  // ---- the mesh: draw the back onto the authored path (and the QB a step toward him), only while the hands meet
+  car.hoOx = car.hoOz = q.hoOx = q.hoOz = 0;
+  if (!H.toss && H.t < H.a1 + 0.25 && car.hoK === H.cr.id) {
+    const pth = hoPathAt(H.cq, H.t) || hoPathAt(H.cr, H.t);
+    if (pth) { const w = H.t < H.a0 ? hoSm(H.t/Math.max(0.05, H.a0)) : H.t <= H.a1 ? 1 : 1 - hoSm((H.t - H.a1)/0.25);
+      const Dx = (q.x + pth.z_m/0.9144) - car.x, Dz = (q.z - pth.x_m/0.9144) - car.z, L = Math.hypot(Dx, Dz) || 1e-6, kR = Math.min(1, C.warp/L);
+      car.hoOx = Dx*kR*w; car.hoOz = Dz*kR*w;
+      const Lq = L*(1 - kR);
+      if (q.hoK && Lq > 0.01) { const kq = Math.min(C.qDrift, Lq)/Lq; q.hoOx = -Dx*(1-kR)*kq*w; q.hoOz = -Dz*(1-kR)*kq*w; } }
+  }
+}
+// the ball between the two hands while it changes owner (QB right hand -> the back's hands), on both screens
+const _hoA = new THREE.Vector3(), _hoB = new THREE.Vector3(), _hoC = new THREE.Vector3();
+function hoHandW(p, both, out){
+  const rg = p && p.rig, B = rg && rg.fbBones; if (!B || !rg.fbModel) return false;
+  const R = B.mixamorigRightHand || B['mixamorig:RightHand'], L = B.mixamorigLeftHand || B['mixamorig:LeftHand']; if (!R) return false;
+  rg.root.updateMatrixWorld(true); R.getWorldPosition(out); if (both && L) { L.getWorldPosition(_hoC); out.add(_hoC).multiplyScalar(0.5); } return true;
+}
+function hoBallDraw(b){
+  if (!b || !b.hf) return false; const q = fbBy('QB'), r = fbBy(b.tg); if (!q || !r || !hoHandW(q, false, _hoA) || !hoHandW(r, true, _hoB)) return false;
+  const u = clamp((b.t||0)/(b.dur||1), 0, 1); fbBall.position.copy(_hoA).lerp(_hoB, hoSm(u)); fbBall.position.y += Math.sin(u*Math.PI)*(b.hf === 'toss' ? 0.45 : 0.04);
+  fbBall.rotation.set(b.hf === 'toss' ? u*8 : 0, r.face || 0, 0.3); return true;
+}
 /* ---------------------------------------------------------------- V80: handoffs - a visible exchange, never from past the line */
 function fbHandoffAnim(q, car, dur, msg){
   const s = FB.s; if (!car) return;
@@ -26734,8 +26853,8 @@ function fbHandoffDenied(q){
 const FBN = { on:false, role:null, mode:'coop', room:null, peer:null, offs:[], gk:{}, evq:[], es:0, lastEs:0, gcall:null, gplay:null, hcall:null, hplay:null, rsel:'W1',
               fr:0, sn:0, rn:-1, fxq:[], fxId:0, fxSeen:null, rv:0, rsend:0, dlT:null, lastSc:'', lastRx:0, lastSend:0, mask:-1, gone:false, lost:false, msg:'', kt:0, ea:0 };
 const FBN_SKIP = new Set(['pg','motion','hwg','tab','sel','custom','hover','aim','aimShow','aimOk','aimBehind','charging','charge','chargeF','wantDive','wantJuke','wantStiff','wantTackle','gTackle','defMode','dcall','fourth','fourthSel','tutMode','tut','learnL','dh','lastCpuPlay','cpuScr','phase','utClaimed','utVs','utPaid','utWhy','utXp','utWL','utWager','utGid','paid','gpaid']);   // the guest's own payout state must never be overwritten by the host's
-const FBN_RN = ['x','z','vx','vz','face','anim','fall','thT','catchT','jumpT','recoilT','recoilDir','shedT','breakT','lungeT','lungeDir','fallRoll','turn','acc','ri','stun','reachT','fallTo','blk','diveT','hopU','stiffT','secureUntil','landingT','catchRecoveryT','catchDiveT','catchDiveCd','swimCd','burstT','fbHitUntil','fbTackleUntil','fbCatchStopAt','secureWindow','catchDuration','catchJumpDuration','catchJumpHeight','catchJumpCd','catchLandingStumbleT','fxx','fxy','fxz','fxn','fbFxUntil','xfa','uoUntil','uoDur','qbPh'];   // x and z MUST stay first: the replay and the guest read them by index
-const FBN_RS = ['st','tkType','catchKind','cele','fbHitClip','fbTackleClip','fxh','uoK','qbCat'];
+const FBN_RN = ['x','z','vx','vz','face','anim','fall','thT','catchT','jumpT','recoilT','recoilDir','shedT','breakT','lungeT','lungeDir','fallRoll','turn','acc','ri','stun','reachT','fallTo','blk','diveT','hopU','stiffT','secureUntil','landingT','catchRecoveryT','catchDiveT','catchDiveCd','swimCd','burstT','fbHitUntil','fbTackleUntil','fbCatchStopAt','secureWindow','catchDuration','catchJumpDuration','catchJumpHeight','catchJumpCd','catchLandingStumbleT','fxx','fxy','fxz','fxn','fbFxUntil','xfa','uoUntil','uoDur','qbPh','hoT','hoOx','hoOz'];   // x and z MUST stay first: the replay and the guest read them by index
+const FBN_RS = ['st','tkType','catchKind','cele','fbHitClip','fbTackleClip','fxh','uoK','qbCat','hoK'];
 const FBN_RF = ['carry','hasNoBall','down','tackling','diving','getUp','blockContact','uoHold'];
 const fbnR = v => Math.round(v*100)/100;
 const fbnBy = r => r ? fbBy(r) : null;
@@ -26743,7 +26862,7 @@ const fbnIsHost = () => FBN.on && FBN.role==='host';
 const fbnIsGuest = () => FBN.on && FBN.role==='guest';
 function fbMain(){ if (FBN.on && FBN.role==='guest') fbnGuestStep(); else { fbStep(); if (FBN.on) fbnHostTick(); } }
 function fbVs(){ return !!(FBN.on && FBN.mode==='vs'); }
-function fbFlip(){ return false; }     // v139: one camera for everyone - behind the offense, on offense AND defense, solo, co-op and online (the same view the online 1v1 uses)
+function fbFlip(){ return false; }     // v140: one camera for everyone - behind the offense, on offense AND defense, solo, co-op and online (the same view the online 1v1 uses)
 function fbDirNow(){ const s = FB.s; return (fbFlip() || (s && s.turn)) ? -1 : 1; }      // after a turnover everyone sees the field from the other end
 function fbVsFix(t){                                                          // drive-screen text is written once (tokens) and read per player
   if (typeof t!=='string' || t.indexOf('{')<0) return t; const g = FBN.role==='guest', on = fbnOtherName();
@@ -26965,7 +27084,7 @@ function fbnSend(){
   const f = {};
   for (const k in s) { if (FBN_SKIP.has(k) || (k==='dmode' && FBN.mode==='vs')) continue; const v = s[k], t = typeof v; if (t==='number') f[k] = fbnR(v); else if (t==='string' || t==='boolean') f[k] = v; }
   const b = s.ball, bo = b ? { m:b.mode, x:fbnR(b.x||0), y:fbnR(b.y||0), z:fbnR(b.z||0), vx:fbnR(b.vx||0), vy:fbnR(b.vy||0), vz:fbnR(b.vz||0), t0:fbnR(b.t0||0), dr:b.dropped?1:0, ry:fbnR(b.ry||0), sp:fbnR(b.spin||0),tip:b.tipped?1:0,pass:b.passId||0,sx:fbnR(b.spinX||0),sy:fbnR(b.spinY||0),sz:fbnR(b.spinZ||0),
-                  h:b.h?b.h.role:null, th:b.thrower?b.thrower.role:null, bt:b.bt!==undefined ? fbnR(performance.now()/1000-b.bt) : undefined, vx0:fbnR(b.vx0||0), vz0:fbnR(b.vz0||0) } : null;
+                  h:b.h?b.h.role:null, th:b.thrower?b.thrower.role:null, pu:b.mode==='pitch'?fbnR(clamp((b.t||0)/(b.dur||1),0,1)):undefined, tg:b.mode==='pitch'?b.tg:undefined, hf:b.mode==='pitch'?b.hf:undefined, bt:b.bt!==undefined ? fbnR(performance.now()/1000-b.bt) : undefined, vx0:fbnR(b.vx0||0), vz0:fbnR(b.vz0||0) } : null;
   const o = { k:'s', n:++FBN.sn, ea:FBN.lastEs, ak:[FBN.gts|0, Math.round(performance.now()-(FBN.gtsT||performance.now()))], sc:FB.scr, gs:fbnGuestScr(), dm:s.defMode?1:0, f, b:bo, cf:[fbnR(s.camFocus.x),fbnR(s.camFocus.z)],
               ct:s.ctl?s.ctl.role:null, cr:s.carrier?s.carrier.role:null, rc:s.rctl?s.rctl.role:null, gd:s.gdc?s.gdc.role:null, od:s.dctl?s.dctl.role:null,
               dl:FBN.dlT===null?null:Math.max(0,Math.ceil(FBN.dlT)), rv:FBN.rv };
@@ -27050,6 +27169,7 @@ function fbnApply(d){
   if (FBN.mode==='vs') { const a = s.you; s.you = s.cpu; s.cpu = a; const b2 = s.toY; s.toY = s.toC; s.toC = b2; }
   const b = d.b;
   if (b) s.ball = { mode:b.m, x:b.x, y:b.y, z:b.z, vx:b.vx, vy:b.vy, vz:b.vz, t0:b.t0, dropped:!!b.dr,tipped:!!b.tip,passId:b.pass,spinX:b.sx,spinY:b.sy,spinZ:b.sz, ry:b.ry, spin:b.sp, h:fbnBy(b.h), thrower:fbnBy(b.th), bt:b.bt!==undefined ? performance.now()/1000 - b.bt : undefined, vx0:b.vx0, vz0:b.vz0 };
+  if (b && b.m==='pitch') Object.assign(s.ball, { t:b.pu||0, dur:1, tg:b.tg, hf:b.hf });
   if (d.tg) s.tgt = { x:d.tg[0], z:d.tg[1] };
   if (d.dls) s.driveLines = d.dls;
   if (d.cst) s.cst = d.cst;
@@ -27173,7 +27293,7 @@ function fbnGuestPtr(px,py,sc){
 function fbnGuestUp(){
   const s = FB.s; if (FB.scr!=='live' || !s.charging) return;
   s.charging = false; const p = s.hover ? fbRay(s.hover.px, s.hover.py, 1.0) : null; s.aimShow = false;
-  const hS = (s.chargeF||0)/60; if (p) { if ((s.chargeF||0) < 12) FB.tapPending = { p, at:performance.now(), guest:true, h:hS }; else fbnEv({ n:'cu', x:fbnR(p.x), z:fbnR(p.z), k:'pass', h:fbnR(hS) }); }   // v139: the hold time goes with it (the host turns it into power)   // a short click waits a beat (a second click makes it a pump fake), a hold is a bullet, hold + Shift a lob
+  const hS = (s.chargeF||0)/60; if (p) { if ((s.chargeF||0) < 12) FB.tapPending = { p, at:performance.now(), guest:true, h:hS }; else fbnEv({ n:'cu', x:fbnR(p.x), z:fbnR(p.z), k:'pass', h:fbnR(hS) }); }   // v140: the hold time goes with it (the host turns it into power)   // a short click waits a beat (a second click makes it a pump fake), a hold is a bullet, hold + Shift a lob
 }
 
 /* ---------------------------------------------------------------- shared */

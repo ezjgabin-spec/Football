@@ -1,0 +1,115 @@
+{
+ "version": 1,
+ "states": {
+  "QB_HANDOFF": {
+   "next": [
+    "QB_PLAY_ACTION_RECOVER (empty hands) -> QB_POCKET / blocking / QB_FOLLOW_TO_MOVE"
+   ],
+   "blend": 6
+  },
+  "QB_TOSS": {
+   "next": [
+    "QB_POCKET (empty)",
+    "QB_FOLLOW_TO_MOVE"
+   ],
+   "blend": 6
+  },
+  "QB_PLAY_ACTION": {
+   "next": [
+    "QB_POCKET",
+    "QB_THROW",
+    "QB_JOG_LEFT",
+    "QB_JOG_RIGHT",
+    "QB_SCRAMBLE"
+   ],
+   "blend": 6
+  },
+  "QB_HANDOFF_FUMBLE": {
+   "next": [
+    "loose-ball recovery / dive states"
+   ],
+   "blend": 6
+  },
+  "RB_MESH_APPROACH": {
+   "next": [
+    "RB clip of any pair (blend 4)"
+   ],
+   "blend": 4
+  },
+  "RB_CARRY": {
+   "next": [
+    "ballcarrier run",
+    "MASS runner clips",
+    "BallSync catch-to-run states"
+   ],
+   "blend": 6
+  },
+  "RB_FAKE_CARRY": {
+   "next": [
+    "block states",
+    "route states",
+    "RB_CARRY (never: no ball)"
+   ],
+   "blend": 6
+  }
+ },
+ "chains": [
+  [
+   "run play",
+   [
+    "QB snap stance",
+    "HO_INSIDE_RIGHT_QB + HO_INSIDE_RIGHT_RB",
+    "QB: empty-hand fake -> QB_POCKET or block; RB: RB_CARRY_SECURE / ballcarrier states"
+   ]
+  ],
+  [
+   "play action pass",
+   [
+    "QB snap stance",
+    "PA_FAKE_INSIDE_RIGHT_QB + _RB",
+    "QB_POCKET_STAND / QB_THROW_*; RB: RB_FAKE_CARRY -> block or route"
+   ]
+  ],
+  [
+   "bootleg",
+   [
+    "PA_BOOT_LEFT_AFTER_FAKE_RIGHT_QB + _RB",
+    "QB_JOG_LEFT / QB_SPRINT_LEFT -> QB_THROW_*_MOVE_LEFT / roll throws"
+   ]
+  ],
+  [
+   "toss sweep",
+   [
+    "HO_TOSS_RIGHT_QB + _RB",
+    "RB_CARRY_SECURE -> ballcarrier run"
+   ]
+  ],
+  [
+   "draw",
+   [
+    "QB_DROPBACK (3 steps) or HO_DRAW_RIGHT_QB (has its own drop)",
+    "RB: HO_DRAW_RIGHT_RB -> RB_CARRY_SECURE"
+   ]
+  ],
+  [
+   "RPO",
+   [
+    "RPO_MESH_GIVE_RIGHT or RPO_MESH_KEEP_RIGHT (same timeline until the mesh end: pick at the read)",
+    "keep -> QB_THROW_* / QB_SCRAMBLE; give -> RB_CARRY_SECURE"
+   ]
+  ],
+  [
+   "fumbled exchange",
+   [
+    "HO_FUMBLED_EXCHANGE_RIGHT_QB + _RB",
+    "loose-ball recovery states"
+   ]
+  ]
+ ],
+ "rules": [
+  "Start both clips of a pair on the same tick; keep their timeScale equal.",
+  "Blend 4 frames from RB_POCKET_APPROACH into the RB clip of a pair, and 4-6 frames out of it.",
+  "RPO give/keep share every frame up to mesh_end: switch to the other variant at any frame before it with a 0-2 frame blend.",
+  "Fakes end in the QB ready stance (ball at the chest): any QB_THROW_* can follow at transition_ready; boots end in QB_JOG_LEFT/RIGHT."
+ ]
+}

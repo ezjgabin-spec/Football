@@ -1,0 +1,72 @@
+HANDOFF / PLAY-ACTION QUALITY AUDIT (measured on the exported animation)
+ball = frames the clip holds the football; speed = planted-foot ground speed start -> end (m/s); release = pitch / fumble reference
+
+HO_INSIDE_RIGHT_QB                       QB  handoff  ball 0-15       speed 0.2 -> 0.0
+HO_INSIDE_RIGHT_RB                       RB  handoff  ball 15-52      speed 5.68 -> 5.68
+HO_INSIDE_LEFT_QB                        QB  handoff  ball 0-15       speed 0.2 -> 0.0
+HO_INSIDE_LEFT_RB                        RB  handoff  ball 15-52      speed 5.68 -> 5.68
+PA_FAKE_INSIDE_RIGHT_QB                  QB  fake     ball 0-56       speed 0.2 -> 0.0
+PA_FAKE_INSIDE_RIGHT_RB                  RB  fake     ball none       speed 5.68 -> 5.68
+PA_FAKE_INSIDE_LEFT_QB                   QB  fake     ball 0-56       speed 0.2 -> 0.0
+PA_FAKE_INSIDE_LEFT_RB                   RB  fake     ball none       speed 5.68 -> 5.68
+PA_BOOT_LEFT_AFTER_FAKE_RIGHT_QB         QB  fake     ball 0-60       speed 0.2 -> 3.26
+PA_BOOT_LEFT_AFTER_FAKE_RIGHT_RB         RB  fake     ball none       speed 5.68 -> 5.68
+PA_BOOT_RIGHT_AFTER_FAKE_LEFT_QB         QB  fake     ball 0-60       speed 0.2 -> 3.26
+PA_BOOT_RIGHT_AFTER_FAKE_LEFT_RB         RB  fake     ball none       speed 5.68 -> 5.68
+HO_DIVE_RIGHT_QB                         QB  handoff  ball 0-12       speed 0.23 -> 0.01
+HO_DIVE_RIGHT_RB                         RB  handoff  ball 12-40      speed 5.68 -> 5.68
+HO_DIVE_LEFT_QB                          QB  handoff  ball 0-12       speed 0.23 -> 0.01
+HO_DIVE_LEFT_RB                          RB  handoff  ball 12-40      speed 5.68 -> 5.68
+HO_STRETCH_RIGHT_QB                      QB  handoff  ball 0-19       speed 1.07 -> 0.0
+HO_STRETCH_RIGHT_RB                      RB  handoff  ball 19-56      speed 5.68 -> 5.68
+HO_STRETCH_LEFT_QB                       QB  handoff  ball 0-19       speed 1.07 -> 0.0
+HO_STRETCH_LEFT_RB                       RB  handoff  ball 19-56      speed 5.68 -> 5.68
+PA_FAKE_STRETCH_RIGHT_QB                 QB  fake     ball 0-56       speed 1.07 -> 0.0
+PA_FAKE_STRETCH_RIGHT_RB                 RB  fake     ball none       speed 5.68 -> 5.68
+PA_FAKE_STRETCH_LEFT_QB                  QB  fake     ball 0-56       speed 1.07 -> 0.0
+PA_FAKE_STRETCH_LEFT_RB                  RB  fake     ball none       speed 5.68 -> 5.68
+HO_SHOTGUN_RIGHT_TO_LEFT_QB              QB  handoff  ball 0-15       speed 0.3 -> 0.0
+HO_SHOTGUN_RIGHT_TO_LEFT_RB              RB  handoff  ball 15-46      speed 5.68 -> 5.68
+HO_SHOTGUN_LEFT_TO_RIGHT_QB              QB  handoff  ball 0-15       speed 0.3 -> 0.0
+HO_SHOTGUN_LEFT_TO_RIGHT_RB              RB  handoff  ball 15-46      speed 5.68 -> 5.68
+PA_FAKE_SHOTGUN_RIGHT_TO_LEFT_QB         QB  fake     ball 0-46       speed 0.3 -> 0.0
+PA_FAKE_SHOTGUN_RIGHT_TO_LEFT_RB         RB  fake     ball none       speed 5.68 -> 5.68
+PA_FAKE_SHOTGUN_LEFT_TO_RIGHT_QB         QB  fake     ball 0-46       speed 0.3 -> 0.0
+PA_FAKE_SHOTGUN_LEFT_TO_RIGHT_RB         RB  fake     ball none       speed 5.68 -> 5.68
+HO_TOSS_RIGHT_QB                         QB  toss     ball 0-12       speed 0.47 -> 0.34  release 0.22s dir [-0.8933, 0.4493, -0.0121]
+HO_TOSS_RIGHT_RB                         RB  toss     ball 22-52      speed 5.68 -> 5.68
+HO_TOSS_LEFT_QB                          QB  toss     ball 0-12       speed 0.47 -> 0.34  release 0.22s dir [0.8981, 0.4396, -0.0093]
+HO_TOSS_LEFT_RB                          RB  toss     ball 22-52      speed 5.68 -> 5.68
+PA_FAKE_TOSS_RIGHT_QB                    QB  fake     ball 0-52       speed 0.47 -> 0.34
+PA_FAKE_TOSS_RIGHT_RB                    RB  fake     ball none       speed 5.68 -> 5.68
+PA_FAKE_TOSS_LEFT_QB                     QB  fake     ball 0-52       speed 0.47 -> 0.34
+PA_FAKE_TOSS_LEFT_RB                     RB  fake     ball none       speed 5.68 -> 5.68
+HO_DRAW_RIGHT_QB                         QB  handoff  ball 0-25       speed 2.5 -> 0.04
+HO_DRAW_RIGHT_RB                         RB  handoff  ball 25-56      speed 1.89 -> 5.6
+HO_DRAW_LEFT_QB                          QB  handoff  ball 0-25       speed 2.5 -> 0.04
+HO_DRAW_LEFT_RB                          RB  handoff  ball 25-56      speed 1.89 -> 5.6
+PA_FAKE_DRAW_RIGHT_QB                    QB  fake     ball 0-56       speed 2.5 -> 0.04
+PA_FAKE_DRAW_RIGHT_RB                    RB  fake     ball none       speed 1.89 -> 5.6
+PA_FAKE_DRAW_LEFT_QB                     QB  fake     ball 0-56       speed 2.5 -> 0.04
+PA_FAKE_DRAW_LEFT_RB                     RB  fake     ball none       speed 1.89 -> 5.6
+RPO_MESH_GIVE_RIGHT_QB                   QB  rpo      ball 0-18       speed 0.94 -> 0.0
+RPO_MESH_GIVE_RIGHT_RB                   RB  rpo      ball 18-54      speed 4.83 -> 5.68
+RPO_MESH_GIVE_LEFT_QB                    QB  rpo      ball 0-18       speed 0.94 -> 0.0
+RPO_MESH_GIVE_LEFT_RB                    RB  rpo      ball 18-54      speed 4.83 -> 5.68
+RPO_MESH_KEEP_RIGHT_QB                   QB  rpo      ball 0-54       speed 0.94 -> 0.0
+RPO_MESH_KEEP_RIGHT_RB                   RB  rpo      ball none       speed 4.83 -> 5.68
+RPO_MESH_KEEP_LEFT_QB                    QB  rpo      ball 0-54       speed 0.94 -> 0.0
+RPO_MESH_KEEP_LEFT_RB                    RB  rpo      ball none       speed 4.83 -> 5.68
+HO_FUMBLED_EXCHANGE_RIGHT_QB             QB  fumble   ball 0-14       speed 0.2 -> 0.0  release 0.25s dir [0.2413, 0.6124, 0.7528]
+HO_FUMBLED_EXCHANGE_RIGHT_RB             RB  fumble   ball none       speed 5.62 -> 0.0
+HO_FUMBLED_EXCHANGE_LEFT_QB              QB  fumble   ball 0-14       speed 0.2 -> 0.0  release 0.25s dir [-0.1738, 0.6447, 0.7444]
+HO_FUMBLED_EXCHANGE_LEFT_RB              RB  fumble   ball none       speed 5.57 -> 0.0
+RB_POCKET_APPROACH                       RB  rb       ball none       speed 5.68 -> 5.68
+RB_POCKET_APPROACH_LEFT                  RB  rb       ball none       speed 5.68 -> 5.68
+RB_FAKE_CARRY                            RB  rb       ball none       speed 6.35 -> 6.35
+RB_FAKE_CARRY_LEFT                       RB  rb       ball none       speed 6.35 -> 6.35
+RB_CARRY_SECURE                          RB  rb       ball 0-44       speed 6.35 -> 6.35
+RB_CARRY_SECURE_LEFT                     RB  rb       ball 0-44       speed 6.35 -> 6.35
+
+Transfer continuity: at the transfer frame the ball computed from the RB hand is within ~2 rig units (one frame of RB travel) of the ball in the QB hand for every handoff (checked in ho_run check).
+Not verified: nothing here has been played inside the real game; checks are numeric plus rendered contact sheets on both rigs.
