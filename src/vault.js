@@ -236,10 +236,10 @@ export class Vault extends DurableObject {
     for (let i = 0; i < qty; i++) this.sql.exec('INSERT INTO packs (kind,got) VALUES (?,?)', b.pack, Date.now());
     this.ledger(0, 'gift from dev ' + String(b.from || '').slice(0, 16) + ': ' + qty + ' ' + b.pack); return j({ ok: true });
   }
-  seasonWon() { let o = null; try { o = JSON.parse(this.metaGet('season') || 'null'); } catch (e) {} return !!(o && o.phase === 'done' && o.champ === 'YOU' && (o.div + ':' + o.no) === this.metaGet('skey')); }
+  seasonWon() { let o = null; try { o = JSON.parse(this.metaGet('season') || 'null'); } catch (e) {} return !!(o && o.phase === 'done' && o.champ === 'YOU' && (o.div + ':' + o.no) === this.metaGet('skey') && !o.poSim && Array.isArray(o.log) && o.log.filter(l => l && l.wk === 'PO' && !l.sim).length >= 3); }   // the Super Bowl AND every playoff game played, none simmed
   draftGet() {                           // the 3 cards on offer for the season you just won (rolled once by the server, fixed for that season)
     const key = this.metaGet('skey'); if (!key) return j({ ok: false, err: 'no season yet' }, 409);
-    if (!this.seasonWon()) return j({ ok: false, err: 'win the Super Bowl to draft a player' }, 409);
+    if (!this.seasonWon()) return j({ ok: false, err: 'win the Super Bowl (playing every playoff game) to draft a player' }, 409);
     let d = null; try { d = JSON.parse(this.metaGet('draft') || 'null'); } catch (e) {}
     if (!d || d.key !== key) {
       const pk = { tierWeights: DRAFT.tierWeights, rarityWeights: DRAFT.rarityWeights }, offers = []; const seen = new Set();
@@ -266,7 +266,7 @@ export class Vault extends DurableObject {
     this.ctx.storage.transactionSync(() => {
       const claimed = this.seasonClaimed(), key = this.metaGet('skey'); if (!key) { res = { ok: false, err: 'no season' }; return; }
       if (claimed.includes(kind)) { res = { ok: false, err: 'already claimed' }; return; }
-      if (!this.seasonWon()) { res = { ok: false, err: 'win the Super Bowl first' }; return; }
+      if (!this.seasonWon()) { res = { ok: false, err: 'win the Super Bowl first - every playoff game has to be played, not simmed' }; return; }
       let log = []; try { log = JSON.parse(this.metaGet('schamps') || '[]'); } catch (e) {} const now = Date.now(); log = log.filter(t => now - t < 86400000);
       if (log.length >= SEASON.champsPerDay) { res = { ok: false, err: 'that is ' + SEASON.champsPerDay + ' titles today - the next reward unlocks tomorrow' }; return; }
       log.push(now); this.metaSet('schamps', JSON.stringify(log)); claimed.push(kind);

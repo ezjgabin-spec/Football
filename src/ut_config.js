@@ -173,7 +173,7 @@ export const CHALLENGES = {
 export const DRAFT = { cards: 3, tierWeights: { S: 12, A: 33, B: 55 }, rarityWeights: { Common: 40, Uncommon: 28, Rare: 20, Epic: 9, Legendary: 3 } };   // the draft: after a finished season you pick 1 of 3 cards (one draft per season)
 // DEV STATUS: type this code in the DEV STATUS circle to become a verified dev (blue check + the power to give packs). Set DEV_CODE in the Cloudflare dashboard to change it without a redeploy.
 export const DEV = { code: 'leekknicks', maxPacksPerGive: 10 };
-export const SEASON = { reward: { champ: 2000 }, pack: { champ: 'elite' }, champsPerDay: 6 };   // only winning the Super Bowl pays (simmed games count); a cap on titles a day keeps a forged season from printing packs   // only the best result of a season pays; each reward is a pack plus coins
+export const SEASON = { reward: { champ: 2000 }, pack: { champ: 'elite' }, champsPerDay: 6 };   // only winning the Super Bowl pays, and only if every playoff game was played (not simmed); a cap on titles a day keeps a forged season from printing packs   // only the best result of a season pays; each reward is a pack plus coins
 // WEDNESDAY NIGHT FOOTBALL - a fully automatic weekly tournament. Every Wednesday at 8:00 PM New York time sign-up closes and the bracket is built by the server.
 // Sign-up gives one free Season LTD pack (one tournament-only player); every round has a 5-minute check-in; the LTD card is taken back when the tournament ends.
 // Seeding (for byes and the bracket): total wins, then head-to-head among the tied players, then total points scored, then who signed up first.
