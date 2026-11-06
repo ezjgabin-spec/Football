@@ -18279,8 +18279,8 @@ function fbChoosePlayerAnimation(p,P){
   if(p.diveT>0||p.slid)return p.slid?'slide':'dive';
   if(p.diving)return 'dive';
   if(p.jumpT>0)return 'catch';
-  if(p.role==='QB'&&(p.qbPh||0)>0&&!p.carry)return qbtAnimKey(p);       // v143: cock / whip / follow-through of the QB throw library (or the qbPass throw)
-  if(p.hoK){const hk=hoAnimKey(p);if(hk)return hk;}                        // v143: handoff / toss / play-action pair (or the back's solo carry)
+  if(p.role==='QB'&&(p.qbPh||0)>0&&!p.carry)return qbtAnimKey(p);       // v144: cock / whip / follow-through of the QB throw library (or the qbPass throw)
+  if(p.hoK){const hk=hoAnimKey(p);if(hk)return hk;}                        // v144: handoff / toss / play-action pair (or the back's solo carry)
   if(p.st==='throw')return 'qbPass';
   if(p.st==='point')return 'point';
   if(p.st==='block'&&fbHasBlockingContact(p))return FB_MODEL.clips&&FB_MODEL.clips.push?'push':'offenseIdle';
@@ -18329,7 +18329,7 @@ function fbTickPlayerAnimation(p,dt){
   }
   if(key.slice(0,3)==='dm:')action.setEffectiveTimeScale(p.dmTs||1);
   if(p.role==='QB'&&(p.qbPh||0)>0&&(key===QB_THROW.legacy.key||(p.qbClip&&key==='dm:'+p.qbClip.path))){action.setEffectiveTimeScale(0);action.time=qbtClipTime(p,action.getClip().duration);}   // the clip follows the throw phase frame by frame
-  if(p.hoK&&key.slice(0,3)==='dm:'&&HO.ids[p.hoK]&&key==='dm:'+HO.ids[p.hoK].path){action.setEffectiveTimeScale(0);action.time=clamp(p.hoT||0,0,action.getClip().duration-0.001);}   // v143: the pair's clock is the game's exchange
+  if(p.hoK&&key.slice(0,3)==='dm:'&&HO.ids[p.hoK]&&key==='dm:'+HO.ids[p.hoK].path){action.setEffectiveTimeScale(0);action.time=clamp(p.hoT||0,0,action.getClip().duration-0.001);}   // v144: the pair's clock is the game's exchange
   try{dmAdditive(p,rg,nowS);}catch(e){}
   rg.fbMixer.update(dt);
   if(rg.fbPoseTransition){const tr=rg.fbPoseTransition;tr.time+=dt;const u=Math.min(1,tr.time/.12),w=u*u*(3-2*u);tr.bones.forEach(v=>v.bone.quaternion.slerpQuaternions(v.q,v.bone.quaternion.clone(),w));if(u>=1)rg.fbPoseTransition=null;}
@@ -19293,7 +19293,7 @@ function fbAimBehind(aim){                              // aiming within 2 yd of
   return fbOff().some(o => ['W1','W2','W3','TE','RB'].includes(o.role) && !o.down && Math.hypot(o.vx||0,o.vz||0) > 6 && Math.hypot(o.x-aim.x, o.z-aim.z) < 2);
 }
 /* ====================================================================================================
-   QB THROWING (v143). One continuous power curve (how long you hold), the QB's arm (Throw Power) and body (planted, stepping in,
+   QB THROWING (v144). One continuous power curve (how long you hold), the QB's arm (Throw Power) and body (planted, stepping in,
    rolling, sprinting, backpedaling, jumping back, off balance, pressure) shape release SPEED and ACCURACY separately.
    The throw is a real motion: the arm cocks while you hold, whips forward when you let go, and the ball leaves the hand on the
    release frame. The flight itself is the same projectile as before (same arcs, same landing math, same catching).
@@ -19356,14 +19356,14 @@ function qbtBody(q, aim, pw){                                // what his body is
 function qbtRelTime(q, pw, B, cpu){ const C = QB_THROW.cfg; let t = (C.rel[0] + (C.rel[1] - C.rel[0])*pw)*(1 + C.relArm*(0.5 - qbtArmN(q))); if (B.cat === 'qb_off_balance') t *= 0.85; return cpu ? t*C.cpuRel : t; }
 function qbtFlightT(d, pw, thrPow){                          // the old touch arc at no power, the old bullet at full power, a real blend in between
   const tb = fbFlightT(d, 0, 'pass'), tl = Math.min(tb*1.35 + 0.5*clamp(d/25, 0.2, 1), 3.6), k = pw*pw*(3 - 2*pw);
-  return (tl + (tb - tl)*k)*QB_THROW.cfg.air/(thrPow || 1);   // v143: a little more air time everywhere
+  return (tl + (tb - tl)*k)*QB_THROW.cfg.air/(thrPow || 1);   // v144: a little more air time everywhere
 }
 function qbtV(d, t, y0){ const vh = d/t, vy = (0.45 - y0 + 0.5*FB_G*t*t)/t; return Math.hypot(vh, vy); }
 function qbtTMin(d, y0){ let a = 0.12, b = 6; for (let i = 0; i < 36; i++) { const m1 = a + (b - a)*0.382, m2 = a + (b - a)*0.618; if (qbtV(d, m1, y0) < qbtV(d, m2, y0)) b = m2; else a = m1; } return (a + b)/2; }   // the flight time that needs the least arm
 function qbtReach(y0, vCap){ let lo = 1.5, hi = 120; for (let i = 0; i < 26; i++) { const m = (lo + hi)/2; if (qbtV(m, qbtTMin(m, y0), y0) <= vCap) lo = m; else hi = m; } return lo; }     // the farthest he can get it at this speed
 function qbtSolve(sx, sz, y0, tx, tz, tDes, vCap){          // the ball ALWAYS lands on the spot. Keep the wanted flight time when the arm can make it; else more air (a higher arc); past his arm's reach: the highest, easiest arc that still gets there
   const d = Math.hypot(tx - sx, tz - sz), tm = qbtTMin(d, y0);
-  if (qbtV(d, tm, y0) > vCap) return { t:tm, tx, tz, short:false, far:true };      // v143: never short - he heaves it up and it comes down on the spot
+  if (qbtV(d, tm, y0) > vCap) return { t:tm, tx, tz, short:false, far:true };      // v144: never short - he heaves it up and it comes down on the spot
   if (qbtV(d, tDes, y0) <= vCap) return { t:tDes, tx, tz, short:false };
   let bad = tDes, good = tm; for (let i = 0; i < 28; i++) { const m = (bad + good)/2; if (qbtV(d, m, y0) <= vCap) good = m; else bad = m; } return { t:good, tx, tz, short:false };
 }
@@ -19425,11 +19425,11 @@ function fbThrowCircle(ax, az, pw){      // where the ball CAN land: radius grow
   const press = fbDef().some(p => !p.down && !(p.eng && !p.free) && p.rusher && fbDist(p,q) < 3.3);
   let r = (2.6 - 2.35*acc + (0.115 - 0.105*acc)*d) * (press ? 1.6 : 1);                 // 60 OVR: huge at any range, wider the deeper he goes. 99 OVR: tiny short and deep.
   const sp = Math.hypot(q.vx||0, q.vz||0), w = clamp(sp/7, 0, 1.3) * (1 - 0.7*acc) * 1.8;   // throwing on the run: bad QBs get a stretched, shifted circle
-  { const P0 = pw != null ? pw : (s.charging ? qbtPower((s.chargeF||0)/60) : 0.5), Bq = qbtBody(q, { x:ax, z:az }, P0); r *= Bq.maC*(1 + 0.12*P0*(1 - qbtAccN(q))); }   // v143: his body and how hard he lets it go
+  { const P0 = pw != null ? pw : (s.charging ? qbtPower((s.chargeF||0)/60) : 0.5), Bq = qbtBody(q, { x:ax, z:az }, P0); r *= Bq.maC*(1 + 0.12*P0*(1 - qbtAccN(q))); }   // v144: his body and how hard he lets it go
   const ux = sp > 0.3 ? q.vx/sp : 1, uz = sp > 0.3 ? q.vz/sp : 0;
   return { r, a:r*(1+w), c:r*(1+0.15*w), ux, uz, ox:ux*r*w*0.5, oz:uz*r*w*0.5, ang:Math.atan2(-uz, ux) };
 }
-function fbThrow(aim, power, cpu, kind, opt){              // v143: starts the throwing motion; qbtRelease() lets the ball go on the release frame
+function fbThrow(aim, power, cpu, kind, opt){              // v144: starts the throwing motion; qbtRelease() lets the ball go on the release frame
   if (FB.esc) return;
   const s = FB.s, q = s.ctl;
   if (!q || q.role!=='QB' || q.carry || q.down || s.thrown || s.throwPend || s.ball.mode!=='held') return;
@@ -20498,7 +20498,7 @@ function fbLobbyBuild(){
   const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos,3));
   L.motes = new THREE.Points(geo, new THREE.PointsMaterial({ color:'#ffe9b0', size:0.22, transparent:true, opacity:0.7, blending:THREE.AdditiveBlending, depthWrite:false })); L.motes.frustumCulled = false; L.group.add(L.motes);
 }
-function fbLobbyWalking(){ return FB.scr==='lobby' && !TOUR.open && !FB.lobbyPanel && !FB.shop && !FB.stats && !FB.lookOpen && !DEVX.ask && !document.getElementById('fbDevBox'); }
+function fbLobbyWalking(){ return FB.scr==='lobby' && !MD.on && !TOUR.open && !FB.lobbyPanel && !FB.shop && !FB.stats && !FB.lookOpen && !DEVX.ask && !document.getElementById('fbDevBox'); }
 function fbLobbyInit(){
   FB.lobbyPanel = false; FB.lobbyDwell = 0; FB.lobbyLock = null; FB.shop = null; FB.stats = false; FB.lookOpen = false;
   const av = FB.lobbyAv = fbBy('QB'); if (av) { av.x = 22; av.z = 0; av.vx = av.vz = 0; av.face = 0; av.st = 'ready'; av.carry = false; av.down = false; av.tackling = false; av.hasNoBall = true; av.fall = 0; av.fallTo = 0; av.stun = 0; av.catchT = 0; }
@@ -20622,7 +20622,7 @@ function fbLobbyWalkDraw(g){
 
   if (PV2.state==='ready') T('MODELS: PLAYER BLAKEALLEN25 - HELMET EXODUSKS - CLEATS LISENHAO - TROPHY G_BORY32 (SKETCHFAB, CC BY 4.0)', 160, 176.6, '#5d6a8f', 2.1, 'center');
   try { onlPanelDraw(g); } catch(e){ console.error('onl', e); }
-  T('BUILD v143',314,174,'#8fa0cc',4,'right'); { const us = uoStatus(); if (us) T(us, 6, 174, UO.state==='off' ? '#ff8b7b' : '#6f7ea8', 3, 'left'); }
+  T('BUILD v144',314,174,'#8fa0cc',4,'right'); { const us = uoStatus(); if (us) T(us, 6, 174, UO.state==='off' ? '#ff8b7b' : '#6f7ea8', 3, 'left'); }
 }
 /* ===================== WHO'S ONLINE: a live list in the lobby (signed-in players + what they are doing), chat and party invites.
    Anything sent to you pops up as a small red note in the top corner, wherever you are in the game. ===================== */
@@ -20895,6 +20895,7 @@ function utGameStart(){
   FB.utTeams = null; FB.utMid = ''; FB.cpuEdge = 0; FB.cpuEdgeP = 0; FB.cpuEdgeR = 0; FB.cpuStyle = fbStyleFor(''); try { fbFieldTheme(null); } catch(e){}
   FB.training = !!FB.trainNext; FB.trainNext = false;
   if (FB.training) { FB.utTeams = { me:(FB.trainTeams||{}).me || null, cpu:(FB.trainTeams||{}).cpu || null }; s.clock = 1e9; try { utApplyTeams(); } catch(e){} return; }
+  if (FB.mdGame && FBN.on && FBN.mode === 'vs') { try { FB.utTeams = { host:utBuildTeam(FB.mdGame.host), guest:utBuildTeam(FB.mdGame.guest) }; utApplyTeams(); } catch(e){ console.error('mega draft teams', e); } return; }   // v144: MEGA DRAFT - both drafted teams, no server match
   if (utSrv.token) {
     const t = utBuildTeam(utLocalSnap());
     FB.utTeams = !FBN.on ? { me:t } : FBN.role === 'host' ? { host:t } : { guest:t };
@@ -21816,7 +21817,7 @@ function utSeasonGameOver(){
 }
 function utSeasonForfeit(){ const G = FB.seasonGame, s = FB.s; if (!G || !s || s.seasonRec) return; s.seasonRec = true; const S = utSeasonGet(); if (!S || S.div !== G.div || S.no !== G.no) { FB.seasonGame = null; return; }
   utSeasonApply(S, false, Math.min(s.you|0, 0), Math.max(21, s.cpu|0)); utSeasonSave(S); FB.seasonGame = null; }
-function utSeasonPlayedAll(S){ return !!S && S.champ === 'YOU' && !S.poSim && S.log.filter(l => l.wk === 'PO' && !l.sim).length >= 3; }   // v143: rewards need the Super Bowl AND every playoff game played by you (QF, SF, SB), none simulated
+function utSeasonPlayedAll(S){ return !!S && S.champ === 'YOU' && !S.poSim && S.log.filter(l => l.wk === 'PO' && !l.sim).length >= 3; }   // v144: rewards need the Super Bowl AND every playoff game played by you (QF, SF, SB), none simulated
 function utSeasonRewards(S){          // paid once the season is over: only the best thing you did counts (playoffs < Super Bowl < champion)
   if (!S || S.phase !== 'done') return; const U = FB.ut, claimed = utSrv.seasonClaimed || [];
   const kind = utSeasonPlayedAll(S) ? 'champ' : null; if (!kind || claimed.indexOf(kind) >= 0) return;      // only the Super Bowl pays, and only when you played every playoff game
@@ -21875,7 +21876,7 @@ function utLgSnap(id, div){      // a league team as a saved-team snapshot, so t
 }
 function utSeasonSimWeek(){                             // SIM instead of playing: your team's rating against theirs decides it, same odds as every other game in the league
   const S = utSeasonGet(); if (!S || (FB.ut && FB.ut.busy)) return; const opp = utSeasonOpp(S); if (!opp) return;
-  if (S.phase === 'po') { if (FB.ut) { FB.ut.err = 'PLAYOFF GAMES MUST BE PLAYED - NO SIMMING'; FB.ut.msgT = 0; } return; }      // v143
+  if (S.phase === 'po') { if (FB.ut) { FB.ut.err = 'PLAYOFF GAMES MUST BE PLAYED - NO SIMMING'; FB.ut.msgT = 0; } return; }      // v144
   const [pf, pa] = utLgSim(utLgYouOvr(), utLgTeamOvr(opp, S.div)); utSeasonApply(S, pf > pa, pf, pa, true); utSeasonSave(S).then(() => { try { utSeasonRewards(S); } catch(e){} });
   if (FB.ut) { FB.ut.msg = 'SIMMED: '+(pf > pa ? 'WIN ' : 'LOSS ')+pf+'-'+pa+' VS '+opp; FB.ut.msgT = 0; }
 }
@@ -22683,9 +22684,9 @@ function fbScoutLine(){                                   // one line for the ca
 }
 
 /* ---------------------------------------------------------------- the CPU drive sim */
-function fbCpuDrive(yl){
+function fbCpuDrive(yl, down0, toGo0){          // v144: down0 / toGo0 = pick the drive up in the middle (SIM THE REST while you are on defense)
   const s = FB.s, D = FBD[FB.diff];
-  let y = yl, down = 1, toGo = Math.min(10,100-y), pl = 0, t = 0, start = yl, pts = 0, res = '', userYl = 25;
+  let y = yl, down = down0 || 1, toGo = toGo0 ? Math.min(toGo0, 100-y) : Math.min(10,100-y), pl = 0, t = 0, start = yl, pts = 0, res = '', userYl = 25;
   while (pl < 14) {
     if (s.clock - t <= 0) {
       const fg0 = 117 - y;
@@ -22726,12 +22727,12 @@ function fbCpuPoss(cpuYl, why, userYlOverride, free){
   if (!free && !s.defMode) { FB.scr = 'defask'; s.ask = { cpuYl, why: why || 'CPU BALL', t:0, auto: FB.skipDef ? 3 : 0, t0: performance.now() }; return; }   // 'always skip' still asks, but skips itself after 3 seconds unless you press PLAY DEFENSE
   fbCpuPossSim(cpuYl, why, userYlOverride, free);
 }
-function fbCpuPossSim(cpuYl, why, userYlOverride, free){
+function fbCpuPossSim(cpuYl, why, userYlOverride, free, st){
   const s = FB.s;
   let lines = why ? [why] : [];
   let d;
   if (free) { d = { lines:['CPU TAKES OVER AT MIDFIELD-ISH'], pts:0, t:6, userYl:userYlOverride }; lines.push('YOU GET THE BALL BACK'); }
-  else { d = fbCpuDrive(cpuYl); lines.push('CPU STARTS AT ITS OWN '+cpuYl); lines = lines.concat(d.lines); }
+  else { d = fbCpuDrive(cpuYl, st && st.down, st && st.toGo); lines.push(st ? 'CPU DRIVE FROM ITS OWN '+cpuYl+'  ('+['1ST','2ND','3RD','4TH'][Math.min(3,(st.down|0)-1)]+' & '+Math.round(st.toGo)+')' : 'CPU STARTS AT ITS OWN '+cpuYl); lines = lines.concat(d.lines); }
   s.cpu += d.pts; s.clock -= d.t;
   { const c = s.cst || (s.cst = { py:0, ry:0, td:0, int:0, fum:0, dsack:0, dint:0 }); if (d.pts >= 6) c.optd = (c.optd|0)+1; c.oy = (c.oy|0) + Math.max(0, d.pts >= 6 ? 110-cpuYl : d.pts >= 3 ? 92-cpuYl : (100-(d.userYl||25))-cpuYl); }   // a simulated CPU drive: estimate its yards
   if (d.pts) lines.push('SCORE  YOU '+s.you+'  CPU '+s.cpu);
@@ -22932,7 +22933,7 @@ function fbStep(){
   else if (sc==='live' && s.intFz > 0) { s.intFz -= 1/60; if (s.intFz <= 0) s.intFz = 0; fbRigs.forEach(p => { p.anim += 0.01; }); }
   else if (sc==='live') {
     // charging a throw
-    if (s.charging) { s.chargeF = FB.rmbMeter ? Math.max(0, (s.chargeF||0) - QB_THROW.cfg.drain) : (s.chargeF||0)+1; s.charge = qbtPower(s.chargeF/60); } else FB.rmbMeter = false;   // v143: right click drains the meter
+    if (s.charging) { s.chargeF = FB.rmbMeter ? Math.max(0, (s.chargeF||0) - QB_THROW.cfg.drain) : (s.chargeF||0)+1; s.charge = qbtPower(s.chargeF/60); } else FB.rmbMeter = false;   // v144: right click drains the meter
     if (FB.tapPending && !FB.tapPending.guest && performance.now() - FB.tapPending.at >= 200) { const tp = FB.tapPending; FB.tapPending = null; if (!s.thrown && !s.charging) fbThrow(tp.p, qbtPower(tp.h||0), false, 'lob'); }   // the short click: the lob goes
     if (s.tutMode) fbTutTick();
     if (!s.defMode && s.ctl && s.ctl.role==='QB' && !s.thrown && s.hover) {
@@ -22968,7 +22969,7 @@ function fbEnter(){
   try { unlockAudio(); } catch(e){}
 }
 function fbExit(){ try { fbnClose(true); } catch(e){} FB.cam = null; FB.camSnap = true; try { fbNewGame(); fbToCall(); } catch(e){ console.error(e); } FB.scr = 'lobby'; FB.on = true; try { fbLobbyInit(); } catch(e){ console.error(e); } }   // football only: EXIT returns to the lobby
-function fbStartGame(){ fbNewGame(); fbToCall(); FB.camSnap = true; if (FBN.on && FBN.role === 'host') { FBN.wager = FBN.mode==='vs' ? (FB.wager|0) : 0; FBN.wagered = false; FBN.mid = (FB.tourGame && FBN.mode==='vs') ? FB.tourGame.mid : 'm' + Math.random().toString(36).slice(2, 12) + Date.now().toString(36); if (FB.tourGame) FBN.wager = 0; if (FBN.authorityReady !== undefined) setTimeout(() => { try { fbAuthorityHello(); } catch(e){} }, 1500); } try { utGameStart(); } catch(e){} }
+function fbStartGame(){ fbNewGame(); fbToCall(); FB.camSnap = true; if (FBN.on && FBN.role === 'host') { FBN.wager = FBN.mode==='vs' ? (FB.wager|0) : 0; FBN.wagered = false; FBN.mid = (FB.tourGame && FBN.mode==='vs') ? FB.tourGame.mid : 'm' + Math.random().toString(36).slice(2, 12) + Date.now().toString(36); if (FB.tourGame) FBN.wager = 0; if (FB.mdGame && FBN.mode==='vs') { FBN.mid = ''; FBN.wager = 0; } if (FBN.authorityReady !== undefined) setTimeout(() => { try { fbAuthorityHello(); } catch(e){} }, 1500); } try { utGameStart(); } catch(e){} }
 
 /* ---------------------------------------------------------------- tiny button helper */
 function fbBtn(g,id,x,y,w,h,label,o){
@@ -23140,10 +23141,11 @@ function fbOverlay(){
   // soft vignette so the HUD reads
   if (sc==='pre') { try { fbPreNoteDraw(g); } catch(e){} }
   if (sc!=='lobby' && sc!=='howto') { if (s.tutMode && sc!=='drive') fbTutHud(g); else fbHud(g); try { if (!['over','drive','replay','cele'].includes(sc)) fbPulseDraw(g); } catch(e){} }
-  if (sc==='lobby') { if (TOUR.open) tourDraw(g); else if (FB.shop) fbShopDraw(g); else if (FB.stats) fbStatsDraw(g); else if (FB.lobbyPanel) { fbLobbyDraw(g); fbLookDraw(g); } else if (FB.lookOpen) fbLookDraw(g); else fbLobbyWalkDraw(g); }
+  if (sc==='lobby') { if (MD.on) mdDraw(g); else if (TOUR.open) tourDraw(g); else if (FB.shop) fbShopDraw(g); else if (FB.stats) fbStatsDraw(g); else if (FB.lobbyPanel) { fbLobbyDraw(g); fbLookDraw(g); } else if (FB.lookOpen) fbLookDraw(g); else fbLobbyWalkDraw(g); }
   else if (sc==='call') fbCallDraw(g);
   else if (sc==='dcall') fbDefCallDraw(g);
   else if (sc==='train') fbTrainDraw(g);
+  if (FB.s && fbDefSimOk()) { const on = !!FB.s.simAfter; fbBtn(g,'dsimdrive',230,3,86,10,sc==='dcall' ? 'SIM REST OF DRIVE' : (on ? 'SIM AFTER PLAY: ON' : 'SIM AFTER THIS PLAY'),{ size:3.6, on, col:'#9ee8ff' }); }
   if ((sc==='call' || sc==='dcall' || sc==='pre') && FB.s && FB.s.train) fbBtn(g,'ptr_hub',37,3,64,10,'< TRAINING MENU',{ size:3.6, col:'#7ddc8a' });
   else if (sc==='wait' || sc==='dwait' || sc==='hold') fbnWaitDraw(g);
   else if (sc==='defask') fbDefAskDraw(g);
@@ -23207,7 +23209,7 @@ function fbLobbyDraw(g){
   if (PARTY.npc && !PARTY.on) T(PARTY.npc.name+' SUITS UP AS YOUR W1',160,55,'#7ddc8a',5,'center');
   fbBtn(g,'lobbyback',6,5,76,12,'< BACK TO THE FIELD',{size:4.6});
   fbBtn(g,'party',6,19,76,10,PARTY.on ? 'PARTY  '+PARTY.code.toUpperCase() : 'PLAY WITH A FRIEND',{size:4.4,line:'#7ddc8a',tc:'#c9f7d0'});
-  T('BUILD v143',314,174,'#8fa0cc',4,'right');   // so you can tell which build is live
+  T('BUILD v144',314,174,'#8fa0cc',4,'right');   // so you can tell which build is live
   fbBtn(g,'tut',100,141,58,13,'TUTORIAL',{size:5,line:'#ffd24a',tc:'#ffe9a8'}); fbBtn(g,'howlobby',162,141,58,13,'HOW TO PLAY',{size:4.4,line:'#ffd24a',tc:'#ffe9a8'});
   fbBtn(g,'shop',6,141,90,13,'PLAY SHOP',{size:5.5,line:'#7ddc8a',tc:'#c9f7d0'});
   fbBtn(g,'stats',224,141,90,13,'MY STATS',{size:5.5,line:'#6fd0ff',tc:'#cfeeff'});
@@ -23400,6 +23402,8 @@ function fbAct(id){
   if (/^onl_/.test(id)) { onlAct(id); return; }
   if (/^nwarn:/.test(id)) { const u = id.slice(6), e = ntagMap().get(u); FB.warnPop = { u, msg:(e && e.warn) || '' }; try { fbSfx('tick'); } catch(e2){} return; }
   if (id === 'nwarnx') { FB.warnPop = null; return; }
+  if (/^mdr_/.test(id) && MD.on) { mdAct(id); return; }
+  if (id==='fbmd') { mdBegin(); return; }
   if (/^tour/.test(id) && typeof TOUR !== 'undefined' && TOUR.open) { tourAct(id); return; }
   if (/^(dtab\d|dcs\d+|dce\d+|dcnew)$/.test(id) && FB.scr === 'dcall') { fbDTabAct(id); return; }
   if (/^ptr_/.test(id) && FB.s && FB.s.train) { fbTrainAct(id); return; }
@@ -23440,6 +23444,7 @@ function fbAct(id){
   if (fbAudAct(id)) return;
   if (id==='rpskip') { fbRpSkip('h'); return; }
   if (id==='timeout') { fbTimeout('you'); return; }
+  if (id==='dsimdrive') { fbDefSimRest(); return; }
   if (id==='ddrun') { FB.ddraw = false; FB.dsel = null; fbDefPick('custom'); return; }
   if (id.startsWith('dd') && fbDAct(id)) return;
   if (id.startsWith('qlen')) { FB.ql = FB_QLS[+id.slice(4)] || 300; try { localStorage.setItem('blacktop_fb_ql', String(FB.ql)); } catch(e){} fbSfx('tick'); return; }
@@ -23541,7 +23546,7 @@ document.getElementById('game').addEventListener('pointerdown', e => {
   }
   e.stopImmediatePropagation(); e.preventDefault();
   try { const ae = document.activeElement; if (ae && ae!==document.body && typeof ae.blur==='function' && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)) ae.blur(); } catch(_){}
-  if (e.button===2) { const cs = FB.s; if (cs && cs.charging && cs.ctl && cs.ctl.role==='QB' && !cs.thrown) { FB.rmbMeter = true; FB.rmb = true; return; }   // v143: right click while charging a throw = the meter goes down (no sprint)
+  if (e.button===2) { const cs = FB.s; if (cs && cs.charging && cs.ctl && cs.ctl.role==='QB' && !cs.thrown) { FB.rmbMeter = true; FB.rmb = true; return; }   // v144: right click while charging a throw = the meter goes down (no sprint)
     keys.ShiftRight = true; FB.rmb = true; return; }          // V81: right click = sprint (hold)
   try { unlockAudio(); } catch(_){}
   const { px, py } = px0, s = FB.s, sc = FB.scr;
@@ -23587,7 +23592,7 @@ window.addEventListener('pointerup', e => {
   if (FBN.on && FBN.role==='guest') { fbnGuestUp(); return; }
   if (FB.scr==='live' && s.charging) {
     s.charging = false; const p = s.hover ? fbRay(s.hover.px, s.hover.py, 1.0) : null;
-    const hS = (s.chargeF||0)/60; if (p) { if ((s.chargeF||0) < 12) FB.tapPending = { p, at:performance.now(), h:hS }; else fbThrow(p, qbtPower(hS), false, 'pass'); } s.aimShow = false;   // v143: how long you held = how hard he throws it   // a short click lobs it (after a beat, in case a second click makes it a pump fake)
+    const hS = (s.chargeF||0)/60; if (p) { if ((s.chargeF||0) < 12) FB.tapPending = { p, at:performance.now(), h:hS }; else fbThrow(p, qbtPower(hS), false, 'pass'); } s.aimShow = false;   // v144: how long you held = how hard he throws it   // a short click lobs it (after a beat, in case a second click makes it a pump fake)
   }
 }, true);
 function fbDrawPt(x,y){
@@ -23600,7 +23605,7 @@ function fbDrawPt(x,y){
 }
 
 window.addEventListener('blur', () => { if (FB && FB.rmb) { FB.rmb = false; FB.rmbMeter = false; keys.ShiftRight = false; } });
-// v143: right click while a throw is charging = the meter goes down. With the left button already held the browser sends no pointerdown for the second button, so the button mask is read from every mouse / pointer event
+// v144: right click while a throw is charging = the meter goes down. With the left button already held the browser sends no pointerdown for the second button, so the button mask is read from every mouse / pointer event
 { const rm = e => { try { const cs = FB && FB.s; if (!FB.on || !cs || !cs.charging || !cs.ctl || cs.ctl.role!=='QB' || cs.thrown) return; const dn = e.type==='mouseup' ? (e.buttons & 2) : (e.buttons & 2) || (e.type==='mousedown' && e.button===2); FB.rmbMeter = !!dn; if (dn) keys.ShiftRight = false; } catch(_){} };
   ['pointermove','mousemove','mousedown','mouseup','pointerup'].forEach(t => window.addEventListener(t, rm, true)); }
 
@@ -24192,6 +24197,14 @@ const FB_DCALLS = [
 const FB_ROLEN = { DL:'DL', LB:'LB', CB:'CB', S:'S' };
 
 /* ---------------------------------------------------------------- starting / ending a defensive drive */
+/* v144: you are not locked into the whole drive any more: SIM DRIVE finishes it from where it stands (the same drive sim the game uses when you skip the defense) */
+function fbDefSimOk(){ const s = FB.s; return !!(s && s.defMode && !FBN.on && !s.train && !s.tutMode && !s.pat && !s.conv && (FB.scr==='dcall' || FB.scr==='live')); }
+function fbDefSimRest(){
+  const s = FB.s; if (!fbDefSimOk()) return;
+  if (FB.scr === 'live') { s.simAfter = !s.simAfter; fbMsg(s.simAfter ? 'DRIVE WILL BE SIMMED AFTER THIS PLAY' : 'SIM CANCELLED', '#9ee8ff', 70); fbSfx('tick'); return; }
+  const y = Math.round(clamp(s.los - 10, 1, 99)), st = { down:s.down, toGo:s.toGo }; s.simAfter = false; FB.ddraw = false; fbDefExit(); s.pcOn = false;
+  fbCpuPossSim(y, 'YOU SIMMED THE REST OF THE DRIVE', undefined, false, st);
+}
 function fbDefStart(cpuYl, why){
   const s = FB.s; s.defMode = true; fbSeries(cpuYl); s.dctl = fbBy('LB2'); s.dcall = s.dcall || 'zone'; s.defWhy = why || 'CPU BALL';
   fbDefToCall();
@@ -24274,7 +24287,7 @@ function fbDefFinish(lines, userYl, secs){
 }
 function fbDefAfter(){
   const s = FB.s, k = s.kind;
-  if (k === 'cont') { fbClockGate(() => { s.keepLos = false; s.keepFirst = false; fbDefToCall(); }); return; }
+  if (k === 'cont') { fbClockGate(() => { s.keepLos = false; s.keepFirst = false; if (s.simAfter) { s.simAfter = false; FB.scr = 'dcall'; fbDefSimRest(); return; } fbDefToCall(); }); return; }
   if (k === 'pick6' && s.ot) { fbDefExit(); fbOtWinScreen(); return; }
   if (k === 'td' && fbVs()) { fbVsKick('xp', r => fbDefFinish(['TOUCHDOWN', r.good ? 'EXTRA POINT IS GOOD' : 'EXTRA POINT MISSED', 'SCORE  YOU '+s.you+'  CPU '+s.cpu], 25 + Math.round(rnd(-3,6)), 0)); return; }
   if (k === 'td') {
@@ -26721,7 +26734,7 @@ function fbStatsDraw(g){
   most.forEach((p,i) => { const y = 103 + i*9.4; T((i+1)+'  '+p.n,156,y,'#fff',4.8,'left'); T(p.c+' CALLS  '+p.y+' YDS',308,y,'#9fb0dc',4.4,'right'); });
 }
 
-/* ===================== v143: HANDOFF + PLAY-ACTION LIBRARY (anim/ho): the QB and the back play one synced pair =====================
+/* ===================== v144: HANDOFF + PLAY-ACTION LIBRARY (anim/ho): the QB and the back play one synced pair =====================
    The game still decides WHEN the exchange happens (the same handoff / toss / fake timing as before); the pair's own events are lined up
    to it: mesh_start (or toss_release / pull) = the moment the ball starts to move, transfer (or catch) = the moment the back has it.
    rb_path_m is matched visually: the back (and a little of the QB) is drawn up to 0.75 yd toward the authored path during the mesh only. */
@@ -26867,7 +26880,7 @@ const fbnIsHost = () => FBN.on && FBN.role==='host';
 const fbnIsGuest = () => FBN.on && FBN.role==='guest';
 function fbMain(){ if (FBN.on && FBN.role==='guest') fbnGuestStep(); else { fbStep(); if (FBN.on) fbnHostTick(); } }
 function fbVs(){ return !!(FBN.on && FBN.mode==='vs'); }
-function fbFlip(){ return false; }     // v143: one camera for everyone - behind the offense, on offense AND defense, solo, co-op and online (the same view the online 1v1 uses)
+function fbFlip(){ return false; }     // v144: one camera for everyone - behind the offense, on offense AND defense, solo, co-op and online (the same view the online 1v1 uses)
 function fbDirNow(){ const s = FB.s; return (fbFlip() || (s && s.turn)) ? -1 : 1; }      // after a turnover everyone sees the field from the other end
 function fbVsFix(t){                                                          // drive-screen text is written once (tokens) and read per player
   if (typeof t!=='string' || t.indexOf('{')<0) return t; const g = FBN.role==='guest', on = fbnOtherName();
@@ -26935,8 +26948,116 @@ function fbnFx(n){ FBN.fxq.push([++FBN.fxId, n]); if (FBN.fxq.length > 6) FBN.fx
 function fbnHold(){ const s = FB.s; FB.scr = 'hold'; s.phase = 'hold'; }
 
 /* ---------------------------------------------------------------- HOST: open a room, wait for the friend */
-async function fbnLeaderStart(mode){
+/* ===================== v144: MEGA DRAFT (1v1 with your party member) =====================
+   One shared pool, both of you pick from it in turn (snake order), 15 players each - the same card for both of you is impossible.
+   Everyone plays at the same card level, both O-lines and D-lines are the same level, so the draft itself decides the game. No wagers, no rewards: it is for fun.
+   The leader's game runs the draft (host); the other player sends picks over the party room. */
+const MD = { on:false, role:'', pool:[], picks:[], names:{ host:'', guest:'' }, tab:'QB', sel:null, off:0, left:30, t0:0, done:false, goAt:0, msg:'' };
+const MD_SLOTS = [['QB','QB'],['RB','RB'],['WR1','WR'],['WR2','WR'],['WR3','WR'],['TE','TE'],['EDGE1','EDGE'],['EDGE2','EDGE'],['LB1','LB'],['LB2','LB'],['CB1','CB'],['CB2','CB'],['S1','SAF'],['S2','SAF'],['K','K']];
+const MD_TABS = ['QB','RB','WR','TE','EDGE','LB','CB','SAF','K'];
+const MD_POOL = { QB:5, RB:5, WR:12, TE:5, EDGE:8, LB:8, CB:8, SAF:8, K:4 };       // each position has more than both teams need (QB 2, RB 2, WR 6, TE 2, EDGE 4, LB 4, CB 4, SAF 4, K 2)
+const MD_LINE = 7, MD_TIME = 30, MD_RAR = 'Epic', MD_TOTAL = MD_SLOTS.length*2;
+const MD_TIER_COL = { S:'#ffd24a', A:'#c792ff', B:'#7ddc8a', C:'#8fd0ff', D:'#cfd8f4' };
+const mdWho = i => (i%4===0 || i%4===3) ? 'host' : 'guest';                         // snake: 1 2 2 1 1 2 2 1 ...
+const mdTurn = () => MD.picks.length >= MD_TOTAL ? '' : mdWho(MD.picks.length);
+const mdSend = m => { try { if (PARTY.room) PARTY.room.emit('md', m).catch(() => {}); } catch(e){} };
+const mdOvr = p => Math.min(99, (p.overall||0) + (typeof utBonus==='function' ? utBonus(MD_RAR) : 0));
+function mdRoster(who){ const o = {}; MD.picks.forEach(k => { if (k.who === who) o[k.slot] = k.id; }); return o; }
+function mdOpenSlot(who, pos){ const R = mdRoster(who), s = MD_SLOTS.find(([sl, ps]) => ps === pos && !R[sl]); return s ? s[0] : null; }
+function mdTaken(id){ return MD.picks.find(k => k.id === id) || null; }
+function mdBuildPool(){
+  const db = utDB(), out = [];
+  MD_TABS.forEach(pos => { const need = MD_POOL[pos]; let c = db.filter(p => p.pos === pos && p.tier !== 'F' && p.overall); if (c.length < need) c = db.filter(p => p.pos === pos && p.overall);
+    c.sort((a,b) => b.overall - a.overall); c = c.slice(0, Math.max(need*3, need+6)); for (let i = c.length-1; i > 0; i--) { const j = (Math.random()*(i+1))|0; [c[i], c[j]] = [c[j], c[i]]; }
+    c.slice(0, need).forEach(p => out.push(p.id)); });
+  return out;
+}
+function mdSnap(who){
+  const lineup = {}, R = mdRoster(who); Object.keys(R).forEach(sl => { lineup[sl] = { pid:R[sl], rarity:MD_RAR }; });
+  const lines = {}; ['LT','LG','C','RG','RT','DE1','DT1','DT2'].forEach(k => { lines[k] = MD_LINE; });
+  return { user:MD.names[who] || who, lineup, lines, jersey: who === 'host' ? 'custom:#1f5fd6,#ffd24a,#1f5fd6' : 'custom:#d63a2f,#ffffff,#d63a2f', xf:{} };
+}
+function mdOvrOf(who){ const R = mdRoster(who), e = {}; Object.keys(R).forEach(sl => { e[sl] = { pid:R[sl], rarity:MD_RAR }; }); ['LT','LG','C','RG','RT','DE1','DT1','DT2'].forEach(k => { e[k] = { line:MD_LINE }; }); return Object.keys(R).length === MD_SLOTS.length ? utLgOvr(e, 4) : null; }
+function mdBegin(){                                           // the party leader opens the draft for both of you
+  if (!PARTY.on || !PARTY.leader || !PARTY.other || !PARTY.room) return;
+  const pool = mdBuildPool(); if (pool.length < MD_TOTAL + 8) { FBN.msg = 'The player pool is too small for a draft.'; return; }
+  Object.assign(MD, { on:true, role:'host', pool, picks:[], names:{ host:String(utSrv.user || PARTY.nm || 'YOU').toUpperCase().slice(0,10), guest:String(PARTY.other || 'FRIEND').toUpperCase().slice(0,10) }, tab:'QB', sel:null, off:0, left:MD_TIME, t0:performance.now(), done:false, goAt:0, msg:'' });
+  try { TOUR.open = false; FB.shop = false; FB.stats = false; FB.lobbyPanel = false; FB.lookOpen = false; } catch(e){}
+  mdSend({ k:'init', pool, names:MD.names });
+}
+function mdApply(who, id){                                    // host: one pick, checked
+  const p = utById(id); if (!MD.on || MD.role !== 'host' || !p || MD.pool.indexOf(id) < 0 || mdTaken(id) || mdTurn() !== who) return false;
+  const slot = mdOpenSlot(who, p.pos); if (!slot) return false;
+  MD.picks.push({ id, who, slot }); MD.left = MD_TIME; MD.t0 = performance.now(); MD.sel = null;
+  mdSend({ k:'state', picks:MD.picks, left:MD.left });
+  if (MD.picks.length >= MD_TOTAL) { MD.done = true; MD.goAt = performance.now() + 3500; }
+  return true;
+}
+function mdAuto(who){                                         // the clock ran out: the best player he could still take
+  const c = MD.pool.map(utById).filter(p => p && !mdTaken(p.id) && mdOpenSlot(who, p.pos)).sort((a,b) => (b.overall||0) - (a.overall||0))[0];
+  if (c) mdApply(who, c.id);
+}
+function mdOnMsg(d){
+  if (d.k === 'init' && !(PARTY.leader)) {
+    Object.assign(MD, { on:true, role:'guest', pool:d.pool || [], picks:[], names:d.names || { host:'HOST', guest:'YOU' }, tab:'QB', sel:null, off:0, left:MD_TIME, t0:performance.now(), done:false, goAt:0, msg:'' });
+    try { TOUR.open = false; FB.shop = false; FB.stats = false; FB.lobbyPanel = false; FB.lookOpen = false; } catch(e){}
+  }
+  else if (d.k === 'pick' && MD.on && MD.role === 'host') mdApply('guest', String(d.id || ''));
+  else if (d.k === 'state' && MD.on && MD.role === 'guest') { MD.picks = Array.isArray(d.picks) ? d.picks : MD.picks; MD.left = +d.left || MD_TIME; MD.t0 = performance.now(); MD.sel = null; if (MD.picks.length >= MD_TOTAL) MD.done = true; }
+  else if (d.k === 'go' && MD.on && MD.role === 'guest') { FB.mdGame = { host:mdSnap('host'), guest:mdSnap('guest') }; MD.on = false; }
+  else if (d.k === 'quit' && MD.on) { MD.on = false; FB.mdGame = null; try { fbMsg('THE DRAFT WAS CANCELLED', '#ff8b7b', 120); } catch(e){} }
+}
+function mdLaunch(){                                          // both teams are full: the 1v1 game starts with them
+  FB.mdGame = { host:mdSnap('host'), guest:mdSnap('guest') }; mdSend({ k:'go' }); MD.on = false;
+  fbnLeaderStart('vs', true);
+}
+function mdAct(id){
+  if (id === 'mdr_quit') { mdSend({ k:'quit' }); MD.on = false; FB.mdGame = null; return; }
+  if (id.indexOf('mdr_tab_') === 0) { MD.tab = id.slice(8); MD.off = 0; MD.sel = null; fbSfx('tick'); return; }
+  if (id === 'mdr_up') { MD.off = Math.max(0, MD.off - 4); return; }
+  if (id === 'mdr_dn') { MD.off += 4; return; }
+  if (id.indexOf('mdr_p_') === 0) { const pid = id.slice(6); if (!mdTaken(pid)) { MD.sel = pid; fbSfx('tick'); } return; }
+  if (id === 'mdr_go') {
+    const me = MD.role; if (mdTurn() !== me || !MD.sel) return; const sel = MD.sel;
+    if (MD.role === 'host') mdApply('host', sel); else mdSend({ k:'pick', id:sel });
+    fbSfx('catch'); return;
+  }
+}
+function mdDraw(g){
+  const now = performance.now(), dt = Math.min(0.1, (now - (MD.tk || now))/1000); MD.tk = now;
+  if (!MD.done) { MD.left = Math.max(0, MD.left - dt); if (MD.role === 'host' && MD.left <= 0 && mdTurn()) mdAuto(mdTurn()); }
+  if (MD.role === 'host' && MD.done && MD.on && now >= MD.goAt) { mdLaunch(); return; }
+  utBg(g); const me = MD.role, turn = mdTurn(), mine = turn === me, oppN = me === 'host' ? MD.names.guest : MD.names.host, myN = MD.names[me];
+  T('MEGA DRAFT', 5, 2.5, '#c792ff', 5.2, 'left');
+  const n = MD.picks.length;
+  if (MD.done) T('DRAFT COMPLETE - THE GAME STARTS...', 160, 3, '#7ddc8a', 4.2, 'center');
+  else T((mine ? 'YOUR PICK' : oppN+' IS PICKING')+'   ('+(n+1)+' OF '+MD_TOTAL+')', 160, 3, mine ? '#ffd24a' : '#9fb0dc', 4.2, 'center');
+  if (!MD.done) T(String(Math.ceil(MD.left))+'s', 314, 3, MD.left < 8 ? '#ff8b7b' : '#cfd8f4', 4.6, 'right');
+  MD_TABS.forEach((t, i) => { const need = MD_SLOTS.filter(s => s[1] === t).length, have = Object.keys(mdRoster(me)).filter(sl => (MD_SLOTS.find(s => s[0] === sl)||[])[1] === t).length;
+    fbBtn(g, 'mdr_tab_'+t, 4+i*19.4, 12, 18.4, 9.5, t, { size:2.8, on:MD.tab === t, col:have >= need ? '#6f7ea8' : '#c792ff' }); });
+  const list = MD.pool.map(utById).filter(p => p && p.pos === MD.tab).sort((a,b) => (b.overall||0) - (a.overall||0));
+  MD.off = Math.max(0, Math.min(MD.off, Math.max(0, list.length - 8)));
+  list.slice(MD.off, MD.off + 8).forEach((p, i) => { const y = 24 + i*12, tk = mdTaken(p.id), sel = MD.sel === p.id && !tk;
+    fbBtn(g, 'mdr_p_'+p.id, 4, y, 172, 11, '', { line: tk ? '#3b4561' : sel ? '#ffd24a' : '#6f7ea8', on:sel });
+    T(String(p.name).toUpperCase().slice(0, 19), 7, y+2.6, tk ? '#6f7ea8' : '#ffffff', 3.2, 'left'); T(String(p.team || '').slice(0, 4), 112, y+3, tk ? '#4c5878' : '#9fb0dc', 2.6, 'left');
+    T(String(mdOvr(p)), 150, y+2.4, tk ? '#6f7ea8' : (MD_TIER_COL[p.tier] || '#fff'), 3.8, 'right');
+    if (tk) T(tk.who === me ? 'YOURS' : oppN.slice(0,7), 172, y+3, tk.who === me ? '#7ddc8a' : '#ff8b7b', 2.4, 'right'); else T(p.tier || '', 170, y+3, MD_TIER_COL[p.tier] || '#fff', 2.8, 'right'); });
+  fbBtn(g, 'mdr_up', 4, 121, 28, 9, 'UP', { size:3 }); fbBtn(g, 'mdr_dn', 36, 121, 28, 9, 'DOWN', { size:3 });
+  const sp = MD.sel && utById(MD.sel), ok = !!(sp && mine && !mdTaken(sp.id) && mdOpenSlot(me, sp.pos));
+  fbBtn(g, 'mdr_go', 68, 121, 108, 13, ok ? 'DRAFT '+String(sp.name).toUpperCase().slice(0, 14) : mine ? (sp && !mdOpenSlot(me, sp.pos) ? 'POSITION FULL' : 'PICK A PLAYER') : 'WAIT FOR YOUR TURN', { size:3.6, on:ok, col:ok ? '#7ddc8a' : '#6f7ea8' });
+  if (sp) { const a = sp.attributes || {}, bits = [['SPD','speed'],['STR','strength'],['AGI','agility'],['CAT','catching'],['BLK','blocking'],['TKL','tackling'],['COV','coverage'],['THP','throw_power'],['THA','throw_accuracy']].filter(([,k]) => a[k]).slice(0, 6).map(([l,k]) => l+' '+a[k]);
+    T(String(sp.name).toUpperCase()+'  '+sp.pos+'  '+(sp.team||''), 6, 138, '#ffffff', 3.4, 'left'); T(bits.join('   '), 6, 145, '#9fb0dc', 2.8, 'left'); }
+  T('BOTH TEAMS GET THE SAME LEVEL OF CARD AND OF O-LINE / D-LINE', 6, 154, '#6f7ea8', 2.4, 'left'); T('PICK ORDER: 1 2 2 1 1 2 2 1 ...  (CLOCK PICKS THE BEST LEFT)', 6, 159, '#6f7ea8', 2.4, 'left');
+  fbBtn(g, 'mdr_quit', 4, 166, 34, 10, 'LEAVE', { size:3.2, col:'#ff8b7b' });
+  [[me, 182, myN, '#7ddc8a'], [me === 'host' ? 'guest' : 'host', 250, oppN, '#ff8b7b']].forEach(([who, x, nm, col]) => {
+    const R = mdRoster(who); T(String(nm).slice(0, 9), x+31, 12, col, 3.4, 'center');
+    MD_SLOTS.forEach(([sl], i) => { const y = 21 + i*8.1, pid = R[sl], p = pid && utById(pid);
+      T(sl.replace('EDGE','ED'), x, y, '#6f7ea8', 2.3, 'left'); T(p ? String(p.name).toUpperCase().split(' ').pop().slice(0, 8) : '---', x+11, y, p ? '#ffffff' : '#4c5878', 2.5, 'left'); if (p) T(String(mdOvr(p)), x+62, y, MD_TIER_COL[p.tier] || '#fff', 2.5, 'right'); });
+    const ov = mdOvrOf(who); T(ov != null ? 'TEAM '+ov : 'TEAM ...', x+31, 146, col, 3.6, 'center'); });
+}
+async function fbnLeaderStart(mode, md){
   if (!PARTY.on || !PARTY.leader || !PARTY.other) return;
+  if (!md) FB.mdGame = null;
   fbnClose(false);
   const R = await netRoomApi(); if (!R) { FBN.msg = 'Online play is not available here.'; return; }
   let room; try { room = await R.join(roomName(PARTY.code+'f'),true); } catch(e){ FBN.msg = 'Could not open the game room.'; return; }
@@ -26955,7 +27076,7 @@ function fbnHostBegin(){
   fbStartGame(); fbHowtoShow(); if (FB.scr!=='howto') fbIntroStart(); FBN.lastSc = ''; FBN.dlT = null;   // V46: the HOW TO PLAY gate first (both players must PROCEED)
   fbAuthorityInit();fbnSendStart(); [300,900].forEach(t => setTimeout(() => { if (FBN.on && FBN.role==='host') fbnSendStart(); },t));
 }
-function fbnSendStart(){ if (FBN.room) FBN.room.emit('h',{ k:'start', mode:FBN.mode, diff:FB.diff, mid:FBN.mid, wg:(FBN.mode==='vs' ? (FB.wager|0) : 0) }).catch(()=>{}); }
+function fbnSendStart(){ if (FBN.room) FBN.room.emit('h',{ k:'start', mode:FBN.mode, diff:FB.diff, mid:FBN.mid, md:(FB.mdGame ? 1 : 0), wg:(FBN.mode==='vs' ? (FB.wager|0) : 0) }).catch(()=>{}); }
 function fbnOnGuest(m){
   if (m.isMe || !FBN.room) return; const d = m.data || {};
   if (FBN.peer && m.peer!==FBN.peer) { if (FBN.gone) FBN.peer = m.peer; else return; }
@@ -27129,7 +27250,7 @@ function fbnOnHost(m){
   if (m.isMe) return; const d = m.data || {};
   if (d.k==='start') {
     FBN.lastRx = performance.now();
-    if (!FBN.on) { FBN.on = true; FBN.mode = d.mode||FBN.mode; FB.diff = d.diff|0; FBN.mid = d.mid || ''; FBN.wager = +d.wg || 0; FBN.wagered = false; fbNewGame(); fbToCall(); try { utGameStart(); } catch(e){} FB.scr = 'wait'; FBN.rn = -1; FBN.fxSeen = 0; FBN.lastGs = ''; FBN.ack = 0; }
+    if (!FBN.on) { FBN.on = true; FBN.mode = d.mode||FBN.mode; FB.diff = d.diff|0; FBN.mid = d.mid || ''; FBN.wager = +d.wg || 0; FBN.wagered = false; if (!d.md) FB.mdGame = null; fbNewGame(); fbToCall(); try { utGameStart(); } catch(e){} FB.scr = 'wait'; FBN.rn = -1; FBN.fxSeen = 0; FBN.lastGs = ''; FBN.ack = 0; }
   }
   else if (!FBN.on) return;
   else if (d.k==='s') { try { fbnApply(d); } catch(e){ console.error('fbn apply',e); } }
@@ -27202,7 +27323,7 @@ function fbnGuestStep(){
   if (b && b.mode==='fly') { b.x += b.vx/60; b.y += b.vy/60; b.z += b.vz/60; b.vy -= FB_G*(b.tipped?FB_TIP_G:1)/60; }
   if (sc==='pre') s.preT += 1/60; else if (sc==='drive' || sc==='half') s.driveT = (s.driveT||0)+1; else if (sc==='over') s.overT = (s.overT||0)+1;
   if (sc==='live') {
-    if (s.charging) { s.chargeF = FB.rmbMeter ? Math.max(0, (s.chargeF||0) - QB_THROW.cfg.drain) : (s.chargeF||0)+1; s.charge = qbtPower(s.chargeF/60); } else FB.rmbMeter = false;   // v143: right click drains the meter
+    if (s.charging) { s.chargeF = FB.rmbMeter ? Math.max(0, (s.chargeF||0) - QB_THROW.cfg.drain) : (s.chargeF||0)+1; s.charge = qbtPower(s.chargeF/60); } else FB.rmbMeter = false;   // v144: right click drains the meter
     if (FB.tapPending && FB.tapPending.guest && performance.now() - FB.tapPending.at >= 200) { const tp = FB.tapPending; FB.tapPending = null; fbnEv({ n:'cu', x:fbnR(tp.p.x), z:fbnR(tp.p.z), k:'touch', h:fbnR(tp.h||0) }); }   // the guest's short click: the touch pass goes
     if (!s.defMode && FBN.mode==='vs' && s.ctl && s.ctl.role==='QB' && !s.thrown && s.hover) {
       const g = fbRay(s.hover.px, s.hover.py, 0.01);
@@ -27298,7 +27419,7 @@ function fbnGuestPtr(px,py,sc){
 function fbnGuestUp(){
   const s = FB.s; if (FB.scr!=='live' || !s.charging) return;
   s.charging = false; const p = s.hover ? fbRay(s.hover.px, s.hover.py, 1.0) : null; s.aimShow = false;
-  const hS = (s.chargeF||0)/60; if (p) { if ((s.chargeF||0) < 12) FB.tapPending = { p, at:performance.now(), guest:true, h:hS }; else fbnEv({ n:'cu', x:fbnR(p.x), z:fbnR(p.z), k:'pass', h:fbnR(hS) }); }   // v143: the hold time goes with it (the host turns it into power)   // a short click waits a beat (a second click makes it a pump fake), a hold is a bullet, hold + Shift a lob
+  const hS = (s.chargeF||0)/60; if (p) { if ((s.chargeF||0) < 12) FB.tapPending = { p, at:performance.now(), guest:true, h:hS }; else fbnEv({ n:'cu', x:fbnR(p.x), z:fbnR(p.z), k:'pass', h:fbnR(hS) }); }   // v144: the hold time goes with it (the host turns it into power)   // a short click waits a beat (a second click makes it a pump fake), a hold is a bullet, hold + Shift a lob
 }
 
 /* ---------------------------------------------------------------- shared */
@@ -27319,7 +27440,7 @@ function fbnLobbyDraw(g){
     fbBtn(g,'fbco',20,110,134,26,'CO-OP VS CPU',{on:true,col:'#7ddc8a',size:8});
     fbBtn(g,'fb11',166,110,134,26,'1V1 VS '+fbnOtherName(),{on:true,col:'#ffb74a',size:7.5});
     T('YOU + '+fbnOtherName()+' VS CPU  (THEY RUN AS A RECEIVER)',87,138,'#9fb0dc',3.8,'center'); T('YOU AND '+fbnOtherName()+' TRADE POSSESSIONS',233,138,'#9fb0dc',3.8,'center');
-    fbBtn(g,'play',230,148,84,12,'SOLO GAME',{size:5});
+    fbBtn(g,'play',230,148,84,12,'SOLO GAME',{size:5}); fbBtn(g,'fbmd',20,148,200,12,'MEGA DRAFT 1V1 VS '+fbnOtherName(),{size:5,on:true,col:'#c792ff'});
   } else if (lead) {
     T('WAITING FOR A FRIEND TO JOIN YOUR PARTY...',160,116,'#ffd24a',6,'center'); fbBtn(g,'play',100,126,120,18,'PLAY SOLO',{size:7});
   } else if (mem) {
@@ -27472,6 +27593,7 @@ async function partyJoin(code,nm){
   Object.assign(PARTY,{ on:true, leader:false, code, room, other:null, seen:false });
   room.presence({ r:'M', nm:PARTY.nm, lk:hubLook(), rk:window.ISLAND_CLIENT_ID });
   PARTY.offs.push(room.on('pp',partyOnMsg));
+  PARTY.offs.push(room.on('md', m => { if (!m.isMe) { try { mdOnMsg(m.data || {}); } catch(e){ console.error('mega draft', e); } } }));
   PARTY.offs.push(room.onPeers(ch => {
     const l = ch.peers.find(p => !p.isMe && p.presence && p.presence.r==='L');
     if (l) { PARTY.seen = true; const was = PARTY.other; PARTY.other = cleanName(l.presence.nm,'LEADER'); if (!was) { partyNote('Joined '+PARTY.other+"'s party."); room.emit('pp',{k:'hi'}).catch(()=>{}); } }
@@ -29746,21 +29868,25 @@ function fbProtectionStep(dt,run){
   free.forEach(o=>{if(o.passTarget&&available.includes(o.passTarget)&&!reserved.has(o.passTarget)&&s.t<(o.targetReadUntil||0)){reserved.add(o.passTarget);}else o.passTarget=null;});
   available.sort((a,b)=>{const urgency=d=>fbDist(d,q)/Math.max(2,Math.hypot(d.vx,d.vz));return urgency(a)-urgency(b);});
   if((s.slide|0)&&!advancing&&available.filter(d=>d.rusher).length>free.length){const far=available.filter(d=>Math.sign(d.z-q.z)===-(s.slide|0)).sort((a,b)=>Math.abs(b.z-q.z)-Math.abs(a.z-q.z))[0];if(far){available.splice(available.indexOf(far),1);available.push(far);}}   // V46 (12): the line slides away from the far edge - that rusher is the back's (or nobody's)
-  for(const d of available){if(reserved.has(d))continue;let best=null,score=Infinity;for(const o of free){if(o.passTarget&&reserved.has(o.passTarget))continue;const anchor=fbPocketAnchor(o,q,advancing),sidePenalty=Math.sign(o.protectZ)&&Math.sign(d.z-q.z)!==Math.sign(o.protectZ)?2.3:0,slideP=((s.slide|0)&&!advancing)?(fbKind(o.role)==='OL'&&Math.sign(d.z-q.z)===-(s.slide|0)?1.6:(o.role==='RB'&&Math.sign(d.z-q.z)===(s.slide|0)?1.6:0)):0,v=fbDist(o,d)+Math.abs(d.z-anchor.z)*.65+sidePenalty+slideP;if(v<score){score=v;best=o;}}if(best){if(best.passTarget!==d){best.passTarget=d;best.reactionAt=s.t+.12+(1-(best.blockEff||1))*.15;}best.targetReadUntil=s.t+.28;reserved.add(d);}}
+  for(const d of available){if(reserved.has(d))continue;let best=null,score=Infinity;for(const o of free){if(o.passTarget&&reserved.has(o.passTarget))continue;const anchor=fbPocketAnchor(o,q,advancing),sidePenalty=Math.sign(o.protectZ)&&Math.sign(d.z-q.z)!==Math.sign(o.protectZ)?2.3:0,slideP=((s.slide|0)&&!advancing)?(fbKind(o.role)==='OL'&&Math.sign(d.z-q.z)===-(s.slide|0)?1.6:(o.role==='RB'&&Math.sign(d.z-q.z)===(s.slide|0)?1.6:0)):0,v=fbDist(o,d)+Math.abs(d.z-anchor.z)*.65+sidePenalty+slideP;if(v<score){score=v;best=o;}}if(best){if(best.passTarget!==d){best.passTarget=d;best.reactionAt=s.t+(.12+(1-(best.blockEff||1))*.15)*(1-.45*fbLineN(best));}best.targetReadUntil=s.t+.28;reserved.add(d);}}
   free.forEach(o=>{
-    const eff=o.blockEff||.8,anchor=fbPocketAnchor(o,q,advancing);let target=o.passTarget;if(!target||!threats.includes(target)||target.eng||!reserved.has(target)){target=null;o.passTarget=null;}
+    const eff=o.blockEff||.8,olN=fbLineN(o),mvK=Math.min(1.55,eff*(fbKind(o.role)==='OL'?((o.ur&&o.ur.blk)||1)*(1+.5*olN):1)),anchor=fbPocketAnchor(o,q,advancing);let target=o.passTarget;   // v144: a better lineman moves, reaches and reacts like one
+    if(!target||!threats.includes(target)||target.eng||!reserved.has(target)){target=null;o.passTarget=null;}
     if(o.recoveryT>0){o.recoveryT=Math.max(0,o.recoveryT-dt);o.blockPlant=false;fbVel(o,0,0,dt,24);return;}
     let tx=anchor.x,tz=anchor.z;if(target&&s.t>=o.reactionAt&&advancing){const rx=q.x-target.x,rz=q.z-target.z,L=Math.hypot(rx,rz)||1;tx=target.x+(target.vx||0)*.2+rx/L*.9;tz=target.z+(target.vz||0)*.2+rz/L*.9;}   // for the runner: go meet the closest chaser, don't wait for him
-    else if(target&&s.t>=o.reactionAt){const rx=target.x-q.x,rz=target.z-q.z,L=Math.hypot(rx,rz)||1,depth=clamp(L-.95,2.2,5.5);tx=clamp(q.x+rx/L*depth,anchor.x-.7,anchor.x+.75);tz=clamp(target.z+(target.vz||0)*.12,anchor.z-1.35,anchor.z+1.35);}
+    else if(target&&s.t>=o.reactionAt){const rx=target.x-q.x,rz=target.z-q.z,L=Math.hypot(rx,rz)||1,depth=clamp(L-.95,2.2,5.5);tx=clamp(q.x+rx/L*depth,anchor.x-.7-.7*olN,anchor.x+.75);tz=clamp(target.z+(target.vz||0)*.12,anchor.z-1.35-1.6*olN,anchor.z+1.35+1.6*olN);}
     else if(!target){const neighbor=s.eng.filter(e=>!e.ended&&Math.abs(e.o.z-o.z)<3.2).sort((a,b)=>fbDist(a.d,q)-fbDist(b.d,q))[0];if(neighbor){tz=clamp(neighbor.d.z,anchor.z-.85,anchor.z+.85);tx=Math.min(anchor.x,neighbor.o.x-.25);}}
-    o.blockPlant=Math.hypot(tx-o.x,tz-o.z)<.55;fbMove(o,tx,tz,advancing?(fbKind(o.role)==='OL'?6.4:8.4)*Math.max(eff,.85):(fbKind(o.role)==='OL'?4.8:5.7)*eff,dt,30*eff);o.st='ready';if(target)fbFace(o,target.x,target.z);else if(advancing)fbFace(o,q.x+6,q.z);else{const sd=o.protectZ||0;fbFace(o,s.los+6,sd+Math.sign(sd)*Math.abs(sd)*.55);}   // outside blockers turn out to seal the edge
-    if(target&&s.t>=o.reactionAt&&fbDist(o,target)<=1.3&&!fbPathBlocked(o,target,o)){const e={o,d:target,contact:true,started:s.t,eff,progress:0,nextMove:s.t+1.7+(Number(String(target.role).replace(/\D/g,''))||1)*.08};s.eng.push(e);o.eng=target;target.eng=o;target.free=false;o.blockPlant=true;o.st=target.st='block';o.vx*=.35;o.vz*=.35;target.vx*=.35;target.vz*=.35;}
+    o.blockPlant=Math.hypot(tx-o.x,tz-o.z)<.55;fbMove(o,tx,tz,advancing?(fbKind(o.role)==='OL'?6.4:8.4)*Math.max(mvK,.85):(fbKind(o.role)==='OL'?4.8:5.7)*mvK,dt,30*mvK);o.st='ready';if(target)fbFace(o,target.x,target.z);else if(advancing)fbFace(o,q.x+6,q.z);else{const sd=o.protectZ||0;fbFace(o,s.los+6,sd+Math.sign(sd)*Math.abs(sd)*.55);}   // outside blockers turn out to seal the edge
+    if(target&&s.t>=o.reactionAt&&fbDist(o,target)<=1.3+.45*olN&&!fbPathBlocked(o,target,o)){const e={o,d:target,contact:true,started:s.t,eff,progress:0,nextMove:s.t+1.7+(Number(String(target.role).replace(/\D/g,''))||1)*.08};s.eng.push(e);o.eng=target;target.eng=o;target.free=false;o.blockPlant=true;o.st=target.st='block';o.vx*=.35;o.vz*=.35;target.vx*=.35;target.vz*=.35;}
   });
 }
 function fbRunBlock(p,dt){p.runBlockReady=true;p.st='ready';}
 function fbBlockAI(p,dt){p.runBlockReady=true;p.st='ready';}
+// v144: how good a lineman is, 0..1 (line level 1 = 0 = the old lineman, level 10 = 1). A good O-line really holds the pocket and drives the run; a good D-line / elite edge beats it.
+function fbLineN(p){ const u=p&&p.ur; if(!u) return 0; if(u.lvl) return clamp((u.lvl-1)/9,0,1); return clamp(((u.blk||u.rush||1)-1)/0.45,0,1); }
 function fbLineEngage(e,dt,D,q){
-  const d=e.d,o=e.o,s=FB.s;if(e.ended)return;const eff=(e.eff||o.blockEff||1)*(o.ur?o.ur.blk:1);
+  const d=e.d,o=e.o,s=FB.s;if(e.ended)return;const olN=fbLineN(o),rushN=clamp((((d.ur&&d.ur.rush)||1)-1)/0.45,0,1)*0.7+fbLineN(d)*0.3;
+  const eff=(e.eff||o.blockEff||1)*(o.ur?o.ur.blk:1)*(1+0.6*olN);   // v144: a maxed line is about twice the blocker (it was +20%)
   if(e.flashed===undefined||(e.reFlash&&s.t>=(e.winOpen||0))){e.flashed=true;e.reFlash=false;if(fbUD(d))fbRushFlash(d,'MOVE!',.35);}   // v46 (16): the move window opens at first contact, and again after a stonewall
   if(e.ripAt){if(s.t>=e.ripAt){e.ripAt=0;fbRushWin(e,'rip',q);}else{d.vx*=.5;d.vz*=.5;o.vx*=.5;o.vz*=.5;fbFace(o,d.x,d.z);fbFace(d,o.x,o.z);o.st=d.st='block';o.blockContact=d.blockContact=true;}return;}   // the rip takes .3 s to work the arm through
   if(d.wantSwim||d.wantMove){const side=d.wantSwim||0,kind=d.wantMove||'swim';d.wantSwim=0;d.wantMove=null;if(fbRushMove(e,kind,side,q)||e.ended)return;}
@@ -29770,10 +29896,10 @@ function fbLineEngage(e,dt,D,q){
   const shoulder=(d.x-o.x)*tx+(d.z-o.z)*tz,side=user?Math.sign(d.blockDrive||0):(e.attackSide||(e.attackSide=d.rushGap?(Math.sign((d.rushGap.z-d.z)*tz+(d.rushGap.x-d.x)*tx)||1):-(Math.sign(d.z-q.z)||(d.num%2?1:-1))));
   const slideK=((s.slide|0)&&!fbIsRun(s.play)&&!user)?(Math.sign(d.z-q.z)===(s.slide|0)?1:Math.sign(d.z-q.z)===-(s.slide|0)?-1:0):0;   // V46 (12): slide protection - the line is set for the slide side (holds ~1.5-2 s longer), the far side is on its own
   const fatigue=clamp((age-2.3-(slideK>0?1.7:slideK<0?-.4:0))*.055,0,.25),body=clamp(((d.rig.build||1)*(d.ur?d.ur.mk:1))/((o.rig.build||1)*(o.ur?o.ur.mk:1)),.72,1.4),support=fbOff().filter(p=>p!==o&&!p.down&&!p.carry&&p.blockPlant&&fbDist(p,o)<1.9).length;
-  const drive=clamp(1.12*body*(d.ur?d.ur.rush:1)+(D.rush-1)*.08,.85,1.7),lostGround=Math.max(0,(o.x-anchor.x)*nx+(o.z-anchor.z)*nz),brace=(.36+lostGround*1.3+support*.08)*eff*(o.ur?o.ur.str:1)*(1-fatigue)*(slideK>0?1.25:slideK<0?.92:1),lateral=(user?(d.blockDrive||0):side*((edge?.85:.3)+clamp(age-(edge?.4:1.3),0,2)*.16)*(slideK>0?.6:slideK<0?1.25:1));   // V46 (12): the slide side sets quicker on the edge rusher's lateral work
+  const drive=clamp(1.12*body*(d.ur?d.ur.rush:1)+(D.rush-1)*.08,.85,1.7),lostGround=Math.max(0,(o.x-anchor.x)*nx+(o.z-anchor.z)*nz),brace=(.36+lostGround*1.3+support*.08)*eff*(o.ur?o.ur.str:1)*(1+0.4*olN)*(1-fatigue)*(slideK>0?1.25:slideK<0?.92:1),lateral=(user?(d.blockDrive||0):side*((edge?.85:.3)+clamp(age-(edge?.4:1.3),0,2)*.16)*(slideK>0?.6:slideK<0?1.25:1));   // V46 (12): the slide side sets quicker on the edge rusher's lateral work
   // Both sides apply opposing effort. The O-line's planted mass resists a bull rush.
   const mirror=clamp(shoulder*2.5,-1.15,1.15)*eff*(1-fatigue)*(slideK>0?1.2:slideK<0?.9:1),returnLane=clamp((anchor.x-o.x)*tx+(anchor.z-o.z)*tz,-.3,.3);
-  let hp=0;if(s.holeOn===1&&!s.turn&&fbIsRun(s.play)){const mid=(o.z+d.z)/2,dz0=mid-s.holeZ,away=Math.sign(dz0)||(o.z<0?-1:1),w=clamp(1.5-Math.abs(dz0)*0.28,0,1.5);if(s.t>0.3&&s.t<1.1)hp=away*w;else if(s.t>=1.1&&s.t<2.3)hp=-away*w*0.8;}   // V46 HOLE: the pair is driven away from the designed lane while it is open, then drifts back and closes it
+  let hp=0;if(s.holeOn===1&&!s.turn&&fbIsRun(s.play)){const mid=(o.z+d.z)/2,dz0=mid-s.holeZ,away=Math.sign(dz0)||(o.z<0?-1:1),w=clamp(1.5-Math.abs(dz0)*0.28,0,1.5)*(1+0.7*olN);if(s.t>0.3&&s.t<1.1+0.5*olN)hp=away*w;else if(s.t>=1.1+0.5*olN&&s.t<2.3)hp=-away*w*0.8*(1-0.5*olN);}   // V46 HOLE: the pair is driven away from the designed lane while it is open, then drifts back and closes it
   const wall=d.stonewallUntil>s.t,heavier=fbBodyMass(d)>=fbBodyMass(o)-.001,bull=!wall&&!!d.bullHeld&&!e.ripAt;   // v46 (16): bull rush = hold Space; wins against a lighter (or equal) man, started inside the window
   if(bull&&!e.bullT0){e.bullT0=s.t;e.bullLate=(s.t-(e.winOpen||e.started))>.35;if(fbUD(d))fbRushFlash(d,!heavier?'TOO BIG TO MOVE':e.bullLate?'LATE - HE SET HIS FEET':'BULL RUSH',.4);}else if(!bull)e.bullT0=0;
   const bullWin=bull&&!e.bullLate&&heavier,driveK=wall?.3:bull?(bullWin?1.55:1.1):1,braceK=wall?1.25:bullWin?.45:1,lateralK=wall?0:1;
@@ -29781,12 +29907,13 @@ function fbLineEngage(e,dt,D,q){
   o.blockPlant=true;fbVel(d,nx*drive*driveK+tx*lateral*lateralK,nz*drive*driveK+tz*lateral*lateralK+hp,dt,13);fbVel(o,-nx*brace*braceK+tx*(mirror+returnLane),-nz*brace*braceK+tz*(mirror+returnLane)+hp,dt,26*eff);
   if(bullWin&&lostGround>1.4){fbRushWin(e,'bull',q);return;}if(bull&&!bullWin&&s.t-e.bullT0>.55){fbRushStonewall(e,'bull');return;}   // a lighter man gets driven into the QB's lap; a heavier one anchors and stands him up
   fbFace(o,d.x,d.z);fbFace(d,o.x,o.z);o.st=d.st='block';o.blockContact=d.blockContact=true;
-  const exposed=Math.max(0,Math.abs(shoulder)-.5);e.progress=clamp((e.progress||0)+dt*(xfHas(d,'shark')?2.3:1)*(exposed*(.65+fatigue)*(slideK>0?.6:slideK<0?1.2:1)-.16*eff),0,1.2);
+  const exposed=Math.max(0,Math.abs(shoulder)-.5);e.progress=clamp((e.progress||0)+dt*(xfHas(d,'shark')?2.3:1)*(exposed*(.65+fatigue)*(1-0.45*olN+0.2*rushN)*(slideK>0?.6:slideK<0?1.2:1)-.16*eff),0,1.2);
   const pastShoulder=Math.abs(shoulder)>.96,behind=(d.x-o.x)*nx+(d.z-o.z)*nz>.12;
   if(age>(xfHas(d,'shark')?.35:.7)&&pastShoulder&&(e.progress>(xfHas(d,'shark')?.4:.62)||behind)){fbReleaseBlock(e,true);return;}
   if(!user&&d.bullUntil&&s.t>d.bullUntil){d.bullHeld=false;d.bullUntil=0;}
-  if(!user&&!e.cpuMove&&age>=.1&&age<=.33&&!(d.stonewallUntil>s.t)){e.cpuMove=true;if(Math.random()<.08+.08*FB.diff){const heavy=fbBodyMass(d)>=fbBodyMass(o)-.001;if(heavy&&Math.random()<.4){d.bullHeld=true;d.bullUntil=s.t+1.3;}else fbRushMove(e,Math.random()<.75?'auto':'wrong',side,q);}}   // v46 (16): the CPU reads the same tells and uses the same three moves inside the same window (one try per engagement)
-  if(!user&&age>1.6+(slideK>0?1.7:slideK<0?-.5:0)&&Math.abs(shoulder)>.36&&d.swimCd<=0&&s.t>=e.nextMove){const ofx=Math.cos(o.face),ofz=-Math.sin(o.face),swimSide=Math.sign((d.x-o.x)*(-ofz)+(d.z-o.z)*ofx)||-side,attempt=FBS.swim(e,swimSide,s.t);if(attempt.success){fbLineSwim(e,swimSide);return;}e.nextMove=s.t+.19;}
+  if(e.cpuGo===undefined)e.cpuGo=Math.random()<clamp(1-0.82*olN+0.45*rushN,0.1,1);   // v144: does this rusher get a move this play? a maxed line says no most of the time; an elite edge against a weak line almost always does
+  if(!user&&!e.cpuMove&&age>=.1&&age<=.33&&!(d.stonewallUntil>s.t)){e.cpuMove=true;if(e.cpuGo&&Math.random()<.08+.08*FB.diff){const heavy=fbBodyMass(d)>=fbBodyMass(o)-.001;if(heavy&&Math.random()<.4){d.bullHeld=true;d.bullUntil=s.t+1.3;}else fbRushMove(e,Math.random()<.75?'auto':'wrong',side,q);}}   // v46 (16): the CPU reads the same tells and uses the same three moves inside the same window (one try per engagement)
+  if(!user&&e.cpuGo&&age>1.6+(slideK>0?1.7:slideK<0?-.5:0)+1.2*olN&&Math.abs(shoulder)>.36&&d.swimCd<=0&&s.t>=e.nextMove){const ofx=Math.cos(o.face),ofz=-Math.sin(o.face),swimSide=Math.sign((d.x-o.x)*(-ofz)+(d.z-o.z)*ofx)||-side,attempt=FBS.swim(e,swimSide,s.t);if(attempt.success){fbLineSwim(e,swimSide);return;}e.nextMove=s.t+.19;}
 }
 function fbRushFlash(d,txt,dur){const s=FB.s;if(!fbUD(d))return;if(d===s.gdc){s.mvG=s.t+(dur||.35);s.mvTxtG=txt;}else{s.mvH=s.t+(dur||.35);s.mvTxtH=txt;}}   // v46: numbers/strings on FB.s sync host->guest; the guest HUD reads mvG, the host mvH
 function fbRushStonewall(e,kind){const s=FB.s,d=e.d,o=e.o;d.stonewallUntil=s.t+.8;e.winOpen=s.t+.8;e.reFlash=true;e.moveUsed=false;e.bullT0=0;e.progress=0;d.vx*=.3;d.vz*=.3;d.bullHeld=false;d.bullUntil=0;d.wantMove=null;d.wantSwim=0;o.blockPlant=true;fbSfx('tick');fbRushFlash(d,'STONEWALLED',.8);}
