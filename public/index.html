@@ -18279,8 +18279,8 @@ function fbChoosePlayerAnimation(p,P){
   if(p.diveT>0||p.slid)return p.slid?'slide':'dive';
   if(p.diving)return 'dive';
   if(p.jumpT>0)return 'catch';
-  if(p.role==='QB'&&(p.qbPh||0)>0&&!p.carry)return qbtAnimKey(p);       // v141: cock / whip / follow-through of the QB throw library (or the qbPass throw)
-  if(p.hoK){const hk=hoAnimKey(p);if(hk)return hk;}                        // v141: handoff / toss / play-action pair (or the back's solo carry)
+  if(p.role==='QB'&&(p.qbPh||0)>0&&!p.carry)return qbtAnimKey(p);       // v142: cock / whip / follow-through of the QB throw library (or the qbPass throw)
+  if(p.hoK){const hk=hoAnimKey(p);if(hk)return hk;}                        // v142: handoff / toss / play-action pair (or the back's solo carry)
   if(p.st==='throw')return 'qbPass';
   if(p.st==='point')return 'point';
   if(p.st==='block'&&fbHasBlockingContact(p))return FB_MODEL.clips&&FB_MODEL.clips.push?'push':'offenseIdle';
@@ -18329,7 +18329,7 @@ function fbTickPlayerAnimation(p,dt){
   }
   if(key.slice(0,3)==='dm:')action.setEffectiveTimeScale(p.dmTs||1);
   if(p.role==='QB'&&(p.qbPh||0)>0&&(key===QB_THROW.legacy.key||(p.qbClip&&key==='dm:'+p.qbClip.path))){action.setEffectiveTimeScale(0);action.time=qbtClipTime(p,action.getClip().duration);}   // the clip follows the throw phase frame by frame
-  if(p.hoK&&key.slice(0,3)==='dm:'&&HO.ids[p.hoK]&&key==='dm:'+HO.ids[p.hoK].path){action.setEffectiveTimeScale(0);action.time=clamp(p.hoT||0,0,action.getClip().duration-0.001);}   // v141: the pair's clock is the game's exchange
+  if(p.hoK&&key.slice(0,3)==='dm:'&&HO.ids[p.hoK]&&key==='dm:'+HO.ids[p.hoK].path){action.setEffectiveTimeScale(0);action.time=clamp(p.hoT||0,0,action.getClip().duration-0.001);}   // v142: the pair's clock is the game's exchange
   try{dmAdditive(p,rg,nowS);}catch(e){}
   rg.fbMixer.update(dt);
   if(rg.fbPoseTransition){const tr=rg.fbPoseTransition;tr.time+=dt;const u=Math.min(1,tr.time/.12),w=u*u*(3-2*u);tr.bones.forEach(v=>v.bone.quaternion.slerpQuaternions(v.q,v.bone.quaternion.clone(),w));if(u>=1)rg.fbPoseTransition=null;}
@@ -19293,14 +19293,14 @@ function fbAimBehind(aim){                              // aiming within 2 yd of
   return fbOff().some(o => ['W1','W2','W3','TE','RB'].includes(o.role) && !o.down && Math.hypot(o.vx||0,o.vz||0) > 6 && Math.hypot(o.x-aim.x, o.z-aim.z) < 2);
 }
 /* ====================================================================================================
-   QB THROWING (v141). One continuous power curve (how long you hold), the QB's arm (Throw Power) and body (planted, stepping in,
+   QB THROWING (v142). One continuous power curve (how long you hold), the QB's arm (Throw Power) and body (planted, stepping in,
    rolling, sprinting, backpedaling, jumping back, off balance, pressure) shape release SPEED and ACCURACY separately.
    The throw is a real motion: the arm cocks while you hold, whips forward when you let go, and the ball leaves the hand on the
    release frame. The flight itself is the same projectile as before (same arcs, same landing math, same catching).
    ANIMATION INTERFACE for the QB animation library: QB_THROW below (events, categories, manifest) - spec in QB_THROW_ANIMATION_SPEC.md
    ==================================================================================================== */
 const QB_THROW = {
-  cfg: { dead:0.05, full:0.85, exp:1.25,             // hold seconds -> power 0..1: dead zone, full power, ease-in (a medium throw is a real medium hold)
+  cfg: { dead:0.02, full:0.72, exp:1.12, drain:1.5, air:1.12,             // hold seconds -> power 0..1: dead zone, full power, ease-in (a medium throw is a real medium hold)
          vMin:[13.5,15.5], vMax:[30,40], arm:[0.85,1.2], // release speed (yd/s): the softest dish (12-15 yd) .. a full bullet, weak arm -> strong arm (Throw Power)
          rel:[0.09,0.17], relArm:0.05,              // button up -> ball out of the hand (s): a dish is quick, a full throw has a real whip; a strong arm is a hair quicker
          fol:0.26, cockS:0.28, cockMaxSpd:2.6,       // follow-through (s); the arm cocks over 0.28 s of hold; above 2.6 yd/s he keeps running and cocks on release
@@ -19356,14 +19356,14 @@ function qbtBody(q, aim, pw){                                // what his body is
 function qbtRelTime(q, pw, B, cpu){ const C = QB_THROW.cfg; let t = (C.rel[0] + (C.rel[1] - C.rel[0])*pw)*(1 + C.relArm*(0.5 - qbtArmN(q))); if (B.cat === 'qb_off_balance') t *= 0.85; return cpu ? t*C.cpuRel : t; }
 function qbtFlightT(d, pw, thrPow){                          // the old touch arc at no power, the old bullet at full power, a real blend in between
   const tb = fbFlightT(d, 0, 'pass'), tl = Math.min(tb*1.35 + 0.5*clamp(d/25, 0.2, 1), 3.6), k = pw*pw*(3 - 2*pw);
-  return (tl + (tb - tl)*k)/(thrPow || 1);
+  return (tl + (tb - tl)*k)*QB_THROW.cfg.air/(thrPow || 1);   // v142: a little more air time everywhere
 }
 function qbtV(d, t, y0){ const vh = d/t, vy = (0.45 - y0 + 0.5*FB_G*t*t)/t; return Math.hypot(vh, vy); }
 function qbtTMin(d, y0){ let a = 0.12, b = 6; for (let i = 0; i < 36; i++) { const m1 = a + (b - a)*0.382, m2 = a + (b - a)*0.618; if (qbtV(d, m1, y0) < qbtV(d, m2, y0)) b = m2; else a = m1; } return (a + b)/2; }   // the flight time that needs the least arm
 function qbtReach(y0, vCap){ let lo = 1.5, hi = 120; for (let i = 0; i < 26; i++) { const m = (lo + hi)/2; if (qbtV(m, qbtTMin(m, y0), y0) <= vCap) lo = m; else hi = m; } return lo; }     // the farthest he can get it at this speed
 function qbtSolve(sx, sz, y0, tx, tz, tDes, vCap){          // the ball ALWAYS lands on the spot. Keep the wanted flight time when the arm can make it; else more air (a higher arc); past his arm's reach: the highest, easiest arc that still gets there
   const d = Math.hypot(tx - sx, tz - sz), tm = qbtTMin(d, y0);
-  if (qbtV(d, tm, y0) > vCap) return { t:tm, tx, tz, short:false, far:true };      // v141: never short - he heaves it up and it comes down on the spot
+  if (qbtV(d, tm, y0) > vCap) return { t:tm, tx, tz, short:false, far:true };      // v142: never short - he heaves it up and it comes down on the spot
   if (qbtV(d, tDes, y0) <= vCap) return { t:tDes, tx, tz, short:false };
   let bad = tDes, good = tm; for (let i = 0; i < 28; i++) { const m = (bad + good)/2; if (qbtV(d, m, y0) <= vCap) good = m; else bad = m; } return { t:good, tx, tz, short:false };
 }
@@ -19425,11 +19425,11 @@ function fbThrowCircle(ax, az, pw){      // where the ball CAN land: radius grow
   const press = fbDef().some(p => !p.down && !(p.eng && !p.free) && p.rusher && fbDist(p,q) < 3.3);
   let r = (2.6 - 2.35*acc + (0.115 - 0.105*acc)*d) * (press ? 1.6 : 1);                 // 60 OVR: huge at any range, wider the deeper he goes. 99 OVR: tiny short and deep.
   const sp = Math.hypot(q.vx||0, q.vz||0), w = clamp(sp/7, 0, 1.3) * (1 - 0.7*acc) * 1.8;   // throwing on the run: bad QBs get a stretched, shifted circle
-  { const P0 = pw != null ? pw : (s.charging ? qbtPower((s.chargeF||0)/60) : 0.5), Bq = qbtBody(q, { x:ax, z:az }, P0); r *= Bq.maC*(1 + 0.12*P0*(1 - qbtAccN(q))); }   // v141: his body and how hard he lets it go
+  { const P0 = pw != null ? pw : (s.charging ? qbtPower((s.chargeF||0)/60) : 0.5), Bq = qbtBody(q, { x:ax, z:az }, P0); r *= Bq.maC*(1 + 0.12*P0*(1 - qbtAccN(q))); }   // v142: his body and how hard he lets it go
   const ux = sp > 0.3 ? q.vx/sp : 1, uz = sp > 0.3 ? q.vz/sp : 0;
   return { r, a:r*(1+w), c:r*(1+0.15*w), ux, uz, ox:ux*r*w*0.5, oz:uz*r*w*0.5, ang:Math.atan2(-uz, ux) };
 }
-function fbThrow(aim, power, cpu, kind, opt){              // v141: starts the throwing motion; qbtRelease() lets the ball go on the release frame
+function fbThrow(aim, power, cpu, kind, opt){              // v142: starts the throwing motion; qbtRelease() lets the ball go on the release frame
   if (FB.esc) return;
   const s = FB.s, q = s.ctl;
   if (!q || q.role!=='QB' || q.carry || q.down || s.thrown || s.throwPend || s.ball.mode!=='held') return;
@@ -20622,7 +20622,7 @@ function fbLobbyWalkDraw(g){
 
   if (PV2.state==='ready') T('MODELS: PLAYER BLAKEALLEN25 - HELMET EXODUSKS - CLEATS LISENHAO - TROPHY G_BORY32 (SKETCHFAB, CC BY 4.0)', 160, 176.6, '#5d6a8f', 2.1, 'center');
   try { onlPanelDraw(g); } catch(e){ console.error('onl', e); }
-  T('BUILD v141',314,174,'#8fa0cc',4,'right'); { const us = uoStatus(); if (us) T(us, 6, 174, UO.state==='off' ? '#ff8b7b' : '#6f7ea8', 3, 'left'); }
+  T('BUILD v142',314,174,'#8fa0cc',4,'right'); { const us = uoStatus(); if (us) T(us, 6, 174, UO.state==='off' ? '#ff8b7b' : '#6f7ea8', 3, 'left'); }
 }
 /* ===================== WHO'S ONLINE: a live list in the lobby (signed-in players + what they are doing), chat and party invites.
    Anything sent to you pops up as a small red note in the top corner, wherever you are in the game. ===================== */
@@ -22929,7 +22929,7 @@ function fbStep(){
   else if (sc==='live' && s.intFz > 0) { s.intFz -= 1/60; if (s.intFz <= 0) s.intFz = 0; fbRigs.forEach(p => { p.anim += 0.01; }); }
   else if (sc==='live') {
     // charging a throw
-    if (s.charging) { s.chargeF = (s.chargeF||0)+1; s.charge = qbtPower(s.chargeF/60); }
+    if (s.charging) { s.chargeF = FB.rmbMeter ? Math.max(0, (s.chargeF||0) - QB_THROW.cfg.drain) : (s.chargeF||0)+1; s.charge = qbtPower(s.chargeF/60); } else FB.rmbMeter = false;   // v142: right click drains the meter
     if (FB.tapPending && !FB.tapPending.guest && performance.now() - FB.tapPending.at >= 200) { const tp = FB.tapPending; FB.tapPending = null; if (!s.thrown && !s.charging) fbThrow(tp.p, qbtPower(tp.h||0), false, 'lob'); }   // the short click: the lob goes
     if (s.tutMode) fbTutTick();
     if (!s.defMode && s.ctl && s.ctl.role==='QB' && !s.thrown && s.hover) {
@@ -23204,7 +23204,7 @@ function fbLobbyDraw(g){
   if (PARTY.npc && !PARTY.on) T(PARTY.npc.name+' SUITS UP AS YOUR W1',160,55,'#7ddc8a',5,'center');
   fbBtn(g,'lobbyback',6,5,76,12,'< BACK TO THE FIELD',{size:4.6});
   fbBtn(g,'party',6,19,76,10,PARTY.on ? 'PARTY  '+PARTY.code.toUpperCase() : 'PLAY WITH A FRIEND',{size:4.4,line:'#7ddc8a',tc:'#c9f7d0'});
-  T('BUILD v141',314,174,'#8fa0cc',4,'right');   // so you can tell which build is live
+  T('BUILD v142',314,174,'#8fa0cc',4,'right');   // so you can tell which build is live
   fbBtn(g,'tut',100,141,58,13,'TUTORIAL',{size:5,line:'#ffd24a',tc:'#ffe9a8'}); fbBtn(g,'howlobby',162,141,58,13,'HOW TO PLAY',{size:4.4,line:'#ffd24a',tc:'#ffe9a8'});
   fbBtn(g,'shop',6,141,90,13,'PLAY SHOP',{size:5.5,line:'#7ddc8a',tc:'#c9f7d0'});
   fbBtn(g,'stats',224,141,90,13,'MY STATS',{size:5.5,line:'#6fd0ff',tc:'#cfeeff'});
@@ -23538,7 +23538,8 @@ document.getElementById('game').addEventListener('pointerdown', e => {
   }
   e.stopImmediatePropagation(); e.preventDefault();
   try { const ae = document.activeElement; if (ae && ae!==document.body && typeof ae.blur==='function' && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)) ae.blur(); } catch(_){}
-  if (e.button===2) { keys.ShiftRight = true; FB.rmb = true; return; }          // V81: right click = sprint (hold)
+  if (e.button===2) { const cs = FB.s; if (cs && cs.charging && cs.ctl && cs.ctl.role==='QB' && !cs.thrown) { FB.rmbMeter = true; FB.rmb = true; return; }   // v142: right click while charging a throw = the meter goes down (no sprint)
+    keys.ShiftRight = true; FB.rmb = true; return; }          // V81: right click = sprint (hold)
   try { unlockAudio(); } catch(_){}
   const { px, py } = px0, s = FB.s, sc = FB.scr;
   FB.mouse = { x:px*W, y:py*H };
@@ -23577,13 +23578,13 @@ document.getElementById('game').addEventListener('pointermove', e => {
 }, true);
 window.addEventListener('pointerup', e => {
   if (!FB.on) return;
-  if (e.button===2) { if (FB.rmb) { FB.rmb = false; keys.ShiftRight = false; } return; }
+  if (e.button===2) { FB.rmbMeter = false; if (FB.rmb) { FB.rmb = false; keys.ShiftRight = false; } return; }
   FB.drawing = false; FB.dragDot = null; FB.ddrag = null; FB.dragBall = false;
   const s = FB.s;
   if (FBN.on && FBN.role==='guest') { fbnGuestUp(); return; }
   if (FB.scr==='live' && s.charging) {
     s.charging = false; const p = s.hover ? fbRay(s.hover.px, s.hover.py, 1.0) : null;
-    const hS = (s.chargeF||0)/60; if (p) { if ((s.chargeF||0) < 12) FB.tapPending = { p, at:performance.now(), h:hS }; else fbThrow(p, qbtPower(hS), false, 'pass'); } s.aimShow = false;   // v141: how long you held = how hard he throws it   // a short click lobs it (after a beat, in case a second click makes it a pump fake)
+    const hS = (s.chargeF||0)/60; if (p) { if ((s.chargeF||0) < 12) FB.tapPending = { p, at:performance.now(), h:hS }; else fbThrow(p, qbtPower(hS), false, 'pass'); } s.aimShow = false;   // v142: how long you held = how hard he throws it   // a short click lobs it (after a beat, in case a second click makes it a pump fake)
   }
 }, true);
 function fbDrawPt(x,y){
@@ -23595,7 +23596,10 @@ function fbDrawPt(x,y){
   if (Math.hypot(pt[0]-last[0], pt[1]-last[1]) >= 2.2 || arr.length===0 && Math.hypot(pt[0]-st[0], pt[1]) >= 1.5) arr.push(pt);
 }
 
-window.addEventListener('blur', () => { if (FB && FB.rmb) { FB.rmb = false; keys.ShiftRight = false; } });
+window.addEventListener('blur', () => { if (FB && FB.rmb) { FB.rmb = false; FB.rmbMeter = false; keys.ShiftRight = false; } });
+// v142: right click while a throw is charging = the meter goes down. With the left button already held the browser sends no pointerdown for the second button, so the button mask is read from every mouse / pointer event
+{ const rm = e => { try { const cs = FB && FB.s; if (!FB.on || !cs || !cs.charging || !cs.ctl || cs.ctl.role!=='QB' || cs.thrown) return; const dn = e.type==='mouseup' ? (e.buttons & 2) : (e.buttons & 2) || (e.type==='mousedown' && e.button===2); FB.rmbMeter = !!dn; if (dn) keys.ShiftRight = false; } catch(_){} };
+  ['pointermove','mousemove','mousedown','mouseup','pointerup'].forEach(t => window.addEventListener(t, rm, true)); }
 
 /* ====================================================================
    FOOTBALL  -  part 5: the animation layer
@@ -26714,7 +26718,7 @@ function fbStatsDraw(g){
   most.forEach((p,i) => { const y = 103 + i*9.4; T((i+1)+'  '+p.n,156,y,'#fff',4.8,'left'); T(p.c+' CALLS  '+p.y+' YDS',308,y,'#9fb0dc',4.4,'right'); });
 }
 
-/* ===================== v141: HANDOFF + PLAY-ACTION LIBRARY (anim/ho): the QB and the back play one synced pair =====================
+/* ===================== v142: HANDOFF + PLAY-ACTION LIBRARY (anim/ho): the QB and the back play one synced pair =====================
    The game still decides WHEN the exchange happens (the same handoff / toss / fake timing as before); the pair's own events are lined up
    to it: mesh_start (or toss_release / pull) = the moment the ball starts to move, transfer (or catch) = the moment the back has it.
    rb_path_m is matched visually: the back (and a little of the QB) is drawn up to 0.75 yd toward the authored path during the mesh only. */
@@ -26860,7 +26864,7 @@ const fbnIsHost = () => FBN.on && FBN.role==='host';
 const fbnIsGuest = () => FBN.on && FBN.role==='guest';
 function fbMain(){ if (FBN.on && FBN.role==='guest') fbnGuestStep(); else { fbStep(); if (FBN.on) fbnHostTick(); } }
 function fbVs(){ return !!(FBN.on && FBN.mode==='vs'); }
-function fbFlip(){ return false; }     // v141: one camera for everyone - behind the offense, on offense AND defense, solo, co-op and online (the same view the online 1v1 uses)
+function fbFlip(){ return false; }     // v142: one camera for everyone - behind the offense, on offense AND defense, solo, co-op and online (the same view the online 1v1 uses)
 function fbDirNow(){ const s = FB.s; return (fbFlip() || (s && s.turn)) ? -1 : 1; }      // after a turnover everyone sees the field from the other end
 function fbVsFix(t){                                                          // drive-screen text is written once (tokens) and read per player
   if (typeof t!=='string' || t.indexOf('{')<0) return t; const g = FBN.role==='guest', on = fbnOtherName();
@@ -27195,7 +27199,7 @@ function fbnGuestStep(){
   if (b && b.mode==='fly') { b.x += b.vx/60; b.y += b.vy/60; b.z += b.vz/60; b.vy -= FB_G*(b.tipped?FB_TIP_G:1)/60; }
   if (sc==='pre') s.preT += 1/60; else if (sc==='drive' || sc==='half') s.driveT = (s.driveT||0)+1; else if (sc==='over') s.overT = (s.overT||0)+1;
   if (sc==='live') {
-    if (s.charging) { s.chargeF = (s.chargeF||0)+1; s.charge = qbtPower(s.chargeF/60); }
+    if (s.charging) { s.chargeF = FB.rmbMeter ? Math.max(0, (s.chargeF||0) - QB_THROW.cfg.drain) : (s.chargeF||0)+1; s.charge = qbtPower(s.chargeF/60); } else FB.rmbMeter = false;   // v142: right click drains the meter
     if (FB.tapPending && FB.tapPending.guest && performance.now() - FB.tapPending.at >= 200) { const tp = FB.tapPending; FB.tapPending = null; fbnEv({ n:'cu', x:fbnR(tp.p.x), z:fbnR(tp.p.z), k:'touch', h:fbnR(tp.h||0) }); }   // the guest's short click: the touch pass goes
     if (!s.defMode && FBN.mode==='vs' && s.ctl && s.ctl.role==='QB' && !s.thrown && s.hover) {
       const g = fbRay(s.hover.px, s.hover.py, 0.01);
@@ -27291,7 +27295,7 @@ function fbnGuestPtr(px,py,sc){
 function fbnGuestUp(){
   const s = FB.s; if (FB.scr!=='live' || !s.charging) return;
   s.charging = false; const p = s.hover ? fbRay(s.hover.px, s.hover.py, 1.0) : null; s.aimShow = false;
-  const hS = (s.chargeF||0)/60; if (p) { if ((s.chargeF||0) < 12) FB.tapPending = { p, at:performance.now(), guest:true, h:hS }; else fbnEv({ n:'cu', x:fbnR(p.x), z:fbnR(p.z), k:'pass', h:fbnR(hS) }); }   // v141: the hold time goes with it (the host turns it into power)   // a short click waits a beat (a second click makes it a pump fake), a hold is a bullet, hold + Shift a lob
+  const hS = (s.chargeF||0)/60; if (p) { if ((s.chargeF||0) < 12) FB.tapPending = { p, at:performance.now(), guest:true, h:hS }; else fbnEv({ n:'cu', x:fbnR(p.x), z:fbnR(p.z), k:'pass', h:fbnR(hS) }); }   // v142: the hold time goes with it (the host turns it into power)   // a short click waits a beat (a second click makes it a pump fake), a hold is a bullet, hold + Shift a lob
 }
 
 /* ---------------------------------------------------------------- shared */
