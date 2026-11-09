@@ -89,7 +89,7 @@ export const MATCH = {
 
 // SELLING CARDS - value = base[tier] x rarityMult[rarity] (PLACEHOLDER). Kept far below pack prices so selling can never pay for more packs than it cost.
 export const SELL = {
-  base: { S: 400, A: 200, B: 100, C: 50, D: 25, E: 10, F: 10 },
+  base: { S: 400, LG: 400, A: 200, B: 100, C: 50, D: 25, E: 10, F: 10 },
   rarityMult: { Common: 1, Uncommon: 1.5, Rare: 2.5, Epic: 5, Legendary: 12 }
 };
 
@@ -109,7 +109,7 @@ export const TRADE = { maxCards: 15, expireMinutes: 60, minGames: 10, minAgeHour
 // cost of a step = tierBase[tier] x stepMult[step]. The steps get much harder AND the better the player's tier the more every step costs,
 // so making a D-tier kicker Legendary is cheap and making an S-tier QB Legendary is a long grind. (PLACEHOLDER numbers.)
 export const UPGRADE = {
-  tierBase: { S: 600, A: 400, B: 200, C: 120, D: 60, E: 40, F: 40 },
+  tierBase: { S: 600, LG: 600, A: 400, B: 200, C: 120, D: 60, E: 40, F: 40 },
   stepMult: [1, 2, 3.5, 6],                       // Common->Uncommon, ->Rare, ->Epic, ->Legendary  (an S-tier Common to Legendary: 600+1200+2100+3600 = 7,500 coins)
   order: ['Common', 'Uncommon', 'Rare', 'Epic', 'Legendary']
 };
@@ -134,7 +134,7 @@ export const PASS = {
 // X-FACTORS: claimed from the Battle Pass at these levels. Each one is a token you can put on ONE eligible card (tier S or A, Rare or better) and move later.
 PASS.xLevels = [5, 10, 20, 30, 35, 40];
 PASS.xLevels.forEach(L => { PASS.rewards[L] = Object.assign({}, PASS.rewards[L], { x: 1 }); });
-export const XF = { tiers: ['S', 'A'], rarities: ['Rare', 'Epic', 'Legendary'], positions: ['QB', 'RB', 'WR', 'TE', 'CB', 'S', 'SAF', 'FS', 'SS', 'LB', 'EDGE', 'DE', 'OLB'] };
+export const XF = { tiers: ['S', 'LG', 'A'], rarities: ['Rare', 'Epic', 'Legendary'], positions: ['QB', 'RB', 'WR', 'TE', 'CB', 'S', 'SAF', 'FS', 'SS', 'LB', 'EDGE', 'DE', 'OLB'] };
 
 // TESTING MODE: every pack is free (starter, premium, elite, position, legend, kicker). Set FREE_PACKS to false to bring the prices back.
 export const FREE_PACKS = false;

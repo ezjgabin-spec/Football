@@ -28,6 +28,7 @@ const TIER_ORDER = ['S', 'A', 'B', 'C', 'D'];
 function eligible(tier, pos) { return CATALOG.filter(p => p[1] === tier && (!pos || p[2] === pos) && !UT.excludedPositions.includes(p[2]) && !UT.blockedIds.includes(p[0]) && !p[0].startsWith(KICKERS.shopPrefix)); }
 export function rollCard(pack, pos) {
   let tier = pickWeighted(pack.tierWeights), pool = eligible(tier, pos);
+  if (tier === 'S' && rnd(100) < 40) { const lg = eligible('LG', pos); if (lg.length) { tier = 'LG'; pool = lg; } }   // LEGEND cards: 4 in 10 of the S-tier pulls
   for (let i = TIER_ORDER.indexOf(tier); !pool.length && i < TIER_ORDER.length - 1;) pool = eligible(TIER_ORDER[++i], pos);   // an empty tier falls back downward
   const p = pool[rnd(pool.length)];
   return { pid: p[0], tier: p[1], rarity: pickWeighted(pack.rarityWeights || UT.rarityWeights) };
