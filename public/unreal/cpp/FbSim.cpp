@@ -58,10 +58,12 @@ float FFbSim::TopSpeed(const FFbEnt& e) const
 	return Sp * Rm * 0.75f * e.Mul;      // the web game moves everybody at 0.75 of the listed speed
 }
 
-void FFbSim::Setup(int32 InPlayIdx, float InLos, const FFbRatings& InRt)
+void FFbSim::Setup(int32 InPlayIdx, float InLos, const FFbRatings& InRt, bool bInUserOff, EFbCall InCall)
 {
 	Rt = InRt;
 	Los = InLos;
+	bUserOff = bInUserOff;
+	DefCall = InCall;
 	if (!Playbook.IsValidIndex(InPlayIdx)) InPlayIdx = 0;
 	PlayIdx = InPlayIdx;
 	const FFbPlayDef& P = Playbook[PlayIdx];
@@ -77,7 +79,7 @@ void FFbSim::Setup(int32 InPlayIdx, float InLos, const FFbRatings& InRt)
 	Init(FbRole::W1, true, EFbKind::WR, Los - 0.6f, -15.5f);
 	Init(FbRole::W2, true, EFbKind::WR, Los - 0.6f, 15.f);
 	Init(FbRole::W3, true, EFbKind::WR, Los - 1.2f, -8.5f);
-	if (bRun) E[FbRole::TE].Z = 6.2f, E[FbRole::TE].Z0 = 6.2f;
+	if (bRun) { E[FbRole::TE].Z = 6.2f; E[FbRole::TE].Z0 = 6.2f; }
 	for (int32 i = 0; i < 5; i++) Init(FbRole::OL1 + i, true, EFbKind::OL, Los - 0.9f, -4.4f + 2.2f * i);
 
 	// defence
@@ -114,6 +116,10 @@ void FFbSim::Setup(int32 InPlayIdx, float InLos, const FFbRatings& InRt)
 	T = 0.f; DeadT = 0.f; Phase = EFbPhase::Pre;
 	Result = EFbResult::None; ResultText = FString(); Status = FString(); Yards = 0.f; Tackler = -1; bEnded = false; bHandoffDone = false;
 	Move = FVector2D(0.f, 0.f); bSprint = false;
+	CtlLock = 0.f; DiveT = 0.f; DiveCool = 0.f; LastLandX = Los;
+	AiThrowAt = 1.7f + 0.9f * FbRnd();
+	Ctl = -1;
+	if (!bUserOff) AutoPick(E[FbRole::QB].X, E[FbRole::QB].Z, true);
 	FinishFrame();
 }
 
@@ -138,6 +144,7 @@ void FFbSim::RouteStep(FFbEnt& e, float dt)
 int32 FFbSim::Controlled() const
 {
 	if (Phase != EFbPhase::Live) return -1;
+	if (!bUserOff) return Ctl;
 	if (Carrier >= 0) return Carrier;
 	if (!bRun && !bFlying) return FbRole::QB;
 	return -1;
@@ -145,12 +152,19 @@ int32 FFbSim::Controlled() const
 
 void FFbSim::ControlStep(FFbEnt& e, float dt)
 {
-	float Sp = TopSpeed(e) * (bSprint ? 1.0f : 0.82f);
+	float Sp = TopSpeed(e) * (bSprint ? 1.0f : 0.85f);
 	if (e.JukeT > 0.f) Sp *= 1.12f;
+	if (!e.bOff)
+	{
+		if (e.Kind == EFbKind::DL && T < e.BlockedUntil) Sp *= 0.35f;      // a lineman who is being blocked is slowed
+		if (DiveT > 0.f) Sp = TopSpeed(e) * 1.4f;
+		else if (DiveCool > 0.f) Sp *= 0.5f;
+	}
 	const float mx = (float)Move.X, mz = (float)Move.Y;
 	const float m = FMath::Sqrt(mx * mx + mz * mz);
 	float tx = 0.f, tz = 0.f;
 	if (m > 0.01f) { tx = mx / m * Sp; tz = mz / m * Sp; }
+	if (!e.bOff && DiveT > 0.f && m <= 0.01f) { tx = e.VX; tz = e.VZ; }       // a dive keeps going the way it started
 	const float k = FMath::Min(1.f, 9.f * dt);
 	e.VX += (tx - e.VX) * k; e.VZ += (tz - e.VZ) * k;
 	e.X += e.VX * dt; e.Z += e.VZ * dt;
@@ -160,7 +174,7 @@ void FFbSim::ControlStep(FFbEnt& e, float dt)
 
 void FFbSim::Juke()
 {
-	if (Phase != EFbPhase::Live || Carrier < 0) return;
+	if (Phase != EFbPhase::Live || !bUserOff || Carrier < 0) return;
 	FFbEnt& c = E[Carrier];
 	if (c.JukeCool > 0.f) return;
 	c.JukeT = 0.45f; c.JukeCool = 1.3f;
@@ -169,10 +183,61 @@ void FFbSim::Juke()
 	Status = FString(TEXT("JUKE!"));
 }
 
+void FFbSim::Dive()
+{
+	if (Phase != EFbPhase::Live || bUserOff || Ctl < 0) return;
+	if (DiveT > 0.f || DiveCool > 0.f) return;
+	DiveT = 0.45f;
+	Status = FString(TEXT("DIVE!"));
+}
+
+void FFbSim::AutoPick(float Fx, float Fz, bool bAllowDL)
+{
+	int32 Best = -1; float BestD = 1e9f;
+	for (int32 i = FbRole::DL1; i <= FbRole::S2; i++)
+	{
+		if (!bAllowDL && E[i].Kind == EFbKind::DL) continue;
+		const float d = FbDist2(E[i].X, E[i].Z, Fx, Fz);
+		if (d < BestD) { BestD = d; Best = i; }
+	}
+	if (Best >= 0) { Ctl = Best; CtlLock = 0.f; }
+}
+
+void FFbSim::SwitchDefender()
+{
+	if (bUserOff || Phase != EFbPhase::Live) return;
+	float Fx = E[FbRole::QB].X, Fz = E[FbRole::QB].Z;
+	if (bFlying) { Fx = LandX; Fz = LandZ; }
+	else if (Carrier >= 0) { Fx = E[Carrier].X; Fz = E[Carrier].Z; }
+	int32 Order[11]; float Dst[11];
+	for (int32 k = 0; k < 11; k++) { Order[k] = FbRole::DL1 + k; Dst[k] = FbDist2(E[Order[k]].X, E[Order[k]].Z, Fx, Fz); }
+	for (int32 a = 0; a < 11; a++)
+		for (int32 b = a + 1; b < 11; b++)
+			if (Dst[b] < Dst[a]) { const float td = Dst[a]; Dst[a] = Dst[b]; Dst[b] = td; const int32 ti = Order[a]; Order[a] = Order[b]; Order[b] = ti; }
+	int32 Rank = 0;
+	for (int32 k = 0; k < 11; k++) if (Order[k] == Ctl) Rank = k;
+	Ctl = Order[(Rank + 1) % 5];
+	E[Ctl].VX = 0.f; E[Ctl].VZ = 0.f;
+	CtlLock = 1.5f;
+}
+
+bool FFbSim::IsRusher(int32 i) const
+{
+	if (E[i].Kind == EFbKind::DL) return true;
+	return DefCall == EFbCall::Blitz && (i == FbRole::LB1 || i == FbRole::LB2);
+}
+
+float FFbSim::TackleR(int32 i) const
+{
+	if (!bUserOff && i == Ctl && DiveT > 0.f) return 1.9f;
+	return 1.0f;
+}
+
 void FFbSim::OlDlContact()
 {
-	for (int32 i = FbRole::DL1; i <= FbRole::DL4; i++)
+	for (int32 i = FbRole::DL1; i <= FbRole::LB3; i++)
 	{
+		if (!IsRusher(i)) continue;
 		FFbEnt& d = E[i];
 		if (d.bRolled || T < d.BlockedUntil || T >= 6.f) continue;
 		for (int32 j = FbRole::OL1; j <= FbRole::OL5; j++)
@@ -193,8 +258,12 @@ void FFbSim::OlDlContact()
 void FFbSim::DefenseStep(float dt, int32 Pursue)
 {
 	static const int32 ManOf[22] = { 0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0, FbRole::TE, FbRole::RB, 0, FbRole::W1, FbRole::W2, FbRole::W3, 0 };
+	static const float ZoneDx[22] = { 0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0, 5.f, 5.f, 5.f, 7.f, 7.f, 14.f, 14.f };
+	static const float ZoneZ[22] = { 0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0, -6.f, 0.f, 6.f, -15.f, 15.f, -7.f, 7.f };
+	const int32 Skip = bUserOff ? -1 : Ctl;           // the defender the player steers is not moved by the AI
 	for (int32 i = FbRole::DL1; i <= FbRole::S2; i++)
 	{
+		if (i == Skip && Phase == EFbPhase::Live) continue;
 		FFbEnt& e = E[i];
 		const float Sp = TopSpeed(e);
 		if (Pursue < 0 && bRun) { e.VX = 0.f; e.VZ = 0.f; continue; }       // on a run the front holds until the play develops
@@ -202,14 +271,27 @@ void FFbSim::DefenseStep(float dt, int32 Pursue)
 		{
 			const FFbEnt& c = E[Pursue];
 			const float Slow = (e.Kind == EFbKind::DL && T < e.BlockedUntil) ? 0.25f : 1.f;
-			Go(e, c.X + c.VX * 0.25f, c.Z + c.VZ * 0.25f, Sp * (bRun ? 0.88f : 0.93f) * Slow, dt);
+			Go(e, c.X + c.VX * 0.25f, c.Z + c.VZ * 0.25f, Sp * (bRun ? 0.96f : 0.98f) * Slow, dt);
 			continue;
 		}
 		const FFbEnt& q = E[FbRole::QB];
-		if (e.Kind == EFbKind::DL)
+		if (IsRusher(i))
 		{
 			const float Sp2 = Sp * ((T < e.BlockedUntil) ? 0.25f : 1.f);
 			Go(e, q.X, q.Z, Sp2 * 0.95f, dt);
+		}
+		else if (DefCall == EFbCall::Zone && i >= FbRole::LB1)
+		{
+			const float Ax = Los + ZoneDx[i], Az = ZoneZ[i];
+			int32 Rb = -1; float RbD = 8.f;
+			for (int32 k = FbRole::RB; k <= FbRole::W3; k++)
+			{
+				if (E[k].X < Los - 1.f) continue;
+				const float d = FbDist2(E[k].X, E[k].Z, Ax, Az);
+				if (d < RbD) { RbD = d; Rb = k; }
+			}
+			if (Rb >= 0 && T > 0.3f) Go(e, E[Rb].X + 0.9f, E[Rb].Z, Sp * 0.92f, dt);
+			else if (T > 0.3f) Go(e, Ax, Az, Sp * 0.8f, dt);
 		}
 		else if (ManOf[i] != 0 && T > 0.3f)
 		{
@@ -233,11 +315,56 @@ void FFbSim::DefenseStep(float dt, int32 Pursue)
 		int32 Best = -1; float BestD = 1e9f;
 		for (int32 i = FbRole::LB1; i <= FbRole::S2; i++)
 		{
+			if (i == Skip) continue;
 			const float d = FbDist2(E[i].X, E[i].Z, LandX, LandZ);
 			if (d < BestD) { BestD = d; Best = i; }
 		}
 		if (Best >= 0) Go(E[Best], LandX, LandZ, TopSpeed(E[Best]) * 0.95f, dt);
 	}
+}
+
+void FFbSim::AiCarrierStep(FFbEnt& c, float dt)
+{
+	if (c.JukeT > 0.f) c.JukeT -= dt;
+	if (c.JukeCool > 0.f) c.JukeCool -= dt;
+	if (c.JukeCool <= 0.f)
+	{
+		for (int32 i = FbRole::DL1; i <= FbRole::S2; i++)
+			if (FbDist(E[i], c) < 2.2f && FbRnd() < 1.2f * dt) { c.JukeT = 0.45f; c.JukeCool = 1.4f; break; }
+	}
+	const float Sp = TopSpeed(c) * 0.80f * ((c.JukeT > 0.f) ? 1.08f : 1.f);
+	if (bRun && c.Role == FbRole::RB && c.Ri < c.Route.Num())
+	{
+		if (Go(c, (float)c.Route[c.Ri].X, (float)c.Route[c.Ri].Y, Sp, dt) < 0.3f) c.Ri++;
+		return;
+	}
+	float Tz = c.Z * 0.9f;
+	for (int32 i = FbRole::DL1; i <= FbRole::S2; i++)               // run to daylight: step away from the closest defender ahead
+	{
+		const FFbEnt& d = E[i];
+		if (d.X > c.X - 1.f && FbDist(d, c) < 6.f) { Tz += (c.Z >= d.Z) ? 4.f : -4.f; break; }
+	}
+	Tz = FMath::Clamp(Tz, -24.f, 24.f);
+	Go(c, c.X + 10.f, Tz, Sp, dt);
+}
+
+void FFbSim::AiThrow()
+{
+	static const int32 Roles[5] = { FbRole::W1, FbRole::W2, FbRole::W3, FbRole::TE, FbRole::RB };
+	int32 Best = -1; float BestS = -1e9f;
+	for (int32 k = 0; k < 5; k++)
+	{
+		const FFbEnt& r = E[Roles[k]];
+		if (r.Route.Num() == 0) continue;
+		float Ax, Az;
+		RouteAt(r, 1.2f, Ax, Az);
+		float Md = 1e9f;
+		for (int32 i = FbRole::DL1; i <= FbRole::S2; i++) Md = FMath::Min(Md, FbDist2(E[i].X, E[i].Z, Ax, Az));
+		float Score = Md + FbRndR(0.f, 1.2f);
+		if (Roles[k] == FbRole::RB) Score -= 1.5f;                // the checkdown is the last choice
+		if (Score > BestS) { BestS = Score; Best = Roles[k]; }
+	}
+	if (Best >= 0) ThrowRole(Best);
 }
 
 void FFbSim::LivePass(float dt)
@@ -246,28 +373,46 @@ void FFbSim::LivePass(float dt)
 	for (int32 i = FbRole::RB; i <= FbRole::W3; i++)
 		if (T > 0.15f && i != Carrier) RouteStep(E[i], dt);
 
+	if (!bUserOff && Ctl >= 0)
+	{
+		if (CtlLock > 0.f) CtlLock -= dt;
+		if (DiveT > 0.f) { DiveT -= dt; if (DiveT <= 0.f) DiveCool = 0.9f; }
+		else if (DiveCool > 0.f) DiveCool -= dt;
+		ControlStep(E[Ctl], dt);
+	}
+
 	FFbEnt& q = E[FbRole::QB];
 	if (Carrier < 0)
 	{
 		if (!bFlying)
 		{
-			ControlStep(q, dt);
-			if (q.X > Los + 0.5f)                // the QB has run past the line with the ball: now he is a ball carrier
+			if (bUserOff) ControlStep(q, dt);
+			else
+			{
+				Go(q, q.X0 - 2.0f, q.Z0, TopSpeed(q), dt);
+				float Near = 1e9f;
+				for (int32 i = FbRole::DL1; i <= FbRole::LB3; i++) if (IsRusher(i)) Near = FMath::Min(Near, FbDist(E[i], q));
+				if (T >= AiThrowAt || (T > 0.9f && Near < 2.2f)) AiThrow();
+			}
+			if (bUserOff && q.X > Los + 0.5f)                // the QB has run past the line with the ball: now he is a ball carrier
 			{
 				Carrier = FbRole::QB; Status = FString(TEXT("SCRAMBLE!"));
 				DefenseStep(dt, Carrier);
 				CheckTackle(Carrier);
 				return;
 			}
-			DefenseStep(dt, -1);
-			for (int32 i = FbRole::DL1; i <= FbRole::S2; i++)
+			if (!bFlying)
 			{
-				if (FbDist(E[i], q) < 1.05f)
+				DefenseStep(dt, -1);
+				for (int32 i = FbRole::DL1; i <= FbRole::S2; i++)
 				{
-					Tackler = i;
-					if (q.X <= Los) End(EFbResult::Sack, FString::Printf(TEXT("SACK  for %d yd loss"), FMath::RoundToInt(FMath::Max(0.f, Los - q.X))), FMath::Min(0.f, q.X - Los));
-					else End(EFbResult::Tackled, FString(TEXT("TACKLED")), q.X - Los);
-					return;
+					if (FbDist(E[i], q) < TackleR(i) + 0.05f)
+					{
+						Tackler = i;
+						if (q.X <= Los) End(EFbResult::Sack, FString::Printf(TEXT("SACK  for %d yd loss"), FMath::RoundToInt(FMath::Max(0.f, Los - q.X))), FMath::Min(0.f, q.X - Los));
+						else End(EFbResult::Tackled, FString(TEXT("TACKLED")), q.X - Los);
+						return;
+					}
 				}
 			}
 		}
@@ -281,9 +426,13 @@ void FFbSim::LivePass(float dt)
 	else
 	{
 		FFbEnt& c = E[Carrier];
-		ControlStep(c, dt);
-		if (c.JukeT > 0.f) c.JukeT -= dt;
-		if (c.JukeCool > 0.f) c.JukeCool -= dt;
+		if (bUserOff)
+		{
+			ControlStep(c, dt);
+			if (c.JukeT > 0.f) c.JukeT -= dt;
+			if (c.JukeCool > 0.f) c.JukeCool -= dt;
+		}
+		else AiCarrierStep(c, dt);
 		DefenseStep(dt, Carrier);
 		CheckTackle(Carrier);
 	}
@@ -291,10 +440,15 @@ void FFbSim::LivePass(float dt)
 
 bool FFbSim::Throw(int32 Slot)
 {
-	if (Phase != EFbPhase::Live || bRun || Carrier >= 0 || bFlying || bEnded) return false;
+	if (!bUserOff) return false;
 	static const int32 SlotRole[5] = { FbRole::W1, FbRole::W2, FbRole::W3, FbRole::TE, FbRole::RB };
 	if (Slot < 0 || Slot > 4) return false;
-	const int32 Rec = SlotRole[Slot];
+	return ThrowRole(SlotRole[Slot]);
+}
+
+bool FFbSim::ThrowRole(int32 Rec)
+{
+	if (Phase != EFbPhase::Live || bRun || Carrier >= 0 || bFlying || bEnded) return false;
 	FFbEnt& q = E[FbRole::QB];
 	float d = FbDist(E[Rec], q);
 	float Tf = 0.55f + 0.036f * d, Ax = E[Rec].X, Az = E[Rec].Z;
@@ -306,7 +460,7 @@ bool FFbSim::Throw(int32 Slot)
 	}
 	// accuracy: a better quarterback is closer to the spot; pressure and distance move it away
 	float Pressure = 0.f;
-	for (int32 i = FbRole::DL1; i <= FbRole::DL4; i++) if (FbDist(E[i], q) < 3.5f) Pressure += 0.5f;
+	for (int32 i = FbRole::DL1; i <= FbRole::LB3; i++) if (IsRusher(i) && FbDist(E[i], q) < 3.5f) Pressure += 0.5f;
 	const float Err = (1.f - Rt.QbAcc) * 2.2f + 0.02f * d + Pressure * 0.5f;
 	const float Ang = FbRndR(0.f, 6.2831853f), Mag = Err * FbRnd();
 	Ax += FMath::Cos(Ang) * Mag; Az += FMath::Sin(Ang) * Mag;
@@ -317,6 +471,7 @@ bool FFbSim::Throw(int32 Slot)
 	Bvy = (0.45f - By + 0.5f * FB_GRAV * Tf * Tf) / Tf;
 	bFlying = true; Target = Rec; LandT = T + Tf; LandX = Ax; LandZ = Az;
 	Status = FString::Printf(TEXT("THROW to %s  (%d yd)"), FbRoleName(Rec), FMath::RoundToInt(d));
+	if (!bUserOff) AutoPick(LandX, LandZ, false);          // the player now steers whoever is closest to where the ball comes down
 	return true;
 }
 
@@ -343,7 +498,7 @@ void FFbSim::BallStep(float dt)
 void FFbSim::ResolveCatch()
 {
 	bFlying = false;
-	By = 0.3f; Bx = LandX; Bz = LandZ;
+	By = 0.3f; Bx = LandX; Bz = LandZ; LastLandX = LandX;
 	int32 R = -1; float Dr = 1e9f;
 	for (int32 i = FbRole::RB; i <= FbRole::W3; i++)
 	{
@@ -358,20 +513,40 @@ void FFbSim::ResolveCatch()
 		const float d = FbDist(E[i], E[R]);
 		if (d < Dd) { Dd = d; Dn = i; }
 	}
-	if (Dd < 1.4f)
+	// the defender the player steers gets a real chance to make the play
+	if (!bUserOff && Ctl >= FbRole::LB1 && FbDist(E[Ctl], E[R]) < 1.7f)
+	{
+		const float Roll = FbRnd();
+		const float Pick = (DiveT > 0.f) ? 0.30f : 0.42f;
+		if (Roll < Pick) { Tackler = Ctl; End(EFbResult::Interception, FString(TEXT("YOU INTERCEPTED IT!")), 0.f); return; }
+		if (Roll < Pick + 0.30f) { End(EFbResult::Incomplete, FString(TEXT("PASS BROKEN UP BY YOU!")), 0.f); return; }
+	}
+	else if (Dd < 1.4f)
 	{
 		const float Roll = FbRnd();
 		if (Roll < 0.06f) { Tackler = Dn; End(EFbResult::Interception, FString::Printf(TEXT("INTERCEPTED by %s!"), FbRoleName(Dn)), 0.f); return; }
 		if (Roll < 0.34f) { End(EFbResult::Incomplete, FString(TEXT("INCOMPLETE  (broken up)")), 0.f); return; }
 	}
 	Carrier = R;
-	Status = FString::Printf(TEXT("CATCH by %s - RUN!"), FbRoleName(R));
+	Status = FString::Printf(TEXT("CATCH by %s"), FbRoleName(R));
+	if (!bUserOff) AutoPick(E[R].X, E[R].Z, true);
 }
 
 void FFbSim::LiveRun(float dt)
 {
 	FFbEnt& rb = E[FbRole::RB];
-	if (Carrier < 0 && T >= 0.55f) { Carrier = FbRole::RB; bHandoffDone = true; Status = FString(TEXT("HANDOFF - RUN!")); }
+	if (Carrier < 0 && T >= 0.55f)
+	{
+		Carrier = FbRole::RB; bHandoffDone = true; Status = FString(TEXT("HANDOFF"));
+		if (!bUserOff) AutoPick(rb.X, rb.Z, true);
+	}
+	if (!bUserOff && Ctl >= 0)
+	{
+		if (CtlLock > 0.f) CtlLock -= dt;
+		if (DiveT > 0.f) { DiveT -= dt; if (DiveT <= 0.f) DiveCool = 0.9f; }
+		else if (DiveCool > 0.f) DiveCool -= dt;
+		ControlStep(E[Ctl], dt);
+	}
 	if (Carrier < 0)
 	{
 		if (rb.Route.Num() > 0) Go(rb, (float)rb.Route[0].X, (float)rb.Route[0].Y, TopSpeed(rb) * 0.6f, dt);
@@ -379,9 +554,13 @@ void FFbSim::LiveRun(float dt)
 	else
 	{
 		FFbEnt& c = E[Carrier];
-		ControlStep(c, dt);
-		if (c.JukeT > 0.f) c.JukeT -= dt;
-		if (c.JukeCool > 0.f) c.JukeCool -= dt;
+		if (bUserOff)
+		{
+			ControlStep(c, dt);
+			if (c.JukeT > 0.f) c.JukeT -= dt;
+			if (c.JukeCool > 0.f) c.JukeCool -= dt;
+		}
+		else AiCarrierStep(c, dt);
 	}
 	E[FbRole::QB].VX = 0.f; E[FbRole::QB].VZ = 0.f;
 	for (int32 i = FbRole::OL1; i <= FbRole::OL5; i++)                       // linemen drive their man
@@ -407,11 +586,12 @@ void FFbSim::CheckTackle(int32 c)
 	for (int32 i = FbRole::DL1; i <= FbRole::S2; i++)
 	{
 		const float d = FbDist(E[i], e);
-		if (d > 2.2f) Missed[i] = false;
-		if (d < 1.0f)
+		if (d > 2.4f) Missed[i] = false;
+		if (d < TackleR(i))
 		{
-			if (e.JukeT > 0.f && !Missed[i] && FbRnd() < 0.65f) { Missed[i] = true; Status = FString(TEXT("MISSED TACKLE!")); continue; }
 			if (Missed[i]) continue;
+			if (e.JukeT > 0.f && FbRnd() < 0.65f) { Missed[i] = true; Status = FString(TEXT("MISSED TACKLE!")); continue; }
+			if (!bUserOff && i == Ctl && DiveT > 0.f && FbRnd() < 0.22f) { Missed[i] = true; Status = FString(TEXT("HE BROKE IT!")); continue; }
 			Tackler = i;
 			End(EFbResult::Tackled, FString::Printf(TEXT("TACKLED by %s after %d yards"), FbRoleName(i), FMath::RoundToInt(e.X - Los)), e.X - Los);
 			return;
@@ -455,74 +635,171 @@ void FFbSim::FinishFrame()
 // ====================================================================================================== game flow
 void FFbGame::Reset(const FString& InOpp, int32 InRating)
 {
-	YouScore = CpuScore = 0; Drive = 1; Drives = 6; Overtimes = 0; Opp = InOpp; OppRating = InRating; CpuBonus = 0.f; bOver = false;
-	NewDrive();
+	YouScore = CpuScore = 0; Q = 1; Clock = FB_QUARTER; UserBall = true; bYouReceivedFirst = true;
+	ToYou = 3; HuddleRefund = 0.f; OtPoss = 0; OtRound = 0; Opp = InOpp; OppRating = InRating; bOver = false;
+	NewSeries(25.f);
 }
 
-void FFbGame::NewDrive()
+void FFbGame::NewSeries(float InBall)
 {
-	Down = 1; ToGo = 10.f; Ball = 25.f; LineToGain = 35.f;
+	Ball = FMath::Clamp(InBall, 1.f, 99.f);
+	Down = 1;
+	ToGo = FMath::Min(10.f, 100.f - Ball);
+	LineToGain = Ball + ToGo;
 }
 
-EFbDrive FFbGame::ApplyPlay(const FFbSim& S)
+void FFbGame::SetPossession(bool bUser, float InBall)
 {
-	switch (S.Result)
+	const bool bChanged = (bUser != UserBall);
+	UserBall = bUser;
+	NewSeries(InBall);
+	HuddleRefund = 0.f;
+	if (Q == 5 && bChanged)
 	{
-	case EFbResult::Touchdown: YouScore += 7; CpuBonus = 0.f; return EFbDrive::Score;
-	case EFbResult::Interception: CpuBonus = 0.14f; return EFbDrive::Turnover;
-	default: break;
+		OtPoss++;
+		if (OtPoss >= 2)
+		{
+			if (YouScore != CpuScore) bOver = true;
+			else { OtPoss = 0; OtRound++; if (OtRound >= 3) bOver = true; }
+		}
 	}
-	Ball = FMath::Clamp(Ball + S.Yards, 1.f, 99.f);
+}
+
+EFbDrive FFbGame::ApplyPlay(const FFbSim& S, FString& Out)
+{
+	const bool u = UserBall;
+	const FString Who = u ? FString(TEXT("YOU")) : Opp;
+	const bool bStops = (S.Result == EFbResult::Incomplete || S.Result == EFbResult::OutOfBounds || S.Result == EFbResult::Touchdown || S.Result == EFbResult::Interception);
+	if (Q <= 4)
+	{
+		const float Huddle = bStops ? 0.f : 14.f;
+		Clock = FMath::Max(0.f, Clock - S.T - Huddle);
+		HuddleRefund = Huddle;
+	}
+	if (S.Result == EFbResult::Touchdown)
+	{
+		AddScore(u, 6);
+		const bool bGood = FMath::FRand() < FB_XP_P;
+		if (bGood) AddScore(u, 1);
+		Out = FString::Printf(TEXT("%s TOUCHDOWN!   %s"), *Who, bGood ? TEXT("+7  (extra point is good)") : TEXT("+6  (extra point missed)"));
+		Flip(25.f);
+		return EFbDrive::Score;
+	}
+	if (S.Result == EFbResult::Interception)
+	{
+		Out = u ? FString(TEXT("INTERCEPTED!  They take over")) : FString(TEXT("YOU PICKED IT OFF!  Your ball"));
+		const float Spot = FMath::Clamp(S.LastLandX + 50.f, 3.f, 97.f);
+		Flip(100.f - Spot);
+		return EFbDrive::Turnover;
+	}
+	Ball = Ball + S.Yards;
+	if (Ball <= 0.f)
+	{
+		AddScore(!u, 2);
+		Out = u ? FString(TEXT("SAFETY!  They get 2 points")) : FString(TEXT("SAFETY!  You get 2 points"));
+		SetPossession(!u, 35.f);
+		return EFbDrive::Turnover;
+	}
+	Ball = FMath::Clamp(Ball, 1.f, 99.f);
 	if (Ball >= LineToGain)
 	{
 		Down = 1; ToGo = FMath::Min(10.f, 100.f - Ball); LineToGain = Ball + ToGo;
+		Out = S.ResultText + FString(TEXT("   FIRST DOWN"));
 		return EFbDrive::Continue;
 	}
 	Down++;
 	ToGo = LineToGain - Ball;
-	if (Down > 4) { CpuBonus = 0.06f; return EFbDrive::Downs; }
+	Out = S.ResultText;
+	if (Down > 4)
+	{
+		Out = u ? FString(TEXT("TURNOVER ON DOWNS")) : FString::Printf(TEXT("YOU STOPPED THEM ON DOWNS!"));
+		Flip(100.f - Ball);
+		return EFbDrive::Downs;
+	}
 	return EFbDrive::Continue;
 }
 
-bool FFbGame::KickFieldGoal(float KickerOvr)
+FString FFbGame::CheckQuarterEnd()
 {
+	if (Q >= 5 || bOver || Clock > 0.f) return FString();
+	if (Q == 1) { Q = 2; Clock = FB_QUARTER; return FString(TEXT("END OF THE 1ST QUARTER")); }
+	if (Q == 3) { Q = 4; Clock = FB_QUARTER; return FString(TEXT("END OF THE 3RD QUARTER")); }
+	if (Q == 2)
+	{
+		Q = 3; Clock = FB_QUARTER; ToYou = 3;
+		SetPossession(!bYouReceivedFirst, 25.f);
+		return FString(TEXT("HALFTIME"));
+	}
+	if (YouScore != CpuScore) { bOver = true; return FString(TEXT("FINAL")); }
+	Q = 5; Clock = 99999.f; OtPoss = 0; OtRound = 0;
+	UserBall = true; NewSeries(25.f);
+	return FString(TEXT("TIED - OVERTIME"));
+}
+
+FString FFbGame::Punt()
+{
+	const bool u = UserBall;
+	if (Q <= 4) Clock = FMath::Max(0.f, Clock - 8.f);
+	const float Net = 38.f + 8.f * FMath::FRand();
+	const float Landing = Ball + Net;
+	float NewBall;
+	if (Landing >= 100.f) NewBall = 20.f; else NewBall = 100.f - Landing;
+	NewBall = FMath::Clamp(NewBall, 5.f, 80.f);
+	const FString Who = u ? FString(TEXT("YOU PUNT")) : FString::Printf(TEXT("%s PUNTS"), *Opp);
+	Flip(NewBall);
+	return FString::Printf(TEXT("%s   (%d yards)"), *Who, FMath::RoundToInt(Net));
+}
+
+FString FFbGame::FieldGoal(float KickerOvr)
+{
+	const bool u = UserBall;
+	if (Q <= 4) Clock = FMath::Max(0.f, Clock - 8.f);
 	const float Dist = (float)FieldGoalDistance();
 	const float P = FMath::Clamp(1.05f - (Dist - 20.f) * 0.016f + (KickerOvr - 85.f) * 0.004f, 0.05f, 0.97f);
-	const bool bGood = FbRnd() < P;
-	if (bGood) YouScore += 3;
-	CpuBonus = bGood ? 0.f : 0.10f;
-	return bGood;
+	const bool bGood = FMath::FRand() < P;
+	const FString Who = u ? FString(TEXT("YOUR")) : FString::Printf(TEXT("%s'S"), *Opp);
+	if (bGood)
+	{
+		AddScore(u, 3);
+		Flip(25.f);
+		return FString::Printf(TEXT("%s %d-YARD FIELD GOAL IS GOOD!  +3"), *Who, (int32)Dist);
+	}
+	const float Spot = FMath::Clamp(100.f - Ball, 20.f, 80.f);
+	Flip(Spot);
+	return FString::Printf(TEXT("%s %d-YARD FIELD GOAL IS NO GOOD"), *Who, (int32)Dist);
 }
 
-FString FFbGame::CpuDrive(float UserDefAvg)
+int32 FFbGame::CpuFourth() const
 {
-	const float PTd = FMath::Clamp(0.27f + ((float)OppRating - UserDefAvg) * 0.011f + CpuBonus, 0.06f, 0.65f);
-	const float PFg = 0.18f;
-	const float R = FbRnd();
-	CpuBonus = 0.f;
-	if (R < PTd)
-	{
-		CpuScore += 7;
-		return FString::Printf(TEXT("%s drive: %d yards, TOUCHDOWN"), *Opp, 55 + FMath::RoundToInt(FbRnd() * 30.f));
-	}
-	if (R < PTd + PFg)
-	{
-		CpuScore += 3;
-		return FString::Printf(TEXT("%s drive stalls: %d-yard FIELD GOAL"), *Opp, 30 + FMath::RoundToInt(FbRnd() * 22.f));
-	}
-	if (FbRnd() < 0.25f) return FString::Printf(TEXT("%s drive ends in a TURNOVER"), *Opp);
-	return FString::Printf(TEXT("Your defence stops %s - they punt"), *Opp);
+	const int32 Dist = FieldGoalDistance();
+	if (Dist <= FB_FG_MAX && Ball >= 55.f) return 2;
+	if (Ball > 50.f && ToGo <= 2.f) return 0;
+	if (Ball < 40.f || ToGo > 5.f) return 1;
+	if (Q == 4 && Clock < 240.f && CpuScore < YouScore) return 0;
+	return 1;
 }
 
-void FFbGame::AfterCpuDrive()
+bool FFbGame::CallTimeout()
 {
-	if (Drive >= Drives)
-	{
-		if (YouScore != CpuScore || Overtimes >= 3) { bOver = true; return; }
-		Overtimes++; Drives++;
-	}
-	Drive++;
-	NewDrive();
+	if (ToYou <= 0 || Q > 4) return false;
+	ToYou--;
+	Clock = FMath::Min(FB_QUARTER, Clock + HuddleRefund);
+	HuddleRefund = 0.f;
+	return true;
+}
+
+FString FFbGame::ClockText() const
+{
+	if (Q > 4) return FString(TEXT("OT"));
+	const int32 T = FMath::Max(0, (int32)Clock);
+	return FString::Printf(TEXT("%d:%02d"), T / 60, T % 60);
+}
+
+FString FFbGame::QText() const
+{
+	if (Q > 4) return FString(TEXT("OVERTIME"));
+	const TCHAR* N[5] = { TEXT("1ST"), TEXT("1ST"), TEXT("2ND"), TEXT("3RD"), TEXT("4TH") };
+	return FString(N[FMath::Clamp(Q, 1, 4)]);
 }
 
 FString FFbGame::DownText() const
@@ -531,8 +808,7 @@ FString FFbGame::DownText() const
 	const int32 D = FMath::Clamp(Down, 1, 4);
 	const int32 Spot = (Ball <= 50.f) ? (int32)Ball : (int32)(100.f - Ball);
 	const TCHAR* Side = (Ball <= 50.f) ? TEXT("OWN") : TEXT("OPP");
-	const int32 Goal = (LineToGain >= 100.f);
-	if (Goal) return FString::Printf(TEXT("%s & Goal   ball on %s %d"), Ord[D], Side, Spot);
+	if (LineToGain >= 100.f) return FString::Printf(TEXT("%s & Goal   ball on %s %d"), Ord[D], Side, Spot);
 	return FString::Printf(TEXT("%s & %d   ball on %s %d"), Ord[D], FMath::Max(1, FMath::RoundToInt(ToGo)), Side, Spot);
 }
 

@@ -10,6 +10,11 @@
 enum class EFbKind : uint8 { QB, RB, TE, WR, OL, DL, LB, CB, SAF };
 enum class EFbPhase : uint8 { Pre, Live, Dead };
 enum class EFbResult : uint8 { None, Tackled, Sack, Incomplete, Touchdown, Interception, OutOfBounds };
+enum class EFbCall : uint8 { Man, Zone, Blitz };
+
+#define FB_XP_P 0.95f
+#define FB_FG_MAX 62
+#define FB_QUARTER 300.f
 
 namespace FbRole
 {
@@ -67,14 +72,24 @@ public:
 	float DeadT = 0.f;
 	bool bHandoffDone = false;
 
+	// who is who: bUserOff = true means the player runs the offence; false means the CPU has the ball and the player steers one defender
+	bool bUserOff = true;
+	EFbCall DefCall = EFbCall::Man;
+	int32 Ctl = -1;                  // the defender the player steers (when bUserOff is false)
+	float CtlLock = 0.f, DiveT = 0.f, DiveCool = 0.f;
+	float AiThrowAt = 2.f;
+	float LastLandX = 0.f;           // where an interception happened
+
 	// player input, set by the caller every frame
 	FVector2D Move;                  // X = downfield, Y = across
 	bool bSprint = false;
 
-	void Setup(int32 InPlayIdx, float InLos, const FFbRatings& InRt);
+	void Setup(int32 InPlayIdx, float InLos, const FFbRatings& InRt, bool bInUserOff = true, EFbCall InCall = EFbCall::Man);
 	void Tick(float Dt);             // call with small steps (<= 1/30 s)
 	bool Throw(int32 Slot);          // 0..4 = W1, W2, W3, TE, RB
 	void Juke();
+	void Dive();                     // defence: lunge at the ball carrier
+	void SwitchDefender();           // defence: take over the next closest player
 	int32 Controlled() const;        // entity the player is steering, -1 = none
 	float TopSpeed(const FFbEnt& e) const;
 	bool PlayIsRun(int32 Idx) const { return Playbook.IsValidIndex(Idx) && Playbook[Idx].bRun; }
@@ -85,6 +100,12 @@ private:
 	float Go(FFbEnt& e, float tx, float tz, float speed, float dt);
 	void RouteStep(FFbEnt& e, float dt);
 	void ControlStep(FFbEnt& e, float dt);
+	void AiCarrierStep(FFbEnt& c, float dt);
+	void AiThrow();
+	bool ThrowRole(int32 Rec);
+	void AutoPick(float Fx, float Fz, bool bAllowDL);
+	float TackleR(int32 i) const;
+	bool IsRusher(int32 i) const;
 	void DefenseStep(float dt, int32 Pursue);
 	void OlDlContact();
 	void LivePass(float dt);
@@ -97,29 +118,41 @@ private:
 	void FinishFrame();
 };
 
-// ---------------------------------------------------------------------------------------------------- the game (score, downs, drives)
+// ---------------------------------------------------------------------------------------------------- the game (score, clock, downs, possession)
 enum class EFbDrive : uint8 { Continue, Score, Turnover, Downs };
 
 struct FFbGame
 {
 	int32 YouScore = 0, CpuScore = 0;
-	int32 Drive = 1, Drives = 6, Overtimes = 0;
+	int32 Q = 1;                                   // 1..4, 5 = overtime
+	float Clock = FB_QUARTER;
+	bool UserBall = true;                          // who has the ball
+	bool bYouReceivedFirst = true;
 	int32 Down = 1;
-	float ToGo = 10.f, Ball = 25.f, LineToGain = 35.f;   // Ball = yards from our own goal line
+	float ToGo = 10.f, Ball = 25.f, LineToGain = 35.f;   // Ball = yards from the offence's own goal line
+	int32 ToYou = 3;
+	float HuddleRefund = 0.f;
+	int32 OtPoss = 0, OtRound = 0;
 	int32 OppRating = 80;
 	FString Opp;
-	float CpuBonus = 0.f;
 	bool bOver = false;
 
 	void Reset(const FString& InOpp, int32 InRating);
-	void NewDrive();
+	void NewSeries(float InBall);
+	void SetPossession(bool bUser, float InBall);
+	void Flip(float InBall) { SetPossession(!UserBall, InBall); }
+	void AddScore(bool bUser, int32 Pts) { if (bUser) YouScore += Pts; else CpuScore += Pts; }
 	float Los() const { return Ball - 50.f; }
-	EFbDrive ApplyPlay(const FFbSim& S);
-	bool KickFieldGoal(float KickerOvr);           // true = good (adds 3)
+	EFbDrive ApplyPlay(const FFbSim& S, FString& Out);       // applies one finished play: yards, downs, clock, scores, turnovers
+	FString CheckQuarterEnd();                               // "" or a headline when the quarter / half / game just ended
 	int32 FieldGoalDistance() const { return (int32)(100.f - Ball) + 17; }
-	FString CpuDrive(float UserDefAvg);            // simulates their possession, returns a headline
-	void AfterCpuDrive();                           // moves to the next drive / ends the game
+	FString Punt();                                          // the team with the ball punts
+	FString FieldGoal(float KickerOvr);                      // the team with the ball kicks
+	int32 CpuFourth() const;                                 // 0 go for it, 1 punt, 2 field goal
+	bool CallTimeout();
+	FString ClockText() const;
 	FString DownText() const;
+	FString QText() const;
 };
 
 // ---------------------------------------------------------------------------------------------------- your team + season (kept while the editor stays open)

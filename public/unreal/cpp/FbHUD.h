@@ -26,6 +26,7 @@ private:
 	void DrawSeason();
 	void DrawPlayCall();
 	void DrawFourth();
+	void DrawDefCall();
 	void DrawPlaying();
 	void DrawBanner();
 	void DrawFinal();

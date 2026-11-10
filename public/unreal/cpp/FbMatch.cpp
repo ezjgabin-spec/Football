@@ -237,7 +237,6 @@ bool AFbMatch::Edge(const FKey& K)
 	bPrev = bDown;
 	return bEdge;
 }
-
 void AFbMatch::UpdateInput()
 {
 	if (!PC) PC = GetWorld()->GetFirstPlayerController();
@@ -249,15 +248,37 @@ void AFbMatch::UpdateInput()
 	KThrow[3] = Edge(EKeys::Four); KThrow[4] = Edge(EKeys::Five);
 	bJuke = Edge(EKeys::SpaceBar);
 	bBack = Edge(EKeys::BackSpace);
+	bSwitch = Edge(EKeys::Q);
+	bTimeoutKey = Edge(EKeys::T);
 	if (Cam && PC->GetViewTarget() != Cam) PC->SetViewTarget(Cam);
 }
 
 // ------------------------------------------------------------------------------------------------ screens / flow
+FFbRatings AFbMatch::MakeRatings(bool bUserOff) const
+{
+	FFbMeta& M = FFbMeta::Get();
+	FFbRatings R = M.Ratings();                      // your lineup: speeds of your offence, the quarterback's accuracy
+	const float OppMul = FMath::Clamp(1.f + ((float)Game.OppRating - 80.f) * 0.004f, 0.94f, 1.08f);
+	if (bUserOff)
+	{
+		R.DefMul = OppMul;
+	}
+	else
+	{
+		for (int32 k = 0; k < 6; k++) R.OffMul[k] = OppMul;
+		R.QbAcc = FMath::Clamp(0.70f + ((float)Game.OppRating - 74.f) * 0.012f, 0.6f, 0.93f);
+		R.DefMul = FMath::Clamp(1.f + (M.DefAvg() - 85.f) * 0.004f, 0.94f, 1.06f);
+	}
+	return R;
+}
+
 void AFbMatch::Preview(float Los)
 {
-	Sim.Setup(0, Los, FFbMeta::Get().Ratings());
+	const bool bOff = (Stage == EFbStage::Menu || Stage == EFbStage::UltTeam || Stage == EFbStage::Season || Stage == EFbStage::Final) ? true : Game.UserBall;
+	bMirror = !bOff;
+	Sim.Setup(0, Los, MakeRatings(bOff), bOff, EFbCall::Man);
 	for (int32 i = 0; i < FB_N; i++) { CurAnim[i] = EFbAnim::None; AnimLock[i] = 0.f; Facing[i] = (i < 11) ? 0.f : 180.f; }
-	CamX = Los - 21.f; CamZ = 0.f;
+	CamX = (bMirror ? -Los : Los) - 21.f; CamZ = 0.f;
 }
 
 void AFbMatch::GoMenu() { Stage = EFbStage::Menu; Note = FString(); Preview(-20.f); }
@@ -271,45 +292,80 @@ void AFbMatch::NewSeason()
 	M.Week = 1; M.Wins = 0; M.Losses = 0; M.Ties = 0;
 }
 
+void AFbMatch::ShowBanner(const FString& Title, const FString& Sub, float Secs)
+{
+	BannerTitle = Title; BannerSub = Sub; BannerT = Secs;
+	Stage = EFbStage::Banner;
+}
+
 void AFbMatch::StartGame(bool bSeason)
 {
 	FFbMeta& M = FFbMeta::Get();
 	bSeasonGame = bSeason;
 	FString Opp; int32 Rating;
-	if (bSeason)
-	{
-		Opp = FString(FFbMeta::OppName(M.Week - 1)); Rating = FFbMeta::OppRatingOf(M.Week - 1);
-	}
-	else
-	{
-		const int32 K = FMath::RoundToInt(FMath::FRand() * 7.f);
-		Opp = FString(FFbMeta::OppName(K)); Rating = 80;
-	}
+	if (bSeason) { Opp = FString(FFbMeta::OppName(M.Week - 1)); Rating = FFbMeta::OppRatingOf(M.Week - 1); }
+	else { const int32 K = FMath::RoundToInt(FMath::FRand() * 7.f); Opp = FString(FFbMeta::OppName(K)); Rating = 80; }
 	Game.Reset(Opp, Rating);
-	bNextIsFinal = false;
-	BannerTitle = FString::Printf(TEXT("YOU  vs  %s"), *Opp);
-	BannerSub = bSeason ? FString::Printf(TEXT("SEASON  -  WEEK %d   (opponent rating %d)"), M.Week, Rating) : FString::Printf(TEXT("EXHIBITION   (opponent rating %d)"), Rating);
-	BannerT = 2.4f;
-	Stage = EFbStage::Banner;
-	AfterBanner = EFbStage::PlayCall;
+	Game.bYouReceivedFirst = true;
+	PlayClock = 40.f;
 	Preview(Game.Los());
+	ShowBanner(FString::Printf(TEXT("YOU  vs  %s"), *Opp),
+		bSeason ? FString::Printf(TEXT("SEASON  -  WEEK %d   (opponent rating %d)"), M.Week, Rating) : FString::Printf(TEXT("EXHIBITION   (opponent rating %d)"), Rating), 2.4f);
+}
+
+// decides what comes next: your play call, a 4th-down choice, the CPU's turn on offence (you defend), or the final screen
+void AFbMatch::NextState()
+{
+	if (Game.bOver) { FinishGame(); return; }
+	PlayClock = 40.f;
+	Note = FString();
+	if (!Game.UserBall && Game.Down == 4 && Game.CpuFourth() != 0)
+	{
+		Preview(Game.Los());
+		const int32 Ch = Game.CpuFourth();
+		FString Out = (Ch == 2) ? Game.FieldGoal((float)Game.OppRating) : Game.Punt();
+		const FString Q = Game.CheckQuarterEnd();
+		ShowBanner(Out, Q.Len() ? Q : Game.DownText(), 3.4f);
+		return;
+	}
+	Stage = EFbStage::PlayCall;     // so Preview() draws the right side of the ball
+	Preview(Game.Los());
+	if (Game.UserBall) Stage = (Game.Down == 4) ? EFbStage::FourthDown : EFbStage::PlayCall;
+	else Stage = EFbStage::DefCall;
 }
 
 void AFbMatch::AfterBannerDone()
 {
-	if (bNextIsFinal || Game.bOver) { FinishGame(); return; }
-	Preview(Game.Los());
-	Stage = (Game.Down == 4) ? EFbStage::FourthDown : EFbStage::PlayCall;
+	NextState();
 }
 
 void AFbMatch::StartPlay(int32 PlayIdx)
 {
-	FFbMeta& M = FFbMeta::Get();
-	FFbRatings R = M.Ratings();
-	R.DefMul = FMath::Clamp(1.f + ((float)Game.OppRating - 80.f) * 0.004f, 0.94f, 1.08f);
-	Sim.Setup(PlayIdx, Game.Los(), R);
-	for (int32 i = 0; i < FB_N; i++) { CurAnim[i] = EFbAnim::None; Facing[i] = (i < 11) ? 0.f : 180.f; }
+	Sim.Setup(PlayIdx, Game.Los(), MakeRatings(true), true, EFbCall::Man);
+	// the CPU defence mixes up its calls
+	const float Roll = FMath::FRand();
+	Sim.DefCall = (Roll < 0.55f) ? EFbCall::Man : ((Roll < 0.85f) ? EFbCall::Zone : EFbCall::Blitz);
+	bMirror = false;
+	for (int32 i = 0; i < FB_N; i++) { CurAnim[i] = EFbAnim::None; AnimLock[i] = 0.f; Facing[i] = (i < 11) ? 0.f : 180.f; }
 	CamX = Game.Los() - 21.f;
+	Stage = EFbStage::Playing;
+}
+
+// the CPU has the ball: it calls a play, you pick your coverage and steer one defender
+void AFbMatch::ChooseDef(int32 Call)
+{
+	// run 40% of the time on short yardage, 35% otherwise
+	const bool bRunCall = FMath::FRand() < ((Game.ToGo <= 3.f) ? 0.6f : 0.35f);
+	int32 Idx = 0;
+	for (int32 tries = 0; tries < 30; tries++)
+	{
+		Idx = FMath::RoundToInt(FMath::FRand() * (float)(Sim.Playbook.Num() - 1));
+		if (Sim.Playbook[Idx].bRun == bRunCall) break;
+	}
+	Sim.Setup(Idx, Game.Los(), MakeRatings(false), false, (Call == 1) ? EFbCall::Zone : ((Call == 2) ? EFbCall::Blitz : EFbCall::Man));
+	bMirror = true;
+	for (int32 i = 0; i < FB_N; i++) { CurAnim[i] = EFbAnim::None; AnimLock[i] = 0.f; Facing[i] = (i < 11) ? 0.f : 180.f; }
+	CamX = -Game.Los() - 21.f;
 	Stage = EFbStage::Playing;
 }
 
@@ -318,41 +374,38 @@ void AFbMatch::Choose4th(int32 Which)
 	if (Which == 0) { Stage = EFbStage::PlayCall; return; }
 	if (Which == 1)
 	{
-		Game.CpuBonus = -0.04f;
-		EndUserDrive(TEXT("PUNT   (net 40 yards)"));
+		const FString Out = Game.Punt();
+		const FString Q = Game.CheckQuarterEnd();
+		ShowBanner(Out, Q.Len() ? Q : FString(TEXT("They take over")), 3.2f);
 		return;
 	}
-	if (Game.FieldGoalDistance() > 60) { Note = FString(TEXT("Out of range for a field goal.")); return; }
-	const bool bGood = Game.KickFieldGoal(FFbMeta::Get().KickerOvr());
-	EndUserDrive(bGood ? FString::Printf(TEXT("%d-YARD FIELD GOAL IS GOOD!  +3"), Game.FieldGoalDistance())
-	                   : FString::Printf(TEXT("%d-YARD FIELD GOAL MISSED"), Game.FieldGoalDistance()));
+	if (Game.FieldGoalDistance() > FB_FG_MAX) { Note = FString(TEXT("Out of range for a field goal.")); return; }
+	const FString Out = Game.FieldGoal(FFbMeta::Get().KickerOvr());
+	const FString Q = Game.CheckQuarterEnd();
+	ShowBanner(Out, Q.Len() ? Q : FString(), 3.2f);
 }
 
-void AFbMatch::EndUserDrive(const FString& Headline)
+void AFbMatch::CallTimeout()
 {
-	const FString Cpu = Game.CpuDrive(FFbMeta::Get().DefAvg());
-	Game.AfterCpuDrive();
-	BannerTitle = Headline;
-	BannerSub = Cpu;
-	BannerT = 4.2f;
-	bNextIsFinal = Game.bOver;
-	Stage = EFbStage::Banner;
+	if (Stage != EFbStage::PlayCall && Stage != EFbStage::FourthDown) return;
+	if (Game.CallTimeout()) { PlayClock = 40.f; Note = FString::Printf(TEXT("TIMEOUT  -  %d left"), Game.ToYou); }
+	else Note = FString(TEXT("No timeouts left."));
 }
 
 void AFbMatch::ResolvePlay()
 {
-	const EFbDrive D = Game.ApplyPlay(Sim);
-	switch (D)
+	FString Out;
+	const bool bWasUser = Game.UserBall;
+	const EFbDrive D = Game.ApplyPlay(Sim, Out);
+	const FString Q = Game.CheckQuarterEnd();
+	(void)bWasUser;
+	if (D == EFbDrive::Continue && Q.Len() == 0)
 	{
-	case EFbDrive::Continue:
-		Note = Sim.ResultText;
-		Preview(Game.Los());
-		Stage = (Game.Down == 4) ? EFbStage::FourthDown : EFbStage::PlayCall;
-		break;
-	case EFbDrive::Score: EndUserDrive(FString(TEXT("TOUCHDOWN!   +7"))); break;
-	case EFbDrive::Turnover: EndUserDrive(Sim.ResultText + FString(TEXT("   - TURNOVER"))); break;
-	case EFbDrive::Downs: EndUserDrive(FString(TEXT("TURNED IT OVER ON DOWNS"))); break;
+		Note = Out;
+		NextState();
+		return;
 	}
+	ShowBanner(Out, Q.Len() ? Q : Game.DownText(), D == EFbDrive::Continue ? 3.0f : 3.6f);
 }
 
 void AFbMatch::FinishGame()
@@ -367,6 +420,7 @@ void AFbMatch::FinishGame()
 		M.Week++;
 	}
 	Stage = EFbStage::Final;
+	Preview(-20.f);
 }
 
 // ------------------------------------------------------------------------------------------------ per frame
@@ -380,6 +434,7 @@ void AFbMatch::Tick(float DeltaSeconds)
 
 	if (Stage == EFbStage::Playing)
 	{
+		const float s = bMirror ? -1.f : 1.f;           // the view is turned around when you defend
 		if (PC)
 		{
 			float mx = 0.f, mz = 0.f;
@@ -387,11 +442,12 @@ void AFbMatch::Tick(float DeltaSeconds)
 			if (PC->IsInputKeyDown(EKeys::S) || PC->IsInputKeyDown(EKeys::Down)) mx -= 1.f;
 			if (PC->IsInputKeyDown(EKeys::D) || PC->IsInputKeyDown(EKeys::Right)) mz += 1.f;
 			if (PC->IsInputKeyDown(EKeys::A) || PC->IsInputKeyDown(EKeys::Left)) mz -= 1.f;
-			Sim.Move = FVector2D(mx, mz);
+			Sim.Move = FVector2D(s * mx, s * mz);
 			Sim.bSprint = PC->IsInputKeyDown(EKeys::LeftShift) || PC->IsInputKeyDown(EKeys::RightShift);
 		}
 		for (int32 k = 0; k < 5; k++) if (KThrow[k]) Sim.Throw(k);
-		if (bJuke) Sim.Juke();
+		if (bJuke) { if (Sim.bUserOff) Sim.Juke(); else Sim.Dive(); }
+		if (bSwitch) Sim.SwitchDefender();
 		float Rem = Dt; int32 N = 0;
 		while (Rem > 0.0001f && N < 8) { const float St = FMath::Min(Rem, 1.f / 60.f); Sim.Tick(St); Rem -= St; N++; }
 		if (Sim.Phase == EFbPhase::Dead && Sim.DeadT > 2.2f) ResolvePlay();
@@ -401,6 +457,26 @@ void AFbMatch::Tick(float DeltaSeconds)
 	{
 		BannerT -= Dt;
 		if (BannerT <= 0.f || bClick) AfterBannerDone();
+	}
+	else if (Stage == EFbStage::PlayCall || Stage == EFbStage::FourthDown)
+	{
+		PlayClock -= Dt;
+		if (bTimeoutKey) CallTimeout();
+		if (PlayClock <= 0.f)
+		{
+			// the only penalty in the game: delay of game, 5 yards back
+			Game.Ball = FMath::Max(1.f, Game.Ball - 5.f);
+			Game.ToGo = Game.LineToGain - Game.Ball;
+			PlayClock = 40.f;
+			Note = FString(TEXT("DELAY OF GAME  -  5 yards"));
+			Preview(Game.Los());
+			if (Game.UserBall) Stage = (Game.Down == 4) ? EFbStage::FourthDown : EFbStage::PlayCall;
+		}
+	}
+	else if (Stage == EFbStage::DefCall)
+	{
+		PlayClock -= Dt;
+		if (PlayClock <= 0.f) ChooseDef(0);
 	}
 
 	UpdatePuppets(Dt);
@@ -430,6 +506,7 @@ void AFbMatch::SetAnim(int32 I, EFbAnim A)
 void AFbMatch::UpdatePuppets(float Dt)
 {
 	const bool bLive = (Stage == EFbStage::Playing);
+	const float Flip = bMirror ? 180.f : 0.f;
 	for (int32 i = 0; i < FB_N; i++)
 	{
 		const FFbEnt& e = Sim.E[i];
@@ -441,8 +518,8 @@ void AFbMatch::UpdatePuppets(float Dt)
 		const float MaxTurn = 600.f * Dt;
 		Facing[i] += FMath::Clamp(Delta, -MaxTurn, MaxTurn);
 
-		const FVector Loc(e.X * FB_YD, e.Z * FB_YD, 2.f);
-		const FRotator Rot(0.f, Facing[i] + ModelYaw, 0.f);
+		const FVector Loc = WorldOf(e.X, e.Z, 0.02f);
+		const FRotator Rot(0.f, Facing[i] + Flip + ModelYaw, 0.f);
 		if (AnimLock[i] > 0.f) AnimLock[i] -= Dt;
 		if (Skel.IsValidIndex(i) && Skel[i])
 		{
@@ -460,7 +537,6 @@ void AFbMatch::UpdatePuppets(float Dt)
 
 		EFbAnim A = EFbAnim::Idle;
 		if (bLive && Sim.bEnded && Sim.Tackler == i && Sim.Result != EFbResult::Incomplete) A = EFbAnim::Tackle;
-		else if (CurAnim[i] == EFbAnim::Tackle && bLive && Sim.bEnded && Sim.Tackler == i) A = EFbAnim::Tackle;
 		else if (Spd > ((CurAnim[i] == EFbAnim::Run) ? 0.9f : 1.7f)) A = EFbAnim::Run;
 		else if (bLive && Sim.Phase == EFbPhase::Live && (e.Kind == EFbKind::OL || e.Kind == EFbKind::DL))
 		{
@@ -477,13 +553,14 @@ void AFbMatch::UpdatePuppets(float Dt)
 
 	if (BallComp)
 	{
-		FRotator BR(0.f, Facing[FbRole::QB] + ModelYaw + 90.f, 0.f);
+		const float s = bMirror ? -1.f : 1.f;
+		FRotator BR(0.f, Facing[FbRole::QB] + Flip + ModelYaw + 90.f, 0.f);
 		if (Sim.bFlying)
 		{
 			const float H = FMath::Sqrt(Sim.Bvx * Sim.Bvx + Sim.Bvz * Sim.Bvz);
-			BR = FRotator(FMath::RadiansToDegrees(FMath::Atan2(Sim.Bvy, H)), FMath::RadiansToDegrees(FMath::Atan2(Sim.Bvz, Sim.Bvx)), 0.f);
+			BR = FRotator(FMath::RadiansToDegrees(FMath::Atan2(Sim.Bvy, H)), FMath::RadiansToDegrees(FMath::Atan2(s * Sim.Bvz, s * Sim.Bvx)), 0.f);
 		}
-		BallComp->SetWorldLocationAndRotation(FVector(Sim.Bx * FB_YD, Sim.Bz * FB_YD, Sim.By * FB_YD), BR);
+		BallComp->SetWorldLocationAndRotation(WorldOf(Sim.Bx, Sim.Bz, Sim.By), BR);
 	}
 }
 
@@ -501,6 +578,7 @@ void AFbMatch::UpdateCamera(float Dt)
 	}
 	else
 	{
+		const float s = bMirror ? -1.f : 1.f;
 		float Fx = Sim.Los, Fz = 0.f;
 		if (Stage == EFbStage::Playing)
 		{
@@ -508,12 +586,13 @@ void AFbMatch::UpdateCamera(float Dt)
 			else if (Sim.Carrier >= 0) { Fx = Sim.E[Sim.Carrier].X; Fz = Sim.E[Sim.Carrier].Z; }
 			else { Fx = Sim.E[FbRole::QB].X; Fz = Sim.E[FbRole::QB].Z; }
 			if (Sim.bEnded && Sim.Tackler >= 0 && Sim.Result != EFbResult::Incomplete) { Fx = Sim.E[Sim.Tackler].X; Fz = Sim.E[Sim.Tackler].Z; }
+			if (!Sim.bUserOff && Sim.Ctl >= 0 && Sim.Carrier < 0 && !Sim.bFlying) { Fx = 0.5f * (Fx + Sim.E[Sim.Ctl].X); }
 		}
 		const float K = FMath::Min(1.f, Dt * 3.0f);
-		CamX += ((Fx - 21.f) - CamX) * K;
-		CamZ += (Fz * 0.5f - CamZ) * FMath::Min(1.f, Dt * 2.5f);
-		Loc = WorldOf(CamX, CamZ, 5.8f);
-		Look = WorldOf(CamX + 24.f, CamZ * 0.8f, 0.9f);
+		CamX += ((s * Fx - 21.f) - CamX) * K;               // CamX / CamZ are in "view" yards: always looking toward +X
+		CamZ += (s * Fz * 0.5f - CamZ) * FMath::Min(1.f, Dt * 2.5f);
+		Loc = FVector(CamX * FB_YD, CamZ * FB_YD, 5.8f * FB_YD);
+		Look = FVector((CamX + 24.f) * FB_YD, CamZ * 0.8f * FB_YD, 0.9f * FB_YD);
 	}
 	Cam->SetActorLocationAndRotation(Loc, FRotationMatrix::MakeFromX(Look - Loc).Rotator());
 }

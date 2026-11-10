@@ -13,7 +13,7 @@ class ACameraActor;
 class APlayerController;
 class USceneComponent;
 
-enum class EFbStage : uint8 { Menu, UltTeam, Season, PlayCall, FourthDown, Playing, Banner, Final };
+enum class EFbStage : uint8 { Menu, UltTeam, Season, PlayCall, DefCall, FourthDown, Playing, Banner, Final };
 enum class EFbAnim : uint8 { None, Idle, Run, Push, Tackle };
 
 // The whole game lives in this one actor: menus, the 22 players, the ball, the camera and the rules.
@@ -49,7 +49,11 @@ public:
 	void FinishGame();
 	void QuitGame();
 	void NewSeason();
-	FVector WorldOf(float X, float Z, float H) const { return FVector(X * FB_YD, Z * FB_YD, H * FB_YD); }
+	bool bMirror = false;          // true while you defend: the whole field is drawn turned around so you always look the same way
+	float PlayClock = 40.f;
+	FVector WorldOf(float X, float Z, float H) const { const float s = bMirror ? -1.f : 1.f; return FVector(s * X * FB_YD, s * Z * FB_YD, H * FB_YD); }
+	void ChooseDef(int32 Call);    // 0 man, 1 zone, 2 blitz
+	void CallTimeout();
 
 private:
 	UPROPERTY() USceneComponent* Scene = nullptr;
@@ -73,8 +77,8 @@ private:
 	int32 Destroyed = 0;
 	float ModelYaw = -90.f;
 	float CamX = -40.f, CamZ = 0.f, OrbitT = 0.f;
-	EFbStage AfterBanner = EFbStage::PlayCall;
-	bool bNextIsFinal = false;
+	bool bSwitch = false;
+	bool bTimeoutKey = false;
 	TMap<FKey, bool> Prev;
 	bool KThrow[5];
 	bool bJuke = false;
@@ -93,6 +97,8 @@ private:
 	void UpdateCamera(float Dt);
 	void SetAnim(int32 I, EFbAnim A);
 	void ResolvePlay();
-	void EndUserDrive(const FString& Headline);
+	void NextState();
+	void ShowBanner(const FString& Title, const FString& Sub, float Secs);
 	void AfterBannerDone();
+	FFbRatings MakeRatings(bool bUserOff) const;
 };

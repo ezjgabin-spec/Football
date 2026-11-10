@@ -57,6 +57,7 @@ void AFbHUD::DrawHUD()
 	case EFbStage::Season: DrawSeason(); break;
 	case EFbStage::PlayCall: DrawScoreboard(); DrawPlayCall(); break;
 	case EFbStage::FourthDown: DrawScoreboard(); DrawFourth(); break;
+	case EFbStage::DefCall: DrawScoreboard(); DrawDefCall(); break;
 	case EFbStage::Playing: DrawScoreboard(); DrawMarkers(); DrawPlaying(); break;
 	case EFbStage::Banner: DrawScoreboard(); DrawBanner(); break;
 	case EFbStage::Final: DrawFinal(); break;
@@ -67,11 +68,15 @@ void AFbHUD::DrawHUD()
 void AFbHUD::DrawScoreboard()
 {
 	const FFbGame& G = Match->Game;
-	DrawRect(FLinearColor(0.02f, 0.03f, 0.08f, 0.85f), 0.f, 0.f, W, 74.f * S);
-	Txt(FString::Printf(TEXT("YOU  %d"), G.YouScore), 30.f * S, 14.f * S, 3.2f, FLinearColor(0.55f, 0.8f, 1.f, 1.f));
-	Txt(FString::Printf(TEXT("%s  %d"), *G.Opp, G.CpuScore), W - 30.f * S - 230.f * S, 14.f * S, 3.2f, FLinearColor(1.f, 0.55f, 0.5f, 1.f));
-	Txt(FString::Printf(TEXT("DRIVE %d of %d%s"), G.Drive, G.Drives, G.Overtimes > 0 ? TEXT("  (OVERTIME)") : TEXT("")), W * 0.5f, 6.f * S, 1.5f, C_GREY, true);
-	Txt(G.DownText(), W * 0.5f, 34.f * S, 2.0f, C_WHITE, true);
+	DrawRect(FLinearColor(0.02f, 0.03f, 0.08f, 0.88f), 0.f, 0.f, W, 80.f * S);
+	const FLinearColor YouCol(0.55f, 0.8f, 1.f, 1.f), CpuCol(1.f, 0.55f, 0.5f, 1.f);
+	Txt(FString::Printf(TEXT("YOU  %d"), G.YouScore), 30.f * S, 12.f * S, 3.4f, YouCol);
+	Txt(FString::Printf(TEXT("%s  %d"), *G.Opp, G.CpuScore), W - 30.f * S - 250.f * S, 12.f * S, 3.4f, CpuCol);
+	Txt(FString::Printf(TEXT("%s   %s"), *G.QText(), *G.ClockText()), W * 0.5f, 4.f * S, 2.2f, C_WHITE, true);
+	Txt(FString::Printf(TEXT("%s has the ball   -   %s"), G.UserBall ? TEXT("YOU") : *G.Opp, *G.DownText()), W * 0.5f, 36.f * S, 1.5f, G.UserBall ? YouCol : CpuCol, true);
+	Txt(FString::Printf(TEXT("TIMEOUTS %d"), G.ToYou), 30.f * S, 60.f * S, 1.0f, C_GREY);
+	if (Match->Stage == EFbStage::PlayCall || Match->Stage == EFbStage::FourthDown || Match->Stage == EFbStage::DefCall)
+		Txt(FString::Printf(TEXT("PLAY CLOCK %d"), FMath::Max(0, (int32)Match->PlayClock)), W * 0.5f, 60.f * S, 1.2f, Match->PlayClock < 8.f ? FLinearColor(1.f, 0.4f, 0.3f, 1.f) : C_GREY, true);
 }
 
 // ------------------------------------------------------------------------------------------------ main menu
@@ -186,6 +191,7 @@ void AFbHUD::DrawPlayCall()
 	DrawRect(FLinearColor(0.02f, 0.03f, 0.08f, 0.9f), 0.f, PY, W, H - PY);
 	Txt(TEXT("CALL YOUR PLAY"), 30.f * S, PY + 8.f * S, 2.2f, C_GOLD);
 	if (Match->Note.Len() > 0) Txt(Match->Note, W * 0.5f, PY + 14.f * S, 1.5f, C_GREY, true);
+	if (Btn(FString::Printf(TEXT("TIMEOUT (%d)  [T]"), Match->Game.ToYou), W - 330.f * S, PY + 4.f * S, 300.f * S, 44.f * S, FLinearColor(0.4f, 0.3f, 0.1f, 0.95f), 1.3f)) Match->CallTimeout();
 	const TArray<FFbPlayDef>& PB = Match->Sim.Playbook;
 	const int32 Cols = 5;
 	const float Pad = 30.f * S, Gap = 10.f * S;
@@ -211,9 +217,26 @@ void AFbHUD::DrawFourth()
 	if (Btn(TEXT("PUNT"), X, Y, BW, BH, FLinearColor(0.1f, 0.25f, 0.5f, 0.95f), 2.2f)) Match->Choose4th(1);
 	Y += BH + 18.f * S;
 	const int32 Dist = Match->Game.FieldGoalDistance();
-	const bool bRange = Dist <= 60;
+	const bool bRange = Dist <= FB_FG_MAX;
 	if (Btn(FString::Printf(TEXT("FIELD GOAL  (%d yd)"), Dist), X, Y, BW, BH, bRange ? FLinearColor(0.35f, 0.2f, 0.5f, 0.95f) : FLinearColor(0.2f, 0.2f, 0.2f, 0.9f), 2.2f)) Match->Choose4th(2);
-	if (Match->Note.Len() > 0) Txt(Match->Note, W * 0.5f, Y + BH + 24.f * S, 1.5f, FLinearColor(1.f, 0.6f, 0.5f, 1.f), true);
+	if (Btn(FString::Printf(TEXT("TIMEOUT (%d)  [T]"), Match->Game.ToYou), X, Y + BH + 18.f * S, BW, 56.f * S, FLinearColor(0.4f, 0.3f, 0.1f, 0.95f), 1.6f)) Match->CallTimeout();
+	if (Match->Note.Len() > 0) Txt(Match->Note, W * 0.5f, Y + BH + 90.f * S, 1.5f, FLinearColor(1.f, 0.6f, 0.5f, 1.f), true);
+}
+
+void AFbHUD::DrawDefCall()
+{
+	DrawRect(C_DIM, 0.f, H * 0.55f, W, H * 0.45f);
+	Txt(FString::Printf(TEXT("%s HAS THE BALL  -  CALL YOUR DEFENCE"), *Match->Game.Opp), W * 0.5f, H * 0.58f, 2.6f, C_GOLD, true);
+	Txt(TEXT("You steer one defender: WASD move, SHIFT sprint, SPACE dive tackle, Q switch player"), W * 0.5f, H * 0.58f + 70.f * S, 1.3f, C_GREY, true);
+	const float BW = W * 0.26f, BH = 110.f * S, Gap = 24.f * S;
+	const float X0 = W * 0.5f - (3.f * BW + 2.f * Gap) * 0.5f, Y = H * 0.72f;
+	if (Btn(TEXT("MAN COVERAGE"), X0, Y, BW, BH, FLinearColor(0.1f, 0.25f, 0.5f, 0.95f), 2.0f)) Match->ChooseDef(0);
+	if (Btn(TEXT("ZONE"), X0 + BW + Gap, Y, BW, BH, FLinearColor(0.1f, 0.36f, 0.14f, 0.95f), 2.0f)) Match->ChooseDef(1);
+	if (Btn(TEXT("BLITZ"), X0 + 2.f * (BW + Gap), Y, BW, BH, FLinearColor(0.5f, 0.12f, 0.1f, 0.95f), 2.0f)) Match->ChooseDef(2);
+	Txt(TEXT("everyone sticks to a receiver"), X0 + BW * 0.5f, Y + BH + 10.f * S, 1.0f, C_GREY, true);
+	Txt(TEXT("defenders guard an area"), X0 + BW + Gap + BW * 0.5f, Y + BH + 10.f * S, 1.0f, C_GREY, true);
+	Txt(TEXT("linebackers rush the passer"), X0 + 2.f * (BW + Gap) + BW * 0.5f, Y + BH + 10.f * S, 1.0f, C_GREY, true);
+	if (Match->Note.Len() > 0) Txt(Match->Note, W * 0.5f, H * 0.58f + 110.f * S, 1.4f, C_WHITE, true);
 }
 
 // ------------------------------------------------------------------------------------------------ during a play
@@ -227,10 +250,10 @@ void AFbHUD::DrawMarkers()
 		const FVector P = Project(Match->WorldOf(e.X, e.Z, 2.45f));
 		if (P.X < 0.f || P.X > W || P.Y < 0.f || P.Y > H) continue;
 		const float Sz = 11.f * S;
-		FLinearColor Col = e.bOff ? FLinearColor(0.3f, 0.7f, 1.f, 1.f) : FLinearColor(1.f, 0.3f, 0.25f, 1.f);
+		FLinearColor Col = (e.bOff == Sm.bUserOff) ? FLinearColor(0.3f, 0.7f, 1.f, 1.f) : FLinearColor(1.f, 0.3f, 0.25f, 1.f);   // blue = your team
 		if (i == Ctl) Col = FLinearColor(0.3f, 1.f, 0.35f, 1.f);
 		DrawRect(Col, P.X - Sz * 0.5f, P.Y - Sz * 0.5f, Sz, Sz);
-		if (!Sm.bRun && Sm.Carrier < 0 && !Sm.bFlying && !Sm.bEnded)
+		if (Sm.bUserOff && !Sm.bRun && Sm.Carrier < 0 && !Sm.bFlying && !Sm.bEnded)
 		{
 			int32 Num = 0;
 			switch (i) { case FbRole::W1: Num = 1; break; case FbRole::W2: Num = 2; break; case FbRole::W3: Num = 3; break; case FbRole::TE: Num = 4; break; case FbRole::RB: Num = 5; break; default: break; }
@@ -243,7 +266,7 @@ void AFbHUD::DrawMarkers()
 void AFbHUD::DrawPlaying()
 {
 	const FFbSim& Sm = Match->Sim;
-	if (Sm.Phase == EFbPhase::Pre) Txt(Sm.bRun ? TEXT("RUN PLAY - get ready") : TEXT("PASS PLAY - get ready"), W * 0.5f, H * 0.2f, 3.f, C_WHITE, true);
+	if (Sm.Phase == EFbPhase::Pre) Txt(Sm.bUserOff ? (Sm.bRun ? TEXT("RUN PLAY - get ready") : TEXT("PASS PLAY - get ready")) : TEXT("DEFEND!"), W * 0.5f, H * 0.2f, 3.f, C_WHITE, true);
 	if (Sm.Status.Len() > 0 && !Sm.bEnded) Txt(Sm.Status, W * 0.5f, H * 0.14f, 2.4f, C_GOLD, true);
 	if (Sm.bEnded)
 	{
@@ -251,7 +274,8 @@ void AFbHUD::DrawPlaying()
 		Txt(Sm.ResultText, W * 0.5f, H * 0.38f + 40.f * S, 3.4f, C_WHITE, true);
 	}
 	DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.55f), 0.f, H - 52.f * S, W, 52.f * S);
-	if (!Sm.bRun) Txt(TEXT("WASD move   SHIFT sprint   1 2 3 4 5 = throw to W1 W2 W3 TE RB   SPACE juke   BACKSPACE = quit to menu"), W * 0.5f, H - 40.f * S, 1.3f, C_GREY, true);
+	if (!Sm.bUserOff) Txt(TEXT("DEFENCE:  WASD move   SHIFT sprint   SPACE dive tackle   Q switch player   BACKSPACE = quit to menu"), W * 0.5f, H - 40.f * S, 1.3f, C_GREY, true);
+	else if (!Sm.bRun) Txt(TEXT("WASD move   SHIFT sprint   1 2 3 4 5 = throw to W1 W2 W3 TE RB   SPACE juke   BACKSPACE = quit to menu"), W * 0.5f, H - 40.f * S, 1.3f, C_GREY, true);
 	else Txt(TEXT("WASD move   SHIFT sprint   SPACE juke / break tackle   BACKSPACE = quit to menu"), W * 0.5f, H - 40.f * S, 1.3f, C_GREY, true);
 }
 
