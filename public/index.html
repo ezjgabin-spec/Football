@@ -17390,7 +17390,7 @@ const FBD = [
   { n:'PRO',     def:0.95, rush:2.9, cov:0.75, int:0.55, tk:0.75, cpu:1.00, delay:0.30, acc:15 },
   { n:'ALL-PRO', def:1.05, rush:2.3, cov:1.00, int:0.85, tk:0.90, cpu:1.18, delay:0.15, acc:19 }
 ];
-/* v150: DEFENSE LOCK. The higher the tier of the CPU defense (season division 5 -> 1, plus the difficulty), the closer it plays to a lock: faster, tighter in coverage, a pass rush that
+/* v151: DEFENSE LOCK. The higher the tier of the CPU defense (season division 5 -> 1, plus the difficulty), the closer it plays to a lock: faster, tighter in coverage, a pass rush that
    beats the line sooner, more picks, more tackles. Never when YOU are the defense, never in an online 1v1. FB.lock: 0 = how it always was, 1 = a Division 1 lockdown. */
 const FBD_BASE = FBD.map(o => Object.assign({}, o));
 function fbLockSync(){
@@ -17933,6 +17933,7 @@ function uoInit(){                                     // the library lives next
     try { dmInit(); } catch(e){ console.warn('defensive movement library', e); }
     try { qbtLibInit(); } catch(e){ console.warn('QB throw library', e); }
     try { hoLibInit(); } catch(e){ console.warn('handoff library', e); }
+    try { ntkInit(); } catch(e){ console.warn('ntk', e); }                       // NTK: the matched tackle pairs (silent when the file is missing)
     UO_CORE.forEach(id=>(UO.byId[id]||[]).forEach(c=>uoLoad(c.path).catch(()=>{})));          // the common tackles right away
     m.clips.forEach(c=>{ if(!UO_CORE.includes(c.id)) UO.q.push(c.path); }); uoPump();          // then everything else, slowly, in the background
   }).catch(e=>{ UO.state='off'; UO.err=String(e&&e.message||e); console.warn('tackle animation library unavailable:', UO.err); });
@@ -17944,6 +17945,7 @@ function uoPath(ent, v){ const V=ent.variants||{}; return v===1&&V.va ? V.va : v
 function uoGunzip(buf){ const u=new Uint8Array(buf); if(!(u[0]===0x1f&&u[1]===0x8b)) return Promise.resolve(buf); if(!window.DecompressionStream) return Promise.reject(new Error('no gzip support')); return new Response(new Blob([u]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer(); }
 function uoLoad(path){
   if (UO.clips[path]) return Promise.resolve(UO.clips[path]); if (UO.pending[path]) return UO.pending[path];
+  if (/^ntk\//.test(path)) return Promise.reject(new Error('ntk clip not available'));   // NTK: built by ntkInit, not fetched
   return UO.pending[path] = fetch(UO.base+path+'.gz').then(r=>{ if(!r.ok) throw new Error('HTTP '+r.status); return r.arrayBuffer(); }).then(uoGunzip)
     .then(buf=>new Promise((res,rej)=>new THREE.GLTFLoader().parse(buf,'',res,rej))).then(g=>{ const c=g.animations&&g.animations[0]; if(!c) throw new Error('no animation'); c.name=path; UO.clips[path]=c; UO.loaded++; delete UO.pending[path]; return c; })
     .catch(e=>{ delete UO.pending[path]; UO.fails++; if(UO.fails<4) console.warn('clip failed', path, e); throw e; });
@@ -17952,6 +17954,7 @@ function uoHas(path){ return !!UO.clips[path]; }
 function uoPump(){ if (UO.qOn) return; UO.qOn=true; const next=()=>{ const p=UO.q.shift(); if(!p){ UO.qOn=false; return; } if(UO.clips[p]||UO.pending[p]){ next(); return; } uoLoad(p).catch(()=>{}).then(()=>setTimeout(next, 90)); }; next(); }
 function uoClipFor(rg, path){                           // the clip retargeted to one rig: Hips x/z pinned to the rig's rest (MASS moves the player), yaw and Y kept
   const c=UO.clips[path]; if(!c||!rg||!rg.fbBones) return null; rg.fbUoClips=rg.fbUoClips||{}; if(rg.fbUoClips[path]) return rg.fbUoClips[path];
+  if(c.ntk) return ntkClipFor(rg,path);                      // NTK: matched pairs go through pv2Retarget + a Hips x/z pin
   if(rg.fbV2 && PV2.uo[path]) return rg.fbUoClips[path]=PV2.uo[path];
   const copy=c.clone(); if(/^(def|ho)\//.test(path)) copy.tracks=copy.tracks.filter(t=>!/\.position$/.test(t.name)||/Hips\.position$/.test(t.name));
   const hip=(rg.fbV2 && PV2.S) ? PV2.S.b.mixamorigHips.o : rg.fbBones.mixamorigHips, rest=hip&&hip.position, fix=UO.fix||'rx90', qf=new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0), fix==='rx90'?Math.PI/2:fix==='rxm90'?-Math.PI/2:0), q=new THREE.Quaternion();
@@ -17979,16 +17982,18 @@ function uoStart(id, parts, opt){
 function uoClear(p){ p.uo=null; p.uoK=null; p.uoUntil=0; p.uoDur=0; p.uoHold=false; }
 function uoAfterTackle(car){                                 // fbTackle() just ran: keep the library clips (not the old hit clips) and end the play when the clip ends
   const now=performance.now()/1000, s=FB.s; let left=0;
-  fbRigs.forEach(p=>{ if(p.uoK&&now<(p.uoUntil||0)){ p.fbHitClip=null; p.fbTackleClip=null; p.fbHitUntil=0; p.fbTackleUntil=0; left=Math.max(left,p.uoUntil-now); } });
+  fbRigs.forEach(p=>{ if(p.uoK&&now<(p.uoUntil||0)){ p.fbHitClip=null; p.fbTackleClip=null; p.fbHitUntil=0; p.fbTackleUntil=0; left=Math.max(left,(p.uoUntil-now)*(p.uo&&p.uo.ent&&p.uo.ent.ntk?FB_TS:1)); } });   // NTK: groundIn is sim time
   if (left>0 && s) { s.groundIn=Math.max(0.05,left); if(s.groundRes) s.groundAt=s.t+s.groundIn; }
 }
 function uoStep(dt){                                         // every live frame: defenders glued to their start offsets around the runner while the hold is on
   const now=performance.now()/1000;
   fbRigs.forEach(p=>{ const u=p.uo; if(!u) return;
-    u.hT+=dt;
-    if (u.anchor && u.hT<u.holdT && !u.anchor.down) { const car=u.anchor, phi=u.phi, k=Math.min(1,u.hT/0.13), ox=u.ox0+(u.ox-u.ox0)*k, ob=u.ob0+(u.ob-u.ob0)*k, fx=Math.cos(phi), fz=-Math.sin(phi), lx=-Math.sin(phi), lz=-Math.cos(phi);
-      p.x=car.x+lx*ox*UO_U-fx*ob*UO_U; p.z=car.z+lz*ox*UO_U-fz*ob*UO_U; p.vx=car.vx; p.vz=car.vz; p.face=phi; car.face=phi; }
-    if (!u.done && now>=(p.uoUntil||0)) { u.done=true; if (u.id==='L110') { p.tackling=false; p.down=false; p.st='ready'; p.fall=0; p.fallTo=0; p.uoHold=false; }
+    u.hT+=dt; const wT=u.ent&&u.ent.ntk?now-u.t0:u.hT;                          // NTK: the clips play on the wall clock (the sim runs at FB_TS of it), so their placement uses it too
+    if (u.ntkStun && wT<u.ntkStun) p.stun=Math.max(p.stun||0,0.1);                // NTK: a tackler on the ground stays out of the play until he has got up
+    if (u.anchor && wT<u.holdT && (!u.anchor.down || u.ent.ntk)) { const car=u.anchor, phi=u.phi, k=Math.min(1,wT/(u.blendT||0.13)), nr=u.ent.ntk?ntkRel(u):null, ox=u.ox0+((nr?nr.ox:u.ox)-u.ox0)*k, ob=u.ob0+((nr?nr.ob:u.ob)-u.ob0)*k, fx=Math.cos(phi), fz=-Math.sin(phi), lx=-Math.sin(phi), lz=-Math.cos(phi);   // NTK: time-varying offset + yaw from the baked pair
+      p.x=car.x+lx*ox*UO_U-fx*ob*UO_U; p.z=car.z+lz*ox*UO_U-fz*ob*UO_U; p.vx=car.vx; p.vz=car.vz; p.face=nr?ntkFace(u,nr,k):phi; car.face=phi; u.lastFace=p.face; }
+    else if (u.ntkRise && u.lastFace!==undefined && !u.done) p.face=u.lastFace;           // NTK: a tackler lying on the ground does not turn
+    if (!u.done && now>=(p.uoUntil||0)) { u.done=true; if (u.ntkRise) ntkStepDone(p,u); else if (u.id==='L110') { p.tackling=false; p.down=false; p.st='ready'; p.fall=0; p.fallTo=0; p.uoHold=false; }
       else if (u.ent && u.ent.lib==='recv' && u.ent.category==='diving' && u.ent.outcome!=='caught' && !p.carry && !p.down) { const g=UR.list.find(c=>c.id==='BS215'&&!c.mirrored); if(g) urPlay(p,g,0); } }
   });
 }
@@ -18097,6 +18102,7 @@ function uoGangPick(car, ds, phi){                      // the gang clip whose s
 function uoWrap(car, d, P){                              // a tackle that sticks (fbTackleBegin): rear / side / front wrap, or a gang clip when more men are already on him
   const s=FB.s; if (UO.state!=='ready' || (car.role==='QB' && car.x<s.los && !s.turn)) return false;
   const phi=Math.atan2(-P.uz,P.ux), seed=(Math.random()*1e6)|0, mps=(P.impV||0)*0.9144, imp=P.imp||0, FT=P.FT||0.6, others=(P.others||[]).filter(o=>!o.uo&&!o.down).slice(0,2);
+  if (!others.length && NTK.on) { try { const nm=ntkWrapPick(P.cat,mps,imp,FT), e=ntkGo(nm,car,d,phi); if (e) { car.tkFT=Math.max(0.15,(e.ground_contact_t-e.ntk_off)*FB_TS); return true; } } catch(err){ console.warn('ntk wrap',err); } }   // NTK: single tackler -> the matched pair
   if (others.length) { const g=uoGangPick(car,[d].concat(others),phi); if (g) { const e0=uoEntry(g.id,'runner',g.mirrored), hold=((e0&&e0.duration_s)||1)-0.12;
     const parts=[{p:car,role:'runner'}].concat(g.order.map((o,i)=>({p:o,role:'defender'+(i+1)})));
     if (uoStart(g.id,parts,{anchor:car,phi,mirrored:g.mirrored,seed,holdT:hold})) { car.tkJoin=car.tkJoin||{}; g.order.forEach(o=>{ if(o!==d){ o.wrapping=true; o.st='tackle'; o.tkCd=.5; car.tkJoin[o.role]=1; } }); car.tkFT=hold; return true; } } }
@@ -18111,6 +18117,7 @@ function uoWrap(car, d, P){                              // a tackle that sticks
 }
 function uoBreak(car, E, sev){                            // the runner broke it (fbBreakGo): hold the pair until grip_lost_t, then MASS carries him away
   if (UO.state!=='ready') return false; const d=E.d, phi=car.face, seed=(Math.random()*1e6)|0, cat=E.ang>=2.094?'rear':E.ang>=1.047?'side':'front'; let id;
+  if (NTK.on) { try { if (ntkGo('broken_tackle',car,d,phi)) return true; } catch(err){ console.warn('ntk break',err); } }   // NTK
   if (cat==='rear') id = sev>1.25 ? 'B45' : sev<0.5 ? uoPick(['B31','B32'],seed) : uoPick(['B31','B32','B40','B41'],seed);
   else if (cat==='side') id = sev<0.6 ? 'B37' : uoPick(['B34','B38','B42','B44'],seed);
   else id = sev<0.6 ? 'B39' : uoPick(['B36','B43'],seed);
@@ -18119,13 +18126,87 @@ function uoBreak(car, E, sev){                            // the runner broke it
 }
 function uoTruck(car, d, kind, ux, uz){                  // F-key truck: win (defender goes down), stagger (he goes down but the runner wobbles) or wall (the defender finishes the tackle)
   if (UO.state!=='ready') return false; const phi=Math.atan2(-uz,ux), seed=(Math.random()*1e6)|0, mirrored=uoSideOf(car,d,phi)==='right';
+  if (NTK.on && kind!=='wall' && uoRel(car,d,phi).back<10) { try { if (ntkGo('truck',car,d,phi)) return true; } catch(err){ console.warn('ntk truck',err); } }   // NTK: win / stagger
   const id = kind==='wall' ? 'T52' : kind==='stagger' ? 'T54' : uoPick(['T46','T47','T49','T50','T55','T46'],seed), e0=uoEntry(id,'defender',mirrored); if(!e0) return false;
   return !!uoStart(id,[{p:car,role:'ballcarrier'},{p:d,role:'defender'}],{anchor:car,phi,mirrored,seed,holdT:e0.outcome_decided_t||0.25});
 }
 function uoDive(car, d){                                  // a diving tackle from behind that reaches him
   if (UO.state!=='ready') return false; const sp=Math.hypot(car.vx||0,car.vz||0), phi=sp>0.5?Math.atan2(-car.vz,car.vx):car.face, r=uoRel(car,d,phi); if(!(r.back>6&&Math.abs(r.x)<16)) return false;
+  if (NTK.on) { try { if (ntkGo('dive_ankle',car,d,phi)) return true; } catch(err){ console.warn('ntk dive',err); } }   // NTK
   const e0=uoEntry('D78','defender',false); if(!e0) return false;
   return !!uoStart('D78',[{p:car,role:'ballcarrier'},{p:d,role:'defender'}],{anchor:car,phi,mirrored:false,seed:(Math.random()*1e6)|0,holdT:e0.outcome_decided_t||0.4});
+}
+/* ===================== NTK: 8 matched tackle pairs (rear_wrap, side_hit, front_wrap, drag_down, dive_ankle, big_hit, broken_tackle, truck) =====================
+   anim/ntk/ntk.json.gz holds, per move and role, the baked Mixamo tracks (quaternions + Hips position; the Hips Y already carries the fall height of the controller),
+   a mirrored twin, and the per-frame controller positions of the pair. The pair is placed by uoStep from the RELATIVE controller track (tackler minus runner in the runner's frame,
+   facing = heading + the yaw difference); MASS still moves the runner. Entries look like manifest entries (ids N01..N08) so uoStart / uoStep / uoAfterTackle work unchanged.
+   Switch off: localStorage 'uf-ntk' = '0' (or NTK.on=false). Missing file / not loaded yet / not a V2 player model -> the old library runs as before. */
+const NTK = { on:(()=>{ try { return localStorage.getItem('uf-ntk')!=='0'; } catch(e){ return true; } })(), state:'idle', mv:{}, LP:null, order:null, err:'' };
+const NTK_ORDER = ['rear_wrap','side_hit','front_wrap','drag_down','dive_ankle','big_hit','broken_tackle','truck'];
+const NTK_BASE_SIDE = { rear_wrap:'left', side_hit:'right', front_wrap:'left', drag_down:'right', dive_ankle:'right', big_hit:'left', broken_tackle:'right', truck:'left' };   // the side the baked tackler comes from
+const NTK_GLUE = { broken_tackle:20, truck:19 };      // moves where the runner leaves: the tackler is held on him only up to this clip frame (1-based), then the simulation owns him
+const NTK_LIE = { broken_tackle:1, truck:1 };         // the tackler ends on the ground while play goes on: hold the pose, then get up (L110)
+const NTK_LEAD = 6;                                   // frames before contact where playback starts (the approach already happened in the game)
+function ntkB64(s, Ctor){ const bin=atob(s), u=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) u[i]=bin.charCodeAt(i); return new Ctor(u.buffer); }
+function ntkInit(){
+  if (NTK.state!=='idle' || typeof fetch!=='function') return; NTK.state='loading';
+  fetch(UO.base+'ntk/ntk.json.gz').then(r=>{ if(!r.ok) throw new Error('HTTP '+r.status); return r.arrayBuffer(); }).then(uoGunzip).then(buf=>JSON.parse(new TextDecoder().decode(buf))).then(d=>{
+    const nb=d.nb; NTK.LP=d.LP; NTK.order=d.order;
+    NTK_ORDER.forEach((name,mi)=>{ const m=d.moves[name]; if(!m) return; const id='N0'+(mi+1), nf=m.nf, times=new Float32Array(nf); for(let i=0;i<nf;i++) times[i]=i/30;
+      const ctC=(m.contact-1)/30, off=Math.max(0,m.contact-1-NTK_LEAD)/30, mv=NTK.mv[name]={ id, name, nf, off, contact:m.contact, out:m.out, land:m.land };
+      [false,true].forEach(mir=>{ const sg=mir?-1:1, R=m.runner.pos, T=m.tackler.pos, ox=new Float32Array(nf), ob=new Float32Array(nf), dy=new Float32Array(nf), yaw=(m.yaw.tackler-m.yaw.runner)*Math.PI/180;
+        for(let f=0;f<nf;f++){ ox[f]=sg*(T[f][0]-R[f][0])/0.034; ob[f]=-(T[f][1]-R[f][1])/0.034; dy[f]=sg*yaw; }
+        const rel={ ox, ob, dy };
+        [['runner','ballcarrier','_r'],['tackler','defender','_t']].forEach(([key,role,suf])=>{ const q16=ntkB64(m[key][mir?'qm':'q'], Int16Array), h=ntkB64(m[key][mir?'hm':'h'], Float32Array), tracks=[];
+          for(let b=0;b<nb;b++){ const v=new Float32Array(nf*4); for(let f=0;f<nf;f++) for(let k=0;k<4;k++) v[f*4+k]=q16[(f*nb+b)*4+k]/32767; tracks.push(new THREE.QuaternionKeyframeTrack('mixamorig'+d.order[b]+'.quaternion', times, v)); }
+          tracks.push(new THREE.VectorKeyframeTrack('mixamorigHips.position', times, new Float32Array(h)));
+          const path='ntk/'+id+suf+(mir?'m':''), clip=new THREE.AnimationClip(path, (nf-1)/30, tracks); clip.ntk=true; UO.clips[path]=clip; UO.loaded++;
+          const ground = role==='defender' || !/^(broken_tackle|truck)$/.test(name);
+          const ent={ id, file:path, title:name+' (matched pair)', role, mirrored:mir, group:'ntk', ntk:true, ntkMove:name, path, participants:2, outcome:/^(broken_tackle)$/.test(name)?'broken_tackle':name==='truck'?'truck':'tackle',
+            duration_s:(nf-1)/30, contact_t:ctC, grip_lost_t:ctC+5/30, ground_contact_t:(m.land-1)/30, outcome_decided_t:ctC+3/30, recovery_t:(nf-1)/30,
+            end_pose: ground ? (name==='dive_ankle'?'prone':role==='defender'?'prone':'supine') : 'run', ntk_off:off, ntk_rel:rel,
+            start_offset_x:ox[Math.round(off*30)], start_offset_back:ob[Math.round(off*30)] };
+          (UO.byId[id]=UO.byId[id]||[]).push(ent); });
+      }); });
+    NTK.state='ready';
+  }).catch(e=>{ NTK.state='off'; NTK.err=String(e&&e.message||e); });
+}
+function ntkPin(clip, rg){                       // Hips x/z pinned to the rig's rest (the game places the body), the whole rotation kept: the fall needs the pelvis to roll over
+  const copy=clip.clone(), hip=rg.fbBones&&rg.fbBones.mixamorigHips, rest=hip&&hip.position; if(!rest) return copy;
+  copy.tracks.forEach(t=>{ if(/Hips\.position$/.test(t.name)){ const v=t.values; for(let i=0;i+2<v.length;i+=3){ v[i]=rest.x; v[i+2]=rest.z; } } }); return copy;
+}
+function ntkClipFor(rg, path){
+  const c=UO.clips[path]; if(!c||!rg||!rg.fbBones) return null; rg.fbUoClips=rg.fbUoClips||{}; if(rg.fbUoClips[path]) return rg.fbUoClips[path];
+  if (rg.fbV2) { if (PV2.state!=='ready') return null; PV2.ntkc=PV2.ntkc||{}; if(!PV2.ntkc[path]) PV2.ntkc[path]=ntkPin(pv2Retarget(c), rg); return rg.fbUoClips[path]=PV2.ntkc[path]; }
+  const copy=ntkPin(c, rg), LP=NTK.LP, ord=NTK.order; if (LP&&ord) ord.forEach((n,b)=>{ if(n!=='Hips') copy.tracks.push(new THREE.VectorKeyframeTrack('mixamorig'+n+'.position',[0,1],[LP[b*3],LP[b*3+1],LP[b*3+2],LP[b*3],LP[b*3+1],LP[b*3+2]])); });
+  return rg.fbUoClips[path]=copy;
+}
+function ntkRel(u){                              // the tackler's placement now (rig units + yaw offset) from the baked controller track
+  const r=u.ent.ntk_rel, t=Math.max(0,(u.ent.ntk_off||0)+(performance.now()/1000-u.t0))*30, n=r.ox.length-1, f=Math.min(n,t), i=Math.floor(f), j=Math.min(n,i+1), w=f-i;
+  return { ox:r.ox[i]+(r.ox[j]-r.ox[i])*w, ob:r.ob[i]+(r.ob[j]-r.ob[i])*w, dy:r.dy[i]+(r.dy[j]-r.dy[i])*w };
+}
+function ntkFace(u, nr, k){                      // heading + the yaw difference, turned in from the real facing over the blend
+  const tgt=u.phi+nr.dy; let d=tgt-u.face0; d=Math.atan2(Math.sin(d),Math.cos(d)); return u.face0+d*k;
+}
+function ntkGo(name, car, d, phi, opt){          // start the matched pair; returns the tackler's entry or null (then the old library runs)
+  opt=opt||{}; if (!NTK.on || NTK.state!=='ready' || UO.state!=='ready' || PV2.state!=='ready' || !car || !d) return null;
+  const mv=NTK.mv[name]; if(!mv) return null; const mir=uoSideOf(car,d,phi)!==NTK_BASE_SIDE[name];
+  const tE=uoEntry(mv.id,'defender',mir), rE=uoEntry(mv.id,'ballcarrier',mir); if(!tE||!rE||!tE.ntk||!rE.ntk||!uoHas(tE.path)||!uoHas(rE.path)) return null;
+  if (car.rig && car.rig.fbModel && !car.rig.fbV2) return null; if (d.rig && d.rig.fbModel && !d.rig.fbV2) return null;
+  const off=tE.ntk_off, rem=tE.duration_s-off, glue=NTK_GLUE[name]?Math.max(0.1,(NTK_GLUE[name]-1)/30-off):rem;
+  if (!uoStart(mv.id,[{p:car,role:'ballcarrier'},{p:d,role:'defender'}],{anchor:car,phi,mirrored:mir,seed:0,holdT:glue,offset:off})) return null;
+  const u=d.uo, c0=ntkRel(u), dd=Math.hypot(u.ox0-c0.ox, u.ob0-c0.ob)*0.034; u.blendT=0.13+0.30*Math.min(1,dd/1.0); u.face0=d.face||phi; u.ntkMove=name;
+  if (NTK_LIE[name]) { d.uoUntil+=0.35; d.uoDur+=0.35; u.ntkStun=rem+0.35; u.ntkRise=true; }
+  return tE;
+}
+function ntkStepDone(p, u){                      // the tackler's clip is over: he lies there (held) and now gets up
+  if (!u.ntkRise || u.id==='L110') return;
+  if (uoStart('L110',[{p,role:'defender'}],{seed:(p.num|0)+1})) { p.uo.ntkStun=0.8; } else { p.down=false; p.tackling=false; p.st='ready'; p.fall=0; p.fallTo=0; }
+}
+function ntkWrapPick(cat, mps, imp, FT){
+  if (cat==='rear') return (mps<4.2 || FT>=0.8) ? 'drag_down' : 'rear_wrap';
+  if (cat==='side') return 'side_hit';
+  return imp>8 ? 'big_hit' : 'front_wrap';
 }
 /* ===================== LOADING SCREEN: shown from the moment football is entered until the player model, the base animations and the tackle clips are ready ===================== */
 const FBL = { el:null, bar:null, pctEl:null, msgEl:null, pct:0, t0:0, tick:0, done:false, shown:false };
@@ -18302,8 +18383,8 @@ function fbChoosePlayerAnimation(p,P){
   if(p.diveT>0||p.slid)return p.slid?'slide':'dive';
   if(p.diving)return 'dive';
   if(p.jumpT>0)return 'catch';
-  if(p.role==='QB'&&(p.qbPh||0)>0&&!p.carry)return qbtAnimKey(p);       // v150: cock / whip / follow-through of the QB throw library (or the qbPass throw)
-  if(p.hoK){const hk=hoAnimKey(p);if(hk)return hk;}                        // v150: handoff / toss / play-action pair (or the back's solo carry)
+  if(p.role==='QB'&&(p.qbPh||0)>0&&!p.carry)return qbtAnimKey(p);       // v151: cock / whip / follow-through of the QB throw library (or the qbPass throw)
+  if(p.hoK){const hk=hoAnimKey(p);if(hk)return hk;}                        // v151: handoff / toss / play-action pair (or the back's solo carry)
   if(p.st==='throw')return 'qbPass';
   if(p.st==='point')return 'point';
   if(p.st==='block'&&fbHasBlockingContact(p))return FB_MODEL.clips&&FB_MODEL.clips.push?'push':'offenseIdle';
@@ -18352,7 +18433,7 @@ function fbTickPlayerAnimation(p,dt){
   }
   if(key.slice(0,3)==='dm:')action.setEffectiveTimeScale(p.dmTs||1);
   if(p.role==='QB'&&(p.qbPh||0)>0&&(key===QB_THROW.legacy.key||(p.qbClip&&key==='dm:'+p.qbClip.path))){action.setEffectiveTimeScale(0);action.time=qbtClipTime(p,action.getClip().duration);}   // the clip follows the throw phase frame by frame
-  if(p.hoK&&key.slice(0,3)==='dm:'&&HO.ids[p.hoK]&&key==='dm:'+HO.ids[p.hoK].path){action.setEffectiveTimeScale(0);action.time=clamp(p.hoT||0,0,action.getClip().duration-0.001);}   // v150: the pair's clock is the game's exchange
+  if(p.hoK&&key.slice(0,3)==='dm:'&&HO.ids[p.hoK]&&key==='dm:'+HO.ids[p.hoK].path){action.setEffectiveTimeScale(0);action.time=clamp(p.hoT||0,0,action.getClip().duration-0.001);}   // v151: the pair's clock is the game's exchange
   try{dmAdditive(p,rg,nowS);}catch(e){}
   rg.fbMixer.update(dt);
   if(rg.fbPoseTransition){const tr=rg.fbPoseTransition;tr.time+=dt;const u=Math.min(1,tr.time/.12),w=u*u*(3-2*u);tr.bones.forEach(v=>v.bone.quaternion.slerpQuaternions(v.q,v.bone.quaternion.clone(),w));if(u>=1)rg.fbPoseTransition=null;}
@@ -19558,7 +19639,7 @@ const CAM_LOOK = {
   on: true,                                  // false: every style behaves like CLASSIC (kill switch)
   rigs: [                                    // relative to the camera focus (the QB before the snap, the ball carrier / the ball in flight after it)
     { name:'BROADCAST', back:16.5, h:12.5, ahead:8.0, lookY:0.9, fov:44, zPos:0.76, zLook:0.76, ahead0:8.0 },   // pitch about 25 degrees down; zPos = zLook: the camera never yaws, the yard lines stay level
-    { name:'CLASSIC',   back:12.6, h:9.3,  ahead:17,  lookY:0.9, fov:58, zPos:0.92, zLook:0.90, ahead0:13 }     // the v150 camera, untouched numbers
+    { name:'CLASSIC',   back:12.6, h:9.3,  ahead:17,  lookY:0.9, fov:58, zPos:0.92, zLook:0.90, ahead0:13 }     // the v151 camera, untouched numbers
   ],
   kick: { back:12.6, h:6, ahead:17, zPos:0.92, zLook:0.90, dx:-1, dy:1, lookDx:6, lookY:0.5, fov:62 },          // field goal / extra point (both styles)
   ovFov: 50,                                 // lens of the override shots (lobby, coach cut-scene)
@@ -21156,7 +21237,7 @@ function fbDefStep(dt){
       if (behind) { tx = r.x + r.vx*0.25; tz = r.z + r.vz*0.25; }
       if ((s.rdL||0) > 0 && r!==s.ctl) { const pr = fbObsPred(r, s.t + 0.75); if (pr) { const w = 0.65*s.rdL; tx += (pr.x + 0.4 - tx)*w; tz += (pr.z - tz)*w; } }   // he saw where this guy went from this setup last time: jump it
       fbMove(d, tx, tz, msp*sl, dt, D.acc + (k==='CB'?4:0) + (d.disgT>0?60:0));   // full Speed; skill shows in where he goes and when he sees it
-      if (fbCpuDef(d) && (FB.lock||0) > 0 && s.t > 0.45 && !(d.biteT > 0) && !(d.eng && !d.free)) { const pk = clamp(2.2*FB.lock*dt, 0, 0.4); d.x += (tx - d.x)*pk; d.z += (tz - d.z)*pk; }   // v150: a lockdown corner stays glued to his man   // a corner who is much worse than the receiver gets torn apart (slow to react, big cushion); a lockdown corner stays on him
+      if (fbCpuDef(d) && (FB.lock||0) > 0 && s.t > 0.45 && !(d.biteT > 0) && !(d.eng && !d.free)) { const pk = clamp(2.2*FB.lock*dt, 0, 0.4); d.x += (tx - d.x)*pk; d.z += (tz - d.z)*pk; }   // v151: a lockdown corner stays glued to his man   // a corner who is much worse than the receiver gets torn apart (slow to react, big cushion); a lockdown corner stays on him
       fbFace(d, r.x, r.z);
     } else if (cv && cv.spot && s.fav) {
       // sitting on your favourite spot: shade over early, then drive on it as the QB sets up
@@ -21178,7 +21259,7 @@ function fbDefStep(dt){
       if (thr) { if (deep) { tx = Math.max(zx-3, thr.x + 3 + (1-fbCovEff(D,d,thr))*1.5); tz = thr.z*0.7 + zz*0.3; } else { tx = thr.x + 1.3; tz = thr.z + (thr.z > zz ? -0.3 : 0.3); } }
       else if (s.t > 1.2) tz = zz + (q.z-zz)*0.2;
       fbMove(d, tx, tz, msp*(deep ? 1.04 : 0.97)*sl, dt, D.acc+3+(d.disgT>0?60:0));
-      if (thr && fbCpuDef(d) && (FB.lock||0) > 0 && s.t > 0.6 && !(d.eng && !d.free)) { const pk = clamp(1.6*FB.lock*dt, 0, 0.3); d.x += (tx - d.x)*pk; d.z += (tz - d.z)*pk; }   // v150: the zone closes on the receiver
+      if (thr && fbCpuDef(d) && (FB.lock||0) > 0 && s.t > 0.6 && !(d.eng && !d.free)) { const pk = clamp(1.6*FB.lock*dt, 0, 0.3); d.x += (tx - d.x)*pk; d.z += (tz - d.z)*pk; }   // v151: the zone closes on the receiver
       fbFace(d, q.x, q.z);
     } else if (cv && cv.zone && k==='CB') {
       d.aiState = 'ZONE_COVERAGE'; const [zz] = cv.zone; let thr = null, best = -1;
@@ -21223,7 +21304,7 @@ function fbAimBehind(aim){                              // aiming within 2 yd of
   return fbOff().some(o => ['W1','W2','W3','TE','RB'].includes(o.role) && !o.down && Math.hypot(o.vx||0,o.vz||0) > 6 && Math.hypot(o.x-aim.x, o.z-aim.z) < 2);
 }
 /* ====================================================================================================
-   QB THROWING (v150). One continuous power curve (how long you hold), the QB's arm (Throw Power) and body (planted, stepping in,
+   QB THROWING (v151). One continuous power curve (how long you hold), the QB's arm (Throw Power) and body (planted, stepping in,
    rolling, sprinting, backpedaling, jumping back, off balance, pressure) shape release SPEED and ACCURACY separately.
    The throw is a real motion: the arm cocks while you hold, whips forward when you let go, and the ball leaves the hand on the
    release frame. The flight itself is the same projectile as before (same arcs, same landing math, same catching).
@@ -21283,17 +21364,17 @@ function qbtBody(q, aim, pw){                                // what his body is
   else cat = P < 0.15 ? (L < 10 ? 'qb_quick_dish' : 'qb_short') : P < 0.4 ? 'qb_short' : P < 0.78 ? 'qb_medium' : 'qb_full_power';
   return { mv, ma, maC, cat, sp, step, back, side, sprint, across, off, press, air, dx:sp > 0.2 ? vx/sp : 0, dz:sp > 0.2 ? vz/sp : 0 };
 }
-function qbtRelTime(q, pw, B, cpu){ const C = QB_THROW.cfg; let t = (C.rel[0] + (C.rel[1] - C.rel[0])*pw)*(1 + C.relArm*(0.5 - qbtArmN(q)))*((q && q.ur && q.ur.rel) || 1);   /* v150: a quick-release QB gets the ball out sooner */ if (B.cat === 'qb_off_balance') t *= 0.85; return cpu ? t*C.cpuRel : t; }
+function qbtRelTime(q, pw, B, cpu){ const C = QB_THROW.cfg; let t = (C.rel[0] + (C.rel[1] - C.rel[0])*pw)*(1 + C.relArm*(0.5 - qbtArmN(q)))*((q && q.ur && q.ur.rel) || 1);   /* v151: a quick-release QB gets the ball out sooner */ if (B.cat === 'qb_off_balance') t *= 0.85; return cpu ? t*C.cpuRel : t; }
 function qbtFlightT(d, pw, thrPow){                          // the old touch arc at no power, the old bullet at full power, a real blend in between
   const tb = fbFlightT(d, 0, 'pass'), tl = Math.min(tb*1.35 + 0.5*clamp(d/25, 0.2, 1), 3.6), k = pw*pw*(3 - 2*pw);
-  return (tl + (tb - tl)*k)*QB_THROW.cfg.air/(thrPow || 1);   // v150: a little more air time everywhere
+  return (tl + (tb - tl)*k)*QB_THROW.cfg.air/(thrPow || 1);   // v151: a little more air time everywhere
 }
 function qbtV(d, t, y0){ const vh = d/t, vy = (0.45 - y0 + 0.5*FB_G*t*t)/t; return Math.hypot(vh, vy); }
 function qbtTMin(d, y0){ let a = 0.12, b = 6; for (let i = 0; i < 36; i++) { const m1 = a + (b - a)*0.382, m2 = a + (b - a)*0.618; if (qbtV(d, m1, y0) < qbtV(d, m2, y0)) b = m2; else a = m1; } return (a + b)/2; }   // the flight time that needs the least arm
 function qbtReach(y0, vCap){ let lo = 1.5, hi = 120; for (let i = 0; i < 26; i++) { const m = (lo + hi)/2; if (qbtV(m, qbtTMin(m, y0), y0) <= vCap) lo = m; else hi = m; } return lo; }     // the farthest he can get it at this speed
 function qbtSolve(sx, sz, y0, tx, tz, tDes, vCap){          // the ball ALWAYS lands on the spot. Keep the wanted flight time when the arm can make it; else more air (a higher arc); past his arm's reach: the highest, easiest arc that still gets there
   const d = Math.hypot(tx - sx, tz - sz), tm = qbtTMin(d, y0);
-  if (qbtV(d, tm, y0) > vCap) return { t:tm, tx, tz, short:false, far:true };      // v150: never short - he heaves it up and it comes down on the spot
+  if (qbtV(d, tm, y0) > vCap) return { t:tm, tx, tz, short:false, far:true };      // v151: never short - he heaves it up and it comes down on the spot
   if (qbtV(d, tDes, y0) <= vCap) return { t:tDes, tx, tz, short:false };
   let bad = tDes, good = tm; for (let i = 0; i < 28; i++) { const m = (bad + good)/2; if (qbtV(d, m, y0) <= vCap) good = m; else bad = m; } return { t:good, tx, tz, short:false };
 }
@@ -21351,15 +21432,15 @@ function qbtClipTime(p, dur){                                // phase 0..1 windu
 function fbThrowCircle(ax, az, pw){      // where the ball CAN land: radius grows with distance and shrinks with QB accuracy; it stretches the way a bad QB is moving
   const s = FB.s, q = s && s.ctl; if (!q || q.role!=='QB') return null;
   if (xfHas(q, 'unshakable')) return { r:0.1, a:0.1, c:0.1, ux:1, uz:0, ox:0, oz:0, ang:0 };      // UNSHAKABLE: no warp, no spread - the circle is a dot on the spot
-  const d = Math.hypot(ax-q.x, az-q.z), ovr = q.ur && q.ur.thrCirc!=null ? q.ur.thrCirc : q.ur && q.ur.ovr!=null ? q.ur.ovr : 80, acc = clamp((ovr-50)/40, 0, 1);   // v150: a card can set its own throwing accuracy for the circle ('Throw Accuracy'); everyone else: overall
+  const d = Math.hypot(ax-q.x, az-q.z), ovr = q.ur && q.ur.thrCirc!=null ? q.ur.thrCirc : q.ur && q.ur.ovr!=null ? q.ur.ovr : 80, acc = clamp((ovr-50)/40, 0, 1);   // v151: a card can set its own throwing accuracy for the circle ('Throw Accuracy'); everyone else: overall
   const press = fbDef().some(p => !p.down && !(p.eng && !p.free) && p.rusher && fbDist(p,q) < 3.3);
-  let r = (2.6 - 2.35*acc + (0.115 - 0.105*acc)*d) * (press ? 1.6 : 1) * ((q.ur && q.ur.circK) || 1);   // v150: a card can run a tighter (or looser) circle ('Circle Size')                 // 60 OVR: huge at any range, wider the deeper he goes. 99 OVR: tiny short and deep.
+  let r = (2.6 - 2.35*acc + (0.115 - 0.105*acc)*d) * (press ? 1.6 : 1) * ((q.ur && q.ur.circK) || 1);   // v151: a card can run a tighter (or looser) circle ('Circle Size')                 // 60 OVR: huge at any range, wider the deeper he goes. 99 OVR: tiny short and deep.
   const sp = Math.hypot(q.vx||0, q.vz||0), w = clamp(sp/7, 0, 1.3) * (1 - 0.7*acc) * 1.8;   // throwing on the run: bad QBs get a stretched, shifted circle
-  { const P0 = pw != null ? pw : (s.charging ? qbtPower((s.chargeF||0)/60) : 0.5), Bq = qbtBody(q, { x:ax, z:az }, P0); r *= Bq.maC*(1 + 0.12*P0*(1 - qbtAccN(q))); }   // v150: his body and how hard he lets it go
+  { const P0 = pw != null ? pw : (s.charging ? qbtPower((s.chargeF||0)/60) : 0.5), Bq = qbtBody(q, { x:ax, z:az }, P0); r *= Bq.maC*(1 + 0.12*P0*(1 - qbtAccN(q))); }   // v151: his body and how hard he lets it go
   const ux = sp > 0.3 ? q.vx/sp : 1, uz = sp > 0.3 ? q.vz/sp : 0;
   return { r, a:r*(1+w), c:r*(1+0.15*w), ux, uz, ox:ux*r*w*0.5, oz:uz*r*w*0.5, ang:Math.atan2(-uz, ux) };
 }
-function fbThrow(aim, power, cpu, kind, opt){              // v150: starts the throwing motion; qbtRelease() lets the ball go on the release frame
+function fbThrow(aim, power, cpu, kind, opt){              // v151: starts the throwing motion; qbtRelease() lets the ball go on the release frame
   if (FB.esc) return;
   const s = FB.s, q = s.ctl;
   if (!q || q.role!=='QB' || q.carry || q.down || s.thrown || s.throwPend || s.ball.mode!=='held') return;
@@ -21411,7 +21492,7 @@ function fbCatchCheck(b){
   fbRigs.forEach(p => {
     if (p.down || p.eng && !p.free || p.role==='QB' && s.t - b.t0 < 0.6) return;
     const k = fbKind(p.role); if (p.side==='O' && (k==='OL' || p.role==='QB')) return;
-    const R = p.side==='O' ? (p.diving ? 2.8 : 1.8) * ({W2:1.2,TE:1.3,W3:0.95}[p.role]||1) * (p.reachT>0 && p===s.rctl ? 1.3 : 1) : (fbUD(p) && p.tkWin>0 ? 2.7 : k==='DL' ? 1.0 : 1.35*(1+0.35*(s.cbL||0))*(1+0.55*(FB.lock||0)*(k==='CB'||k==='S' ? 1 : 0.5)));   // v150: a locked-down secondary reaches farther for the ball
+    const R = p.side==='O' ? (p.diving ? 2.8 : 1.8) * ({W2:1.2,TE:1.3,W3:0.95}[p.role]||1) * (p.reachT>0 && p===s.rctl ? 1.3 : 1) : (fbUD(p) && p.tkWin>0 ? 2.7 : k==='DL' ? 1.0 : 1.35*(1+0.35*(s.cbL||0))*(1+0.55*(FB.lock||0)*(k==='CB'||k==='S' ? 1 : 0.5)));   // v151: a locked-down secondary reaches farther for the ball
     const dd = Math.hypot(b.x-p.x, b.z-p.z); if (dd < R) cands.push({p,dd});
   });
   if (!cands.length) return false;
@@ -21426,7 +21507,7 @@ function fbCatchCheck(b){
     if (closeQ && defs.length) { fbDrop(w, b, 'BATTED DOWN AT THE LINE', null, true); return true; }
     if (ud) { const rr = Math.random(); if (rr < 0.52) { fbIntercept(ud.p, b); return true; } if (rr < 0.82) { fbDrop(w, b, 'PASS BROKEN UP', null, true); return true; } }
     if (defs.length && Math.random() < 0.28*D.int + (s.defMode ? 0.04 : 0.07) + 0.22*(s.cbL||0) + 0.3*(FB.lock||0)) { fbIntercept(defs[0].p, b); return true; }
-    if (defs.length && (FB.lock||0) > 0 && Math.random() < 0.55*(FB.lock||0)) { fbDrop(w, b, 'PASS BROKEN UP', null, true); return true; }   // v150: the ball is there, so is the defender: he knocks it away
+    if (defs.length && (FB.lock||0) > 0 && Math.random() < 0.55*(FB.lock||0)) { fbDrop(w, b, 'PASS BROKEN UP', null, true); return true; }   // v151: the ball is there, so is the defender: he knocks it away
     if (near.length) {
       const nd = near[0], cs = Math.hypot(nd.vx-w.vx, nd.vz-w.vz), strong = cs > 6.5 || nd.st==='lunge';
       if (Math.random() < Math.min(0.95, fbDropOdds(0, cs)*(1 + 0.3*(s.cbL||0) + 1.1*(FB.lock||0))*fbSizeK(w))) { fbDrop(w, b, 'HIT ON THE CATCH - DROP', nd); return true; }
@@ -22552,7 +22633,7 @@ function fbLobbyWalkDraw(g){
 
   if (PV2.state==='ready') T('MODELS: PLAYER BLAKEALLEN25 - HELMET EXODUSKS - CLEATS LISENHAO - TROPHY G_BORY32 (SKETCHFAB, CC BY 4.0)', 160, 176.6, '#5d6a8f', 2.1, 'center');
   try { onlPanelDraw(g); } catch(e){ console.error('onl', e); }
-  T('BUILD v150',314,174,'#8fa0cc',4,'right'); { const us = uoStatus(); if (us) T(us, 6, 174, UO.state==='off' ? '#ff8b7b' : '#6f7ea8', 3, 'left'); }
+  T('BUILD v151',314,174,'#8fa0cc',4,'right'); { const us = uoStatus(); if (us) T(us, 6, 174, UO.state==='off' ? '#ff8b7b' : '#6f7ea8', 3, 'left'); }
 }
 /* ===================== WHO'S ONLINE: a live list in the lobby (signed-in players + what they are doing), chat and party invites.
    Anything sent to you pops up as a small red note in the top corner, wherever you are in the game. ===================== */
@@ -22721,7 +22802,7 @@ const UT_DEMO_CFG = { maxBuyAtOnce:5, rarityWeights:UT_DEMO_RAR, packs:(() => { 
   Object.keys(pos).forEach(k => add(k, pos[k][0]+' PACK', 5, UT_DEMO_STD, null, { pos:pos[k][1] }));
   add('legend','SEASON LEGEND PACK',1,{ S:60, A:40 },{ Legendary:1 }); return P; })() };
 function utDemoWeighted(w){ const ks = Object.keys(w), tot = ks.reduce((a,k) => a+w[k], 0); let r = Math.random()*tot; for (const k of ks) { r -= w[k]; if (r < 0) return k; } return ks[ks.length-1]; }
-const utTierName = t => t === 'LG' ? 'LEGEND' : t;      // v150: LEGEND tier (code 'LG'): plays, rolls and sells like S tier, rated a touch higher
+const utTierName = t => t === 'LG' ? 'LEGEND' : t;      // v151: LEGEND tier (code 'LG'): plays, rolls and sells like S tier, rated a touch higher
 function utDemoPool(tier, pos){ const f = t => utDB().filter(p => p.tier === t && p.pos !== 'K' && (!pos || p.pos === pos)); if (tier === 'S' && Math.random() < 0.4) { const lg = f('LG'); if (lg.length) return lg; } return f(tier); }   // 4 in 10 S-tier pulls are LEGENDS
 function utDemoRoll(pack){
   const ORDER = ['S','A','B','C','D'], one = (tw, pos, rar) => { let t = utDemoWeighted(tw), pool = utDemoPool(t, pos); for (let i = ORDER.indexOf(t); !pool.length && i < 4;) pool = utDemoPool(ORDER[++i], pos); const p = pool[Math.floor(Math.random()*pool.length)]; return { pid:p.id, rarity:rar }; };
@@ -22826,7 +22907,7 @@ function utGameStart(){
   FB.utTeams = null; FB.utMid = ''; FB.cpuEdge = 0; FB.cpuEdgeP = 0; FB.cpuEdgeR = 0; FB.cpuStyle = fbStyleFor(''); try { fbFieldTheme(null); } catch(e){}
   FB.training = !!FB.trainNext; FB.trainNext = false;
   if (FB.training) { FB.utTeams = { me:(FB.trainTeams||{}).me || null, cpu:(FB.trainTeams||{}).cpu || null }; s.clock = 1e9; try { utApplyTeams(); } catch(e){} return; }
-  if (FB.mdGame && FBN.on && FBN.mode === 'vs') { try { FB.utTeams = { host:utBuildTeam(FB.mdGame.host), guest:utBuildTeam(FB.mdGame.guest) }; utApplyTeams(); } catch(e){ console.error('mega draft teams', e); } return; }   // v150: MEGA DRAFT - both drafted teams, no server match
+  if (FB.mdGame && FBN.on && FBN.mode === 'vs') { try { FB.utTeams = { host:utBuildTeam(FB.mdGame.host), guest:utBuildTeam(FB.mdGame.guest) }; utApplyTeams(); } catch(e){ console.error('mega draft teams', e); } return; }   // v151: MEGA DRAFT - both drafted teams, no server match
   if (utSrv.token) {
     const t = utBuildTeam(utLocalSnap());
     FB.utTeams = !FBN.on ? { me:t } : FBN.role === 'host' ? { host:t } : { guest:t };
@@ -23536,7 +23617,7 @@ function utCard(g,x,y,w,h,p,rar,dup){
   if (p && w >= 34 && p.skills && p.skills.length) utCardSkills(g, x, y, w, k, p, rar);
   const nm = p ? p.name.toUpperCase() : '?';
   T(nm.length > 12*(k<1?1:k) ? nm.slice(0, 11)+'.' : nm, x+w/2, y+22*k, R.ink, 2.7*k, 'center');
-  T(p ? (p.nickname ? '"'+String(p.nickname).toUpperCase().slice(0,18)+'"  '+(p.team || 'FA') : (p.team || 'FA')) : '', x+w/2, y+25.8*k, R.ink, 2.1*k, 'center');   // v150: legends show their nickname
+  T(p ? (p.nickname ? '"'+String(p.nickname).toUpperCase().slice(0,18)+'"  '+(p.team || 'FA') : (p.team || 'FA')) : '', x+w/2, y+25.8*k, R.ink, 2.1*k, 'center');   // v151: legends show their nickname
   if (p) { const sk = A.skin_hex || '#c68642', cx = x+w/2, by = y+h-9.5*k, hd = (()=>{ const n = parseInt(String(sk).slice(1),16); return '#'+[(n>>16)&255,(n>>8)&255,n&255].map(v=>Math.max(0,v-45).toString(16).padStart(2,'0')).join(''); })();
     g.save(); g.beginPath(); g.rect(x+2*k, y+31*k, w-4*k, by-(y+31*k)); g.clip();
     const wt = p.game_weight_lb || p.weight_lb || 200, fat = Math.max(0, Math.min(1, (wt-230)/260)), sw = 15*(1+0.4*fat), hx = 4.4*(1+0.95*fat), hy = 5.2*(1+0.22*fat);   // heavier players are drawn wider; the 490 lb kicker fills the card
@@ -23755,7 +23836,7 @@ function utSeasonGameOver(){
 }
 function utSeasonForfeit(){ const G = FB.seasonGame, s = FB.s; if (!G || !s || s.seasonRec) return; s.seasonRec = true; const S = utSeasonGet(); if (!S || S.div !== G.div || S.no !== G.no) { FB.seasonGame = null; return; }
   utSeasonApply(S, false, Math.min(s.you|0, 0), Math.max(21, s.cpu|0)); utSeasonSave(S); FB.seasonGame = null; }
-function utSeasonPlayedAll(S){ return !!S && S.champ === 'YOU' && !S.poSim && S.log.filter(l => l.wk === 'PO' && !l.sim).length >= 3; }   // v150: rewards need the Super Bowl AND every playoff game played by you (QF, SF, SB), none simulated
+function utSeasonPlayedAll(S){ return !!S && S.champ === 'YOU' && !S.poSim && S.log.filter(l => l.wk === 'PO' && !l.sim).length >= 3; }   // v151: rewards need the Super Bowl AND every playoff game played by you (QF, SF, SB), none simulated
 function utSeasonRewards(S){          // paid once the season is over: only the best thing you did counts (playoffs < Super Bowl < champion)
   if (!S || S.phase !== 'done') return; const U = FB.ut, claimed = utSrv.seasonClaimed || [];
   const kind = utSeasonPlayedAll(S) ? 'champ' : null; if (!kind || claimed.indexOf(kind) >= 0) return;      // only the Super Bowl pays, and only when you played every playoff game
@@ -23792,7 +23873,7 @@ function utLgSnap(id, div){      // a league team as a saved-team snapshot, so t
 }
 function utSeasonSimWeek(){                             // SIM instead of playing: your team's rating against theirs decides it, same odds as every other game in the league
   const S = utSeasonGet(); if (!S || (FB.ut && FB.ut.busy)) return; const opp = utSeasonOpp(S); if (!opp) return;
-  if (S.phase === 'po') { if (FB.ut) { FB.ut.err = 'PLAYOFF GAMES MUST BE PLAYED - NO SIMMING'; FB.ut.msgT = 0; } return; }      // v150
+  if (S.phase === 'po') { if (FB.ut) { FB.ut.err = 'PLAYOFF GAMES MUST BE PLAYED - NO SIMMING'; FB.ut.msgT = 0; } return; }      // v151
   const [pf, pa] = utLgSim(utLgYouOvr(), utLgTeamOvr(opp, S.div)); utSeasonApply(S, pf > pa, pf, pa, true); utSeasonSave(S).then(() => { try { utSeasonRewards(S); } catch(e){} });
   if (FB.ut) { FB.ut.msg = 'SIMMED: '+(pf > pa ? 'WIN ' : 'LOSS ')+pf+'-'+pa+' VS '+opp; FB.ut.msgT = 0; }
 }
@@ -24603,7 +24684,7 @@ function fbScoutLine(){                                   // one line for the ca
 }
 
 /* ---------------------------------------------------------------- the CPU drive sim */
-function fbCpuDrive(yl, down0, toGo0){          // v150: down0 / toGo0 = pick the drive up in the middle (SIM THE REST while you are on defense)
+function fbCpuDrive(yl, down0, toGo0){          // v151: down0 / toGo0 = pick the drive up in the middle (SIM THE REST while you are on defense)
   const s = FB.s, D = FBD[FB.diff];
   let y = yl, down = down0 || 1, toGo = toGo0 ? Math.min(toGo0, 100-y) : Math.min(10,100-y), pl = 0, t = 0, start = yl, pts = 0, res = '', userYl = 25;
   while (pl < 14) {
@@ -24853,7 +24934,7 @@ function fbStep(){
   else if (sc==='live' && s.intFz > 0) { s.intFz -= 1/60; if (s.intFz <= 0) s.intFz = 0; fbRigs.forEach(p => { p.anim += 0.01; }); }
   else if (sc==='live') {
     // charging a throw
-    if (s.charging) { s.chargeF = FB.rmbMeter ? Math.max(0, (s.chargeF||0) - QB_THROW.cfg.drain) : (s.chargeF||0)+1; s.charge = qbtPower(s.chargeF/60); } else FB.rmbMeter = false;   // v150: right click drains the meter
+    if (s.charging) { s.chargeF = FB.rmbMeter ? Math.max(0, (s.chargeF||0) - QB_THROW.cfg.drain) : (s.chargeF||0)+1; s.charge = qbtPower(s.chargeF/60); } else FB.rmbMeter = false;   // v151: right click drains the meter
     if (FB.tapPending && !FB.tapPending.guest && performance.now() - FB.tapPending.at >= 200) { const tp = FB.tapPending; FB.tapPending = null; if (!s.thrown && !s.charging) fbThrow(tp.p, qbtPower(tp.h||0), false, 'lob'); }   // the short click: the lob goes
     if (s.tutMode) fbTutTick();
     if (!s.defMode && s.ctl && s.ctl.role==='QB' && !s.thrown && s.hover) {
@@ -25115,7 +25196,7 @@ function fbLobbyDraw(g){
   if (PARTY.npc && !PARTY.on) T(PARTY.npc.name+' SUITS UP AS YOUR W1',160,55,'#7ddc8a',5,'center');
   fbBtn(g,'lobbyback',6,5,76,12,'< BACK TO THE FIELD',{size:4.6});
   fbBtn(g,'party',6,19,76,10,PARTY.on ? 'PARTY  '+PARTY.code.toUpperCase() : 'PLAY WITH A FRIEND',{size:4.4,line:'#7ddc8a',tc:'#c9f7d0'});
-  T('BUILD v150',314,174,'#8fa0cc',4,'right');   // so you can tell which build is live
+  T('BUILD v151',314,174,'#8fa0cc',4,'right');   // so you can tell which build is live
   fbBtn(g,'tut',100,141,58,13,'TUTORIAL',{size:5,line:'#ffd24a',tc:'#ffe9a8'}); fbBtn(g,'howlobby',162,141,58,13,'HOW TO PLAY',{size:4.4,line:'#ffd24a',tc:'#ffe9a8'});
   fbBtn(g,'shop',6,141,90,13,'PLAY SHOP',{size:5.5,line:'#7ddc8a',tc:'#c9f7d0'});
   fbBtn(g,'stats',224,141,90,13,'MY STATS',{size:5.5,line:'#6fd0ff',tc:'#cfeeff'});
@@ -25491,7 +25572,7 @@ document.getElementById('game').addEventListener('pointerdown', e => {
   }
   e.stopImmediatePropagation(); e.preventDefault();
   try { const ae = document.activeElement; if (ae && ae!==document.body && typeof ae.blur==='function' && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)) ae.blur(); } catch(_){}
-  if (e.button===2) { const cs = FB.s; if (cs && cs.charging && cs.ctl && cs.ctl.role==='QB' && !cs.thrown) { FB.rmbMeter = true; FB.rmb = true; return; }   // v150: right click while charging a throw = the meter goes down (no sprint)
+  if (e.button===2) { const cs = FB.s; if (cs && cs.charging && cs.ctl && cs.ctl.role==='QB' && !cs.thrown) { FB.rmbMeter = true; FB.rmb = true; return; }   // v151: right click while charging a throw = the meter goes down (no sprint)
     keys.ShiftRight = true; FB.rmb = true; return; }          // V81: right click = sprint (hold)
   try { unlockAudio(); } catch(_){}
   const { px, py } = px0, s = FB.s, sc = FB.scr;
@@ -25537,7 +25618,7 @@ window.addEventListener('pointerup', e => {
   if (FBN.on && FBN.role==='guest') { fbnGuestUp(); return; }
   if (FB.scr==='live' && s.charging) {
     s.charging = false; const p = s.hover ? fbRay(s.hover.px, s.hover.py, 1.0) : null;
-    const hS = (s.chargeF||0)/60; if (p) { if ((s.chargeF||0) < 12) FB.tapPending = { p, at:performance.now(), h:hS }; else fbThrow(p, qbtPower(hS), false, 'pass'); } s.aimShow = false;   // v150: how long you held = how hard he throws it   // a short click lobs it (after a beat, in case a second click makes it a pump fake)
+    const hS = (s.chargeF||0)/60; if (p) { if ((s.chargeF||0) < 12) FB.tapPending = { p, at:performance.now(), h:hS }; else fbThrow(p, qbtPower(hS), false, 'pass'); } s.aimShow = false;   // v151: how long you held = how hard he throws it   // a short click lobs it (after a beat, in case a second click makes it a pump fake)
   }
 }, true);
 function fbDrawPt(x,y){
@@ -25550,7 +25631,7 @@ function fbDrawPt(x,y){
 }
 
 window.addEventListener('blur', () => { if (FB && FB.rmb) { FB.rmb = false; FB.rmbMeter = false; keys.ShiftRight = false; } });
-// v150: right click while a throw is charging = the meter goes down. With the left button already held the browser sends no pointerdown for the second button, so the button mask is read from every mouse / pointer event
+// v151: right click while a throw is charging = the meter goes down. With the left button already held the browser sends no pointerdown for the second button, so the button mask is read from every mouse / pointer event
 { const rm = e => { try { const cs = FB && FB.s; if (!FB.on || !cs || !cs.charging || !cs.ctl || cs.ctl.role!=='QB' || cs.thrown) return; const dn = e.type==='mouseup' ? (e.buttons & 2) : (e.buttons & 2) || (e.type==='mousedown' && e.button===2); FB.rmbMeter = !!dn; if (dn) keys.ShiftRight = false; } catch(_){} };
   ['pointermove','mousemove','mousedown','mouseup','pointerup'].forEach(t => window.addEventListener(t, rm, true)); }
 
@@ -26065,7 +26146,7 @@ const FB_DCALLS = [
 const FB_ROLEN = { DL:'DL', LB:'LB', CB:'CB', S:'S' };
 
 /* ---------------------------------------------------------------- starting / ending a defensive drive */
-/* v150: you are not locked into the whole drive any more: SIM DRIVE finishes it from where it stands (the same drive sim the game uses when you skip the defense) */
+/* v151: you are not locked into the whole drive any more: SIM DRIVE finishes it from where it stands (the same drive sim the game uses when you skip the defense) */
 function fbDefSimOk(){ const s = FB.s; return !!(s && s.defMode && !FBN.on && !s.train && !s.tutMode && !s.pat && !s.conv && (FB.scr==='dcall' || FB.scr==='live')); }
 function fbDefSimRest(){
   const s = FB.s; if (!fbDefSimOk()) return;
@@ -28591,7 +28672,7 @@ function fbShopDraw(g){
   });
   T('LOCKED PLAYS CANNOT BE CALLED OFFLINE.  IN ONLINE GAMES BOTH PLAYERS GET EVERY PLAY.',160,170,'#8fa0cc',3.8,'center');
 }
-/* v150: TIME PLAYED - the real seconds you spend inside a game (not the lobby, menus or training hub), kept with your football stats */
+/* v151: TIME PLAYED - the real seconds you spend inside a game (not the lobby, menus or training hub), kept with your football stats */
 const FB_TP_NO = ['lobby','ut','train','howto','over','defask'];
 function fbPlayClock(){
   const now = performance.now(), last = FB.tpLast || now; FB.tpLast = now;
@@ -28618,7 +28699,7 @@ function fbStatsDraw(g){
   most.forEach((p,i) => { const y = 103 + i*9.4; T((i+1)+'  '+p.n,156,y,'#fff',4.8,'left'); T(p.c+' CALLS  '+p.y+' YDS',308,y,'#9fb0dc',4.4,'right'); });
 }
 
-/* ===================== v150: HANDOFF + PLAY-ACTION LIBRARY (anim/ho): the QB and the back play one synced pair =====================
+/* ===================== v151: HANDOFF + PLAY-ACTION LIBRARY (anim/ho): the QB and the back play one synced pair =====================
    The game still decides WHEN the exchange happens (the same handoff / toss / fake timing as before); the pair's own events are lined up
    to it: mesh_start (or toss_release / pull) = the moment the ball starts to move, transfer (or catch) = the moment the back has it.
    rb_path_m is matched visually: the back (and a little of the QB) is drawn up to 0.75 yd toward the authored path during the mesh only. */
@@ -28764,7 +28845,7 @@ const fbnIsHost = () => FBN.on && FBN.role==='host';
 const fbnIsGuest = () => FBN.on && FBN.role==='guest';
 function fbMain(){ if (FBN.on && FBN.role==='guest') fbnGuestStep(); else { fbStep(); if (FBN.on) fbnHostTick(); } }
 function fbVs(){ return !!(FBN.on && FBN.mode==='vs'); }
-function fbFlip(){ return false; }     // v150: one camera for everyone - behind the offense, on offense AND defense, solo, co-op and online (the same view the online 1v1 uses)
+function fbFlip(){ return false; }     // v151: one camera for everyone - behind the offense, on offense AND defense, solo, co-op and online (the same view the online 1v1 uses)
 function fbDirNow(){ const s = FB.s; return (fbFlip() || (s && s.turn)) ? -1 : 1; }      // after a turnover everyone sees the field from the other end
 function fbVsFix(t){                                                          // drive-screen text is written once (tokens) and read per player
   if (typeof t!=='string' || t.indexOf('{')<0) return t; const g = FBN.role==='guest', on = fbnOtherName();
@@ -28832,7 +28913,7 @@ function fbnFx(n){ FBN.fxq.push([++FBN.fxId, n]); if (FBN.fxq.length > 6) FBN.fx
 function fbnHold(){ const s = FB.s; FB.scr = 'hold'; s.phase = 'hold'; }
 
 /* ---------------------------------------------------------------- HOST: open a room, wait for the friend */
-/* ===================== v150: MEGA DRAFT (1v1 with your party member) =====================
+/* ===================== v151: MEGA DRAFT (1v1 with your party member) =====================
    One shared pool, both of you pick from it in turn (snake order), 15 players each - the same card for both of you is impossible.
    Everyone plays at the same card level, both O-lines and D-lines are the same level, so the draft itself decides the game. No wagers, no rewards: it is for fun.
    The leader's game runs the draft (host); the other player sends picks over the party room. */
@@ -29207,7 +29288,7 @@ function fbnGuestStep(){
   if (b && b.mode==='fly') { b.x += b.vx/60; b.y += b.vy/60; b.z += b.vz/60; b.vy -= FB_G*(b.tipped?FB_TIP_G:1)/60; }
   if (sc==='pre') s.preT += 1/60; else if (sc==='drive' || sc==='half') s.driveT = (s.driveT||0)+1; else if (sc==='over') s.overT = (s.overT||0)+1;
   if (sc==='live') {
-    if (s.charging) { s.chargeF = FB.rmbMeter ? Math.max(0, (s.chargeF||0) - QB_THROW.cfg.drain) : (s.chargeF||0)+1; s.charge = qbtPower(s.chargeF/60); } else FB.rmbMeter = false;   // v150: right click drains the meter
+    if (s.charging) { s.chargeF = FB.rmbMeter ? Math.max(0, (s.chargeF||0) - QB_THROW.cfg.drain) : (s.chargeF||0)+1; s.charge = qbtPower(s.chargeF/60); } else FB.rmbMeter = false;   // v151: right click drains the meter
     if (FB.tapPending && FB.tapPending.guest && performance.now() - FB.tapPending.at >= 200) { const tp = FB.tapPending; FB.tapPending = null; fbnEv({ n:'cu', x:fbnR(tp.p.x), z:fbnR(tp.p.z), k:'touch', h:fbnR(tp.h||0) }); }   // the guest's short click: the touch pass goes
     if (!s.defMode && FBN.mode==='vs' && s.ctl && s.ctl.role==='QB' && !s.thrown && s.hover) {
       const g = fbRay(s.hover.px, s.hover.py, 0.01);
@@ -29303,7 +29384,7 @@ function fbnGuestPtr(px,py,sc){
 function fbnGuestUp(){
   const s = FB.s; if (FB.scr!=='live' || !s.charging) return;
   s.charging = false; const p = s.hover ? fbRay(s.hover.px, s.hover.py, 1.0) : null; s.aimShow = false;
-  const hS = (s.chargeF||0)/60; if (p) { if ((s.chargeF||0) < 12) FB.tapPending = { p, at:performance.now(), guest:true, h:hS }; else fbnEv({ n:'cu', x:fbnR(p.x), z:fbnR(p.z), k:'pass', h:fbnR(hS) }); }   // v150: the hold time goes with it (the host turns it into power)   // a short click waits a beat (a second click makes it a pump fake), a hold is a bullet, hold + Shift a lob
+  const hS = (s.chargeF||0)/60; if (p) { if ((s.chargeF||0) < 12) FB.tapPending = { p, at:performance.now(), guest:true, h:hS }; else fbnEv({ n:'cu', x:fbnR(p.x), z:fbnR(p.z), k:'pass', h:fbnR(hS) }); }   // v151: the hold time goes with it (the host turns it into power)   // a short click waits a beat (a second click makes it a pump fake), a hold is a bullet, hold + Shift a lob
 }
 
 /* ---------------------------------------------------------------- shared */
@@ -31756,7 +31837,7 @@ function fbProtectionStep(dt,run){
   if((s.slide|0)&&!advancing&&available.filter(d=>d.rusher).length>free.length){const far=available.filter(d=>Math.sign(d.z-q.z)===-(s.slide|0)).sort((a,b)=>Math.abs(b.z-q.z)-Math.abs(a.z-q.z))[0];if(far){available.splice(available.indexOf(far),1);available.push(far);}}   // V46 (12): the line slides away from the far edge - that rusher is the back's (or nobody's)
   for(const d of available){if(reserved.has(d))continue;let best=null,score=Infinity;for(const o of free){if(o.passTarget&&reserved.has(o.passTarget))continue;const anchor=fbPocketAnchor(o,q,advancing),sidePenalty=Math.sign(o.protectZ)&&Math.sign(d.z-q.z)!==Math.sign(o.protectZ)?2.3:0,slideP=((s.slide|0)&&!advancing)?(fbKind(o.role)==='OL'&&Math.sign(d.z-q.z)===-(s.slide|0)?1.6:(o.role==='RB'&&Math.sign(d.z-q.z)===(s.slide|0)?1.6:0)):0,v=fbDist(o,d)+Math.abs(d.z-anchor.z)*.65+sidePenalty+slideP;if(v<score){score=v;best=o;}}if(best){if(best.passTarget!==d){best.passTarget=d;best.reactionAt=s.t+(.12+(1-(best.blockEff||1))*.15)*(1-.45*fbLineN(best));}best.targetReadUntil=s.t+.28;reserved.add(d);}}
   free.forEach(o=>{
-    const eff=o.blockEff||.8,olN=fbLineN(o),mvK=Math.min(1.55,eff*(fbKind(o.role)==='OL'?((o.ur&&o.ur.blk)||1)*(1+.5*olN):1)),anchor=fbPocketAnchor(o,q,advancing);let target=o.passTarget;   // v150: a better lineman moves, reaches and reacts like one
+    const eff=o.blockEff||.8,olN=fbLineN(o),mvK=Math.min(1.55,eff*(fbKind(o.role)==='OL'?((o.ur&&o.ur.blk)||1)*(1+.5*olN):1)),anchor=fbPocketAnchor(o,q,advancing);let target=o.passTarget;   // v151: a better lineman moves, reaches and reacts like one
     if(!target||!threats.includes(target)||target.eng||!reserved.has(target)){target=null;o.passTarget=null;}
     if(o.recoveryT>0){o.recoveryT=Math.max(0,o.recoveryT-dt);o.blockPlant=false;fbVel(o,0,0,dt,24);return;}
     let tx=anchor.x,tz=anchor.z;if(target&&s.t>=o.reactionAt&&advancing){const rx=q.x-target.x,rz=q.z-target.z,L=Math.hypot(rx,rz)||1;tx=target.x+(target.vx||0)*.2+rx/L*.9;tz=target.z+(target.vz||0)*.2+rz/L*.9;}   // for the runner: go meet the closest chaser, don't wait for him
@@ -31768,11 +31849,11 @@ function fbProtectionStep(dt,run){
 }
 function fbRunBlock(p,dt){p.runBlockReady=true;p.st='ready';}
 function fbBlockAI(p,dt){p.runBlockReady=true;p.st='ready';}
-// v150: how good a lineman is, 0..1 (line level 1 = 0 = the old lineman, level 10 = 1). A good O-line really holds the pocket and drives the run; a good D-line / elite edge beats it.
+// v151: how good a lineman is, 0..1 (line level 1 = 0 = the old lineman, level 10 = 1). A good O-line really holds the pocket and drives the run; a good D-line / elite edge beats it.
 function fbLineN(p){ const u=p&&p.ur; if(!u) return 0; if(u.lvl) return clamp((u.lvl-1)/9,0,1); return clamp(((u.blk||u.rush||1)-1)/0.45,0,1); }
 function fbLineEngage(e,dt,D,q){
   const d=e.d,o=e.o,s=FB.s;if(e.ended)return;const olN=fbLineN(o),rushN=clamp((((d.ur&&d.ur.rush)||1)-1)/0.45,0,1)*0.7+fbLineN(d)*0.3;
-  const eff=(e.eff||o.blockEff||1)*(o.ur?o.ur.blk:1)*(1+0.6*olN);   // v150: a maxed line is about twice the blocker (it was +20%)
+  const eff=(e.eff||o.blockEff||1)*(o.ur?o.ur.blk:1)*(1+0.6*olN);   // v151: a maxed line is about twice the blocker (it was +20%)
   if(e.flashed===undefined||(e.reFlash&&s.t>=(e.winOpen||0))){e.flashed=true;e.reFlash=false;if(fbUD(d))fbRushFlash(d,'MOVE!',.35);}   // v46 (16): the move window opens at first contact, and again after a stonewall
   if(e.ripAt){if(s.t>=e.ripAt){e.ripAt=0;fbRushWin(e,'rip',q);}else{d.vx*=.5;d.vz*=.5;o.vx*=.5;o.vz*=.5;fbFace(o,d.x,d.z);fbFace(d,o.x,o.z);o.st=d.st='block';o.blockContact=d.blockContact=true;}return;}   // the rip takes .3 s to work the arm through
   if(d.wantSwim||d.wantMove){const side=d.wantSwim||0,kind=d.wantMove||'swim';d.wantSwim=0;d.wantMove=null;if(fbRushMove(e,kind,side,q)||e.ended)return;}
@@ -31797,7 +31878,7 @@ function fbLineEngage(e,dt,D,q){
   const pastShoulder=Math.abs(shoulder)>.96,behind=(d.x-o.x)*nx+(d.z-o.z)*nz>.12;
   if(age>(xfHas(d,'shark')?.35:.7)&&pastShoulder&&(e.progress>(xfHas(d,'shark')?.4:.62)||behind)){fbReleaseBlock(e,true);return;}
   if(!user&&d.bullUntil&&s.t>d.bullUntil){d.bullHeld=false;d.bullUntil=0;}
-  if(e.cpuGo===undefined)e.cpuGo=Math.random()<clamp(1-0.82*olN+0.45*rushN+0.3*(FB.lock||0),0.1,1);   // v150: does this rusher get a move this play? a maxed line says no most of the time; an elite edge against a weak line almost always does
+  if(e.cpuGo===undefined)e.cpuGo=Math.random()<clamp(1-0.82*olN+0.45*rushN+0.3*(FB.lock||0),0.1,1);   // v151: does this rusher get a move this play? a maxed line says no most of the time; an elite edge against a weak line almost always does
   if(!user&&!e.cpuMove&&age>=.1&&age<=.33&&!(d.stonewallUntil>s.t)){e.cpuMove=true;if(e.cpuGo&&Math.random()<.08+.08*FB.diff){const heavy=fbBodyMass(d)>=fbBodyMass(o)-.001;if(heavy&&Math.random()<.4){d.bullHeld=true;d.bullUntil=s.t+1.3;}else fbRushMove(e,Math.random()<.75?'auto':'wrong',side,q);}}   // v46 (16): the CPU reads the same tells and uses the same three moves inside the same window (one try per engagement)
   if(!user&&e.cpuGo&&age>1.6+(slideK>0?1.7:slideK<0?-.5:0)+1.2*olN&&Math.abs(shoulder)>.36&&d.swimCd<=0&&s.t>=e.nextMove){const ofx=Math.cos(o.face),ofz=-Math.sin(o.face),swimSide=Math.sign((d.x-o.x)*(-ofz)+(d.z-o.z)*ofx)||-side,attempt=FBS.swim(e,swimSide,s.t);if(attempt.success){fbLineSwim(e,swimSide);return;}e.nextMove=s.t+.19;}
 }
@@ -32054,7 +32135,7 @@ function fbDR(p, name){            // a defender's rating, 0..1, straight from h
 }
 // how long after an observable cue he reacts (s), by position and cue
 function fbReadDelay(d, cue){
-  const k=fbKind(d.role), COV=fbDR(d,'Coverage'); const LK = 1 - 0.45*Math.min(1,(FB.lock||0));   // v150: the better the defense, the sooner he reads it
+  const k=fbKind(d.role), COV=fbDR(d,'Coverage'); const LK = 1 - 0.45*Math.min(1,(FB.lock||0));   // v151: the better the defense, the sooner he reads it
   return fbReadDelay0(d, cue, k, COV)*LK;
 }
 function fbReadDelay0(d, cue, k, COV){
@@ -32112,7 +32193,7 @@ function fbGrab(car, d){      // a trailing man gets a hand on a faster runner: 
   const k = 0.84 - 0.05*Math.min(3, car.dragN||0); car.vx *= k; car.vz *= k; car.mStunUntil = s.t + 0.4; car.mSteer = 0.72; car.mAcc = 0.55; fbSfx('swat'); fbDust(car.x, car.z, 3, 0.5);
 }
 function fbBreakGo(car,E,all,sev,bt,xf){                        // the runner broke it: speed loss, stun, steering/acceleration penalties, the tackler stumbles
-  const s=FB.s,AI=1.10-.35*E.rear,dn=fbDragN(car,1);fbFpMark(car);let SL=clamp((.24+.50*sev-.10*bt/99)*AI+0.12*(dn-1),.18,.9);if(xf)SL=Math.max(.14,SL*.85);   // v150: a broken tackle always costs real speed (was as little as 4%)   // each man who has already hit him takes more off his speed   // an X-Factor softens it, it never removes it
+  const s=FB.s,AI=1.10-.35*E.rear,dn=fbDragN(car,1);fbFpMark(car);let SL=clamp((.24+.50*sev-.10*bt/99)*AI+0.12*(dn-1),.18,.9);if(xf)SL=Math.max(.14,SL*.85);   // v151: a broken tackle always costs real speed (was as little as 4%)   // each man who has already hit him takes more off his speed   // an X-Factor softens it, it never removes it
   let stun=clamp(.20+.34*sev-.12*bt/99,.14,.65);if(xf)stun=Math.max(.12,stun*.7);
   const steer=clamp(.40+.45*bt/99+(xf?.1:0),.40,xf?.95:.85);
   const fx=Math.cos(car.face),fz=-Math.sin(car.face);
@@ -32153,7 +32234,7 @@ function fbMomentumTackle(car,d,auth){
   if(!wantWrap&&!car.wrapBy&&fbHitStick(d,car,userD)){fbHitStickGo(d,car,crowd,userD);return;}   // HIT STICK: same activation and the same fumble roll as before
   if(sackSpot){fbTackle(d,car,crowd,imp);return;}
   const cat=E.ang>=2.094?'rear':E.ang>=1.047?'side':'front',fac=cat==='rear'?1:cat==='side'?.75:.55;
-  let broke=false;if(!wantWrap){const bc=clamp(1/(1+Math.exp(-5*(ratio-1.2))),.02,.75)*Math.pow(.65,Math.max(0,crowd-1));broke=Math.random()<bc;}   /* v150: every extra man in contact makes it much harder to shake them */   // ONE roll per attempt (a held wrap is the safe option: it never breaks)
+  let broke=false;if(!wantWrap){const bc=clamp(1/(1+Math.exp(-5*(ratio-1.2))),.02,.75)*Math.pow(.65,Math.max(0,crowd-1));broke=Math.random()<bc;}   /* v151: every extra man in contact makes it much harder to shake them */   // ONE roll per attempt (a held wrap is the safe option: it never breaks)
   if(broke){fbBreakGo(car,E,evals,clamp(combined/Math.max(.01,RR),0,2),bt,xf);return;}
   const sf=clamp(impV/maxSp,0,1);let FT=(.18+.30*sf)*(1+.45*E.rear)*clamp(RR/Math.max(.01,combined),.70,1.30);if(wantWrap)FT*=1.3;FT=clamp(FT,.12,.85);
   evals.forEach(e=>{e.d.tkCd=Math.max(e.d.tkCd||0,.45);});
@@ -32175,9 +32256,9 @@ function fbHitStickGo(d,car,crowd,userD){
 function fbWrapStep(car,tacklers,dt){      // MASS 2.0: the successful tackle - speed = impact x (1-u)^2 over FallTime, defender attached, a joiner cuts the remaining time by 35%
   const d=car.wrapBy;if(!d||d.down){fbWrapEnd(car);return false;}
   car.tkJoin=car.tkJoin||{};
-  tacklers.forEach(o=>{if(o===d||car.tkJoin[o.role]||o.down||o.tackling||(o.eng&&!o.free)||o.stun>0||fbDist(o,car)>1.3)return;car.tkJoin[o.role]=1;const rem=Math.max(0,car.tkFT-car.tkT);car.tkFT=car.tkT+rem*.45;});   // v150: each joiner cuts the rest of the fall by 55%
+  tacklers.forEach(o=>{if(o===d||car.tkJoin[o.role]||o.down||o.tackling||(o.eng&&!o.free)||o.stun>0||fbDist(o,car)>1.3)return;car.tkJoin[o.role]=1;const rem=Math.max(0,car.tkFT-car.tkT);car.tkFT=car.tkT+rem*.45;});   // v151: each joiner cuts the rest of the fall by 55%
   if(!car.tkK){const cap=car.tkCat==='front'?0.45:car.tkCat==='side'?1.1:2.2,full=car.tkImp*car.tkFac*Math.max(.05,car.tkFT)/3;car.tkK=Math.min(1,cap/Math.max(.01,full));}   // how far he slides after contact follows the picture: a head-on hit stops him (he falls BACK), from behind he falls forward
-  car.tkT+=dt;const u=clamp(car.tkT/Math.max(.05,car.tkFT),0,1),nj=Object.keys(car.tkJoin).length,sp=car.tkImp*car.tkFac*car.tkK*(1-u)*(1-u)*clamp(1-.3*nj,.3,1)*clamp(.55+.45*u*3,0,1);   // v150: bodies pile on = the runner loses speed at once; the first moments after contact are already a hard brake
+  car.tkT+=dt;const u=clamp(car.tkT/Math.max(.05,car.tkFT),0,1),nj=Object.keys(car.tkJoin).length,sp=car.tkImp*car.tkFac*car.tkK*(1-u)*(1-u)*clamp(1-.3*nj,.3,1)*clamp(.55+.45*u*3,0,1);   // v151: bodies pile on = the runner loses speed at once; the first moments after contact are already a hard brake
   let dx=car.tkUx-car.tkNx*.10*u,dz=car.tkUz-car.tkNz*.10*u;const L=Math.hypot(dx,dz)||1;dx/=L;dz/=L;   // momentum direction kept, a small push from the defender
   fbVel(car,dx*sp,dz*sp,dt,60);car.st='carry';
   if(!(d.uo&&d.uo.anchor===car)){fbMove(d,car.x+car.tkNx*.9,car.z+car.tkNz*.9,Math.max(1,sp+2.5),dt,28);fbFace(d,car.x,car.z);}d.st='tackle';   // he stays on the runner, no teleporting (a library clip glues him to his offset instead)
