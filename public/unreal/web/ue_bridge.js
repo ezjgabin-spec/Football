@@ -6,7 +6,7 @@
 (function () {
   'use strict';
   if (window.__fbue) { try { window.__fbue.hello(); } catch (e) {} return; }
-  var U = window.__fbue = { ver: 7, webGfx: false, frames: 0, bytes: 0, assetBytes: 0, budget: 700000, maxInstVerts: 90000, log: [] };
+  var U = window.__fbue = { ver: 8, webGfx: false, frames: 0, bytes: 0, assetBytes: 0, budget: 700000, maxInstVerts: 90000, log: [] };
   function bridge() { return window.ue && window.ue.fb; }
   function report(m) { try { var b = bridge(); if (b) b.report(String(m)); else console.log('FBUE ' + m); } catch (e) {} }
   U.report = report;
@@ -118,20 +118,37 @@
     menuHold = true;                                    // show the game's own screens until we are back in the lobby
     if (!G) return;
     try {
-      if (a === 'play') { G.act('play'); setTimeout(function () { try { if (G.FB.scr === 'howto') G.act('howok'); } catch (x) {} }, 400); }
+      if (a === 'play') {
+        G.act('play');
+        // walk through everything that stands between the click and the first play call: the developer on/off prompt, the how-to-play page
+        var tries = 0, iv = setInterval(function () {
+          tries++;
+          try {
+            var scr = G.FB.scr;
+            if (scr === 'lobby') G.act('devoff');
+            else if (scr === 'howto') G.act('howok');
+            else { clearInterval(iv); report('PLAY GAME: now on screen "' + scr + '"'); }
+          } catch (x) {}
+          if (tries > 40) { clearInterval(iv); report('PLAY GAME: still on screen "' + G.FB.scr + '" after 10 s'); }
+        }, 250);
+      }
       else if (a === 'tut') G.act('tut');
     } catch (x2) { report('menu action failed: ' + x2); }
   });
-  var wasLobby = false;
+  var wasLobby = false, lastScr = '';
   setInterval(function () {
     var G = gameApi(), F = G && G.FB, lobby = !!(F && F.on && F.scr === 'lobby');
     if (lobby && !wasLobby && !menuFirst) menuHold = false;          // came back from a game: show the menu again
     if (lobby) menuFirst = false;
     wasLobby = lobby;
+    var scrNow = F ? String(F.scr) : '';
+    if (scrNow !== lastScr) { report('screen: ' + lastScr + ' -> ' + scrNow); lastScr = scrNow; }
     var show = lobby && !menuHold && !document.getElementById('utAuth') && !document.getElementById('fbLoading');
     document.documentElement.classList.toggle('fbue-menu', show);
   }, 150);
   var menuFirst = true;
+  var clicksSeen = 0;
+  window.addEventListener('mousedown', function (e) { if (clicksSeen < 6) { clicksSeen++; report('click at ' + e.clientX + ',' + e.clientY + ' of ' + innerWidth + 'x' + innerHeight + ' on ' + (e.target && (e.target.id || e.target.tagName))); } }, true);
   window.addEventListener('keydown', function (e) { if (e.code === 'KeyM' && !editable(document.activeElement)) { var G = gameApi(); if (G && G.FB && G.FB.scr === 'lobby') menuHold = !menuHold; } }, true);
 
   // ------------------------------------------------------------------ 3. scene streaming
