@@ -64,6 +64,7 @@ struct FFbObj
 	float M[12] = { 1,0,0,0, 0,1,0,0, 0,0,1,0 };
 	TArray<FVector> SkinPos;
 	TArray<FVector> SkinNrm;
+	TArray<float> Pose;            // last skeleton pose received for this mesh (bone matrices in Unreal's axes)
 };
 
 // Runs the real Ultimate Football game (the same code as the web version) inside Unreal, and draws its 3D scene with Unreal.
@@ -103,6 +104,7 @@ private:
 	TMap<int32, FFbMat> Mats;
 	TMap<int32, FFbObj> Objs;
 	TSet<int32> Visible;
+	TSet<int32> PoseDirty;
 	FString Url, BridgeJs;
 	bool bInputSet = false, bCustomMats = false;
 	float Age = 0.f, NextLog = 5.f, FpsT = 0.f, LastFps = 0.f;

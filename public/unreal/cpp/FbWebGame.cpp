@@ -124,6 +124,12 @@ void AFbWebGame::BeginPlay()
 		Cam->GetCameraComponent()->SetFieldOfView(80.f);
 	}
 
+	if (GEngine)
+	{
+		GEngine->Exec(GetWorld(), TEXT("r.Shadow.Virtual.Enable 0"));
+		GEngine->Exec(GetWorld(), TEXT("r.ScreenPercentage 85"));
+	}
+
 	Bridge = NewObject<UFbBridge>(this);
 	Bridge->Owner = this;
 
@@ -216,7 +222,7 @@ void AFbWebGame::Tick(float DeltaSeconds)
 	{
 		LastFps = (float)FpsN / FpsT;
 		FpsT = 0.f; FpsN = 0;
-		if (Age > 25.f && LastFps < 28.f && Quality < 3 && GEngine)
+		if (Age > 12.f && LastFps < 30.f && Quality < 3 && GEngine)
 		{
 			Quality++;
 			static const TCHAR* Steps[3] = {
@@ -233,7 +239,7 @@ void AFbWebGame::Tick(float DeltaSeconds)
 	{
 		NextLog += 15.f;
 		UE_LOG(LogTemp, Log, TEXT("[FB] speed: Unreal %.0f frames/s (quality step %d), page frames received %d"), LastFps, Quality, FrameCount);
-		UE_LOG(LogTemp, Log, TEXT("[FB] web game: %.0f s, frames %d, assets %d (meshes %d, textures %d, materials %d), objects %d (visible %d), skinned verts %d, skin %.1f ms, parse %.1f ms"),
+		UE_LOG(LogTemp, Log, TEXT("[FB] web game: %.0f s, frames %d, assets %d (meshes %d, textures %d, materials %d), objects %d (drawn now %d), verts moved %d, skin %.1f ms, parse %.1f ms"),
 			Age, FrameCount, AssetCount, Geoms.Num(), Textures.Num(), Mats.Num(), Objs.Num(), Visible.Num(), SkinnedVerts, SkinMs, ParseMs);
 	}
 }
@@ -249,7 +255,7 @@ static bool FbwB64(const TSharedPtr<FJsonObject>& O, const TCHAR* Field, TArray<
 void AFbWebGame::ResetScene()
 {
 	for (auto& KV : Comps) if (KV.Value) KV.Value->DestroyComponent();
-	Comps.Empty(); Objs.Empty(); Geoms.Empty(); Mats.Empty(); Mids.Empty(); Textures.Empty(); Visible.Empty();
+	Comps.Empty(); Objs.Empty(); Geoms.Empty(); Mats.Empty(); Mids.Empty(); Textures.Empty(); Visible.Empty(); PoseDirty.Empty();
 	UE_LOG(LogTemp, Log, TEXT("[FB] scene reset (the page started over)"));
 }
 
@@ -382,6 +388,15 @@ void AFbWebGame::OnAssetObj(const TSharedPtr<FJsonObject>& O)
 			G.SW.SetNumUninitialized(G.N * 4);
 			FMemory::Memcpy(G.SW.GetData(), BW.GetData(), G.N * 16);
 		}
+		TArray<uint8> B1;
+		if (!G.bSkinned && FbwB64(O, TEXT("s1"), B1) && B1.Num() >= G.N * 2)
+		{
+			const uint16* S1 = (const uint16*)B1.GetData();
+			G.bSkinned = true;
+			G.SI.SetNumZeroed(G.N * 4);
+			G.SW.SetNumZeroed(G.N * 4);
+			for (int32 i = 0; i < G.N; i++) { G.SI[i * 4] = S1[i]; G.SW[i * 4] = 1.f; }
+		}
 		for (auto& KV : Objs) if (KV.Value.Geom == Id) KV.Value.bDirty = true;
 		return;
 	}
@@ -502,6 +517,7 @@ void AFbWebGame::BuildObj(int32 Id, FFbObj& O)
 			if (UMaterialInstanceDynamic* Mid = GetMid(O.MatIds[0], O.bForceVC && bHasCol)) C->SetMaterial(0, Mid);
 	}
 	C->SetCastShadow(O.bShadow);
+	if (G->bSkinned && O.Pose.Num() >= 12) PoseDirty.Add(Id);
 	O.BuiltRev = G->Rev;
 	O.bDirty = false;
 	O.bXfDirty = true;
@@ -595,17 +611,14 @@ void AFbWebGame::OnFrame(const FString& Data)
 			if (*CP && (*CP)->IsVisible() != bShow) (*CP)->SetVisibility(bShow);
 	}
 
-	// players: move every vertex with its bones (the same maths the page's graphics card would do), then hand the new shape to Unreal
+	// skeleton poses of this frame: real skeletons (players) and the member matrices of merged groups. "skc" = bone count of every
+	// skeleton in the blob, "skm" = pairs (mesh id, skeleton index). A pose is kept per mesh, so a mesh whose shape arrives later still gets it.
 	const TArray<TSharedPtr<FJsonValue>>* SkM = nullptr;
 	TArray<uint8> SkB;
 	if (O->TryGetArrayField(TEXT("skm"), SkM) && SkM && SkM->Num() >= 2 && FbwB64(O, TEXT("sk"), SkB))
 	{
-		const double S0 = FPlatformTime::Seconds();
 		const float* Bones = (const float*)SkB.GetData();
 		const int32 TotalBones = SkB.Num() / 48;
-		struct FJob { int32 Id; int32 First; int32 Count; FFbObj* Ob; const FFbGeom* G; };
-		TArray<FJob> Jobs;
-		// "skc" = bone count of every skeleton in the blob (in order); "skm" = pairs (mesh id, skeleton index)
 		TArray<int32> SkFirst, SkCount;
 		const TArray<TSharedPtr<FJsonValue>>* SkC = nullptr;
 		if (O->TryGetArrayField(TEXT("skc"), SkC) && SkC)
@@ -616,27 +629,46 @@ void AFbWebGame::OnFrame(const FString& Data)
 		for (int32 i = 0; i + 1 < SkM->Num(); i += 2)
 		{
 			const int32 Id = (int32)(*SkM)[i]->AsNumber(), Si = (int32)(*SkM)[i + 1]->AsNumber();
-			if (!SkFirst.IsValidIndex(Si)) continue;
-			FFbObj* Ob = Objs.Find(Id);
-			const FFbGeom* G = Ob ? Geoms.Find(Ob->Geom) : nullptr;
-			if (Ob && G && G->bSkinned && Ob->BuiltRev == G->Rev && SkFirst[Si] + SkCount[Si] <= TotalBones && Comps.Contains(Id)) Jobs.Add({ Id, SkFirst[Si], SkCount[Si], Ob, G });
-		}
-		ParallelFor(Jobs.Num(), [&Jobs, Bones](int32 j)
-		{
-			const FJob& J = Jobs[j];
-			const FFbGeom& G = *J.G;
-			const int32 N = G.N;
-			// bone matrices re-expressed in Unreal's axes: rows for X, Y, Z
-			TArray<float> A;
-			A.SetNumUninitialized(J.Count * 12);
-			for (int32 b = 0; b < J.Count; b++)
+			if (!SkFirst.IsValidIndex(Si) || SkFirst[Si] + SkCount[Si] > TotalBones) continue;
+			FFbObj& Ob = Objs.FindOrAdd(Id);
+			const int32 Nb = SkCount[Si];
+			Ob.Pose.SetNumUninitialized(Nb * 12);
+			for (int32 b = 0; b < Nb; b++)
 			{
-				const float* m = Bones + (J.First + b) * 12;
-				float* a = A.GetData() + b * 12;
+				// re-expressed in Unreal's axes (y and z swapped, centimetres): rows for X, Y, Z
+				const float* m = Bones + (SkFirst[Si] + b) * 12;
+				float* a = Ob.Pose.GetData() + b * 12;
 				a[0] = m[0]; a[1] = m[2];  a[2] = m[1];  a[3] = m[3] * FBW_YD;
 				a[4] = m[8]; a[5] = m[10]; a[6] = m[9];  a[7] = m[11] * FBW_YD;
 				a[8] = m[4]; a[9] = m[6];  a[10] = m[5]; a[11] = m[7] * FBW_YD;
 			}
+			PoseDirty.Add(Id);
+		}
+	}
+
+	// move every vertex with its bone(s) (the same maths the page's graphics card would do), then hand the new shape to Unreal
+	if (PoseDirty.Num() > 0)
+	{
+		const double S0 = FPlatformTime::Seconds();
+		struct FJob { int32 Id; FFbObj* Ob; const FFbGeom* G; };
+		TArray<FJob> Jobs;
+		for (auto It = PoseDirty.CreateIterator(); It; ++It)
+		{
+			const int32 Id = *It;
+			FFbObj* Ob = Objs.Find(Id);
+			if (!Ob) { It.RemoveCurrent(); continue; }
+			const FFbGeom* G = Geoms.Find(Ob->Geom);
+			if (!G || !G->bSkinned || Ob->BuiltRev != G->Rev || Ob->Pose.Num() < 12 || !Comps.Contains(Id) || !Visible.Contains(Id)) continue;      // not ready yet: keep it for a later frame
+			Jobs.Add({ Id, Ob, G });
+			It.RemoveCurrent();
+		}
+		ParallelFor(Jobs.Num(), [&Jobs](int32 j)
+		{
+			const FJob& J = Jobs[j];
+			const FFbGeom& G = *J.G;
+			const int32 N = G.N;
+			const float* A = J.Ob->Pose.GetData();
+			const int32 Count = J.Ob->Pose.Num() / 12;
 			J.Ob->SkinPos.SetNumUninitialized(N);
 			J.Ob->SkinNrm.SetNumUninitialized(N);
 			for (int32 v = 0; v < N; v++)
@@ -650,8 +682,8 @@ void AFbWebGame::OnFrame(const FString& Data)
 					const float w = G.SW[v * 4 + k];
 					if (w <= 0.f) continue;
 					const int32 bi = G.SI[v * 4 + k];
-					if (bi >= J.Count) continue;
-					const float* a = A.GetData() + bi * 12;
+					if (bi >= Count) continue;
+					const float* a = A + bi * 12;
 					ox += w * (a[0] * px + a[1] * py + a[2] * pz + a[3]);
 					oy += w * (a[4] * px + a[5] * py + a[6] * pz + a[7]);
 					oz += w * (a[8] * px + a[9] * py + a[10] * pz + a[11]);
@@ -670,7 +702,6 @@ void AFbWebGame::OnFrame(const FString& Data)
 		SkinnedVerts = 0;
 		for (const FJob& J : Jobs)
 		{
-			if (!Visible.Contains(J.Id)) continue;
 			UProceduralMeshComponent** CP = Comps.Find(J.Id);
 			if (!CP || !*CP) continue;
 			(*CP)->UpdateMeshSection_LinearColor(0, J.Ob->SkinPos, J.Ob->SkinNrm, NoUV, NoCol, NoTan, false);
