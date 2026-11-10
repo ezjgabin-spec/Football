@@ -95,16 +95,14 @@ if (-not $res) {
 }
 Write-Host "[FB] OK   build succeeded"
 
-# ---- 6. materials (only the first time, or when the material script changes)
-$matVer = "v2"
-$marker = "$proj\Saved\fb_materials_$matVer.txt"
-if (-not (Test-Path $marker) -or -not (Test-Path "$proj\Content\Football\Web\M_FbLit.uasset")) {
+# ---- 6. materials (only when they are not there yet)
+if (-not (Test-Path "$proj\Content\Football\Web\M_FbAdd.uasset")) {
     Write-Host "[FB] making the materials (a minute or two, one time)..."
     & "$ue\Engine\Binaries\Win64\UnrealEditor-Cmd.exe" "$proj\$name.uproject" -run=pythonscript "-script=$pyDir\make_web_materials.py" -unattended -nosplash *> "$env:USERPROFILE\mat_log.txt"
-    Select-String -Path "$env:USERPROFILE\mat_log.txt" -Pattern "\[FBM\]" | ForEach-Object { ($_.Line -replace '^.*\[FBM\]', '[FBM]') } | Select-Object -Last 8
-    if (Select-String -Path "$env:USERPROFILE\mat_log.txt" -Pattern "\[FBM\] DONE" -Quiet) { New-Item -ItemType Directory -Force -Path "$proj\Saved" | Out-Null; Set-Content -Path $marker -Value "ok" }
-    else { Write-Host "[FB] WARNING materials were not made - the game will show plain colours. Send Claude the [FBM] lines above (or say there were none)." }
-}
+    Select-String -Path "$env:USERPROFILE\mat_log.txt", "$proj\Saved\Logs\$name.log" -Pattern "\[FBM\]" -ErrorAction SilentlyContinue | ForEach-Object { ($_.Line -replace '^.*\[FBM\]', '[FBM]') } | Select-Object -Last 8
+    if (Test-Path "$proj\Content\Football\Web\M_FbAdd.uasset") { Write-Host "[FB] OK   materials made" }
+    else { Write-Host "[FB] WARNING materials were not made - the game will show plain colours. Tell Claude." }
+} else { Write-Host "[FB] OK   materials already there" }
 
 # ---- 7. play
 Write-Host "[FB] starting the game. Close the game window when you are done; the log lines print after that."

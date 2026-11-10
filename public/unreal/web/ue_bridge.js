@@ -6,11 +6,11 @@
 (function () {
   'use strict';
   if (window.__fbue) { try { window.__fbue.hello(); } catch (e) {} return; }
-  var U = window.__fbue = { ver: 6, webGfx: false, frames: 0, bytes: 0, assetBytes: 0, budget: 700000, maxInstVerts: 90000, log: [] };
+  var U = window.__fbue = { ver: 7, webGfx: false, frames: 0, bytes: 0, assetBytes: 0, budget: 700000, maxInstVerts: 90000, log: [] };
   function bridge() { return window.ue && window.ue.fb; }
   function report(m) { try { var b = bridge(); if (b) b.report(String(m)); else console.log('FBUE ' + m); } catch (e) {} }
   U.report = report;
-  U.stats = {};
+  U.stats = {}; U.capMs = 0; U.capN = 0; U.repT = performance.now();
   U.stat = function (k) { U.stats[k] = (U.stats[k] || 0) + 1; };
   U.hello = function () { report('bridge v' + U.ver + ' already loaded, frames=' + U.frames); };
 
@@ -154,6 +154,8 @@
     return btoa(s);
   }
   function r4(v) { return Math.round(v * 10000) / 10000; }
+  function r2(v) { return Math.round(v * 100) / 100; }
+  var matT = new Map();          // material key -> time of the last update sent
 
   // ---- textures
   var texCanvas = null;
@@ -187,9 +189,9 @@
     var c = m.color, e = m.emissive, alpha = !!(m.transparent || m.alphaTest > 0);
     var lit = !(m.isMeshBasicMaterial || m.isSpriteMaterial || m.isPointsMaterial || m.isLineBasicMaterial || m.isShaderMaterial);
     var o = { t: 'mat', id: 0,
-      c: c ? [r4(c.r), r4(c.g), r4(c.b)] : [1, 1, 1],
+      c: c ? [r2(c.r), r2(c.g), r2(c.b)] : [1, 1, 1],
       e: (e && lit) ? [r4(e.r * (m.emissiveIntensity === undefined ? 1 : m.emissiveIntensity)), r4(e.g * (m.emissiveIntensity === undefined ? 1 : m.emissiveIntensity)), r4(e.b * (m.emissiveIntensity === undefined ? 1 : m.emissiveIntensity))] : [0, 0, 0],
-      o: r4(m.opacity === undefined ? 1 : m.opacity), tr: m.transparent ? 1 : 0, at: r4(m.alphaTest || 0), ds: m.side === 2 ? 1 : 0, lit: lit ? 1 : 0,
+      o: r2(m.opacity === undefined ? 1 : m.opacity), tr: m.transparent ? 1 : 0, at: r4(m.alphaTest || 0), ds: m.side === 2 ? 1 : 0, lit: lit ? 1 : 0,
       ro: r4(m.roughness === undefined ? (m.isMeshPhongMaterial ? 0.45 : 0.9) : m.roughness), me: r4(m.metalness || 0),
       vc: m.vertexColors ? 1 : 0, add: m.blending === 2 ? 1 : 0, dw: m.depthWrite === false ? 0 : 1,
       map: texId(m.map, alpha, now), n: (m.name || '') };
@@ -197,7 +199,7 @@
     if (t && t.repeat && t.offset && (t.repeat.x !== 1 || t.repeat.y !== 1 || t.offset.x !== 0 || t.offset.y !== 0)) {
       // scrolling / tiled textures: scale + offset, already converted for Unreal's top-down V
       var fl = t.flipY !== false;
-      o.uvs = [r4(t.repeat.x), r4(t.repeat.y)]; o.uvo = [r4(t.offset.x), r4(fl ? 1 - t.repeat.y - t.offset.y : t.offset.y)];
+      o.uvs = [r4(t.repeat.x), r4(t.repeat.y)]; o.uvo = [r4(t.offset.x % 1), r4((fl ? 1 - t.repeat.y - t.offset.y : t.offset.y) % 1)];
     }
     return o;
   }
@@ -209,7 +211,12 @@
     var mid = om.vol ? om.id : id(m), key = om.vol ? 'vol|' + mk : m.uuid;
     var o = matSig(m, now); o.id = mid;
     var sig = JSON.stringify(o);
-    if (sentMat.get(key) !== sig) { if (sentMat.has(key)) U.stat('m:' + m.type + ':' + (m.name || '')); sentMat.set(key, sig); queue.push(sig); }
+    if (sentMat.get(key) !== sig) {
+      var had = sentMat.has(key);
+      if (had && now - (matT.get(key) || 0) < 80) return mid;        // it keeps changing (a pulsing glow, a scrolling board): update it ~12 times a second, not 60
+      if (had) U.stat('m:' + m.type + ':' + (m.name || ''));
+      sentMat.set(key, sig); matT.set(key, now); queue.push(sig);
+    }
     return mid;
   }
 
@@ -416,11 +423,17 @@
     if (!firstInfo) { firstInfo = true; report('first frame: ' + vis.length + ' visible meshes, ' + skList.length + ' skinned, queue ' + queue.length + ' assets, three r' + THREE.REVISION); }
     if (!B) return;
     // assets first (a limited amount per frame so the game keeps running while everything loads), then the frame
-    var spent = 0;
-    while (queue.length && spent < U.budget) { var a = queue.shift(); spent += a.length; try { B.asset(a); } catch (x) {} }
+    var spent = 0, batch = [];
+    while (queue.length && spent < U.budget) { var a = queue.shift(); spent += a.length; batch.push(a); }
+    if (batch.length) { try { B.asset('[' + batch.join(',') + ']'); } catch (x) {} }
     U.assetBytes += spent;
     var fs = JSON.stringify(frame); U.bytes += fs.length;
     try { B.frame(fs); } catch (x2) {}
+    U.capMs += performance.now() - now; U.capN++;
+    if (now - U.repT > 10000) {
+      report('page speed: ' + Math.round(U.capN * 1000 / (now - U.repT)) + ' frames/s, capture ' + (U.capMs / Math.max(1, U.capN)).toFixed(1) + ' ms, frame ' + Math.round(fs.length / 1024) + ' KB, assets waiting ' + queue.length);
+      U.repT = now; U.capMs = 0; U.capN = 0;
+    }
   }
   U.capture = capture;
 
@@ -448,6 +461,6 @@
   };
   // F9 switches between Unreal graphics and the page's own graphics (for comparing / if something is missing)
   window.addEventListener('keydown', function (e) { if (e.code === 'F9' || e.keyCode === 120) { setNative(U.webGfx); report('graphics: ' + (U.webGfx ? 'web page' : 'Unreal')); } }, true);
-  try { var B0 = bridge(); if (B0) B0.asset(JSON.stringify({ t: 'reset', ver: U.ver })); } catch (e) {}
+  try { var B0 = bridge(); if (B0) B0.asset('[' + JSON.stringify({ t: 'reset', ver: U.ver }) + ']'); } catch (e) {}
   report('bridge v' + U.ver + ' loaded, three r' + THREE.REVISION + ', window ' + innerWidth + 'x' + innerHeight);
 })();

@@ -210,9 +210,29 @@ void AFbWebGame::Tick(float DeltaSeconds)
 		if (Browser.IsValid()) Browser->ExecuteJavascript(FString::Join(KeyTap->Pending, TEXT("")));
 		KeyTap->Pending.Reset();
 	}
+	// keep it smooth: if Unreal itself cannot hold ~30 frames a second, step the graphics quality down (never up)
+	FpsT += DeltaSeconds; FpsN++;
+	if (FpsT >= 6.f)
+	{
+		LastFps = (float)FpsN / FpsT;
+		FpsT = 0.f; FpsN = 0;
+		if (Age > 25.f && LastFps < 28.f && Quality < 3 && GEngine)
+		{
+			Quality++;
+			static const TCHAR* Steps[3] = {
+				TEXT("r.ScreenPercentage 80|sg.ShadowQuality 2|sg.GlobalIlluminationQuality 2|sg.ReflectionQuality 2"),
+				TEXT("r.ScreenPercentage 70|sg.GlobalIlluminationQuality 1|sg.ReflectionQuality 1|sg.PostProcessQuality 2|sg.EffectsQuality 2"),
+				TEXT("r.ScreenPercentage 60|sg.GlobalIlluminationQuality 0|sg.ReflectionQuality 0|sg.ShadowQuality 1|sg.PostProcessQuality 1") };
+			TArray<FString> Cmds;
+			FString(Steps[Quality - 1]).ParseIntoArray(Cmds, TEXT("|"));
+			for (const FString& C : Cmds) GEngine->Exec(GetWorld(), *C);
+			UE_LOG(LogTemp, Log, TEXT("[FB] Unreal was at %.0f frames/s: graphics quality lowered to step %d of 3"), LastFps, Quality);
+		}
+	}
 	if (Age > NextLog)
 	{
 		NextLog += 15.f;
+		UE_LOG(LogTemp, Log, TEXT("[FB] speed: Unreal %.0f frames/s (quality step %d), page frames received %d"), LastFps, Quality, FrameCount);
 		UE_LOG(LogTemp, Log, TEXT("[FB] web game: %.0f s, frames %d, assets %d (meshes %d, textures %d, materials %d), objects %d (visible %d), skinned verts %d, skin %.1f ms, parse %.1f ms"),
 			Age, FrameCount, AssetCount, Geoms.Num(), Textures.Num(), Mats.Num(), Objs.Num(), Visible.Num(), SkinnedVerts, SkinMs, ParseMs);
 	}
@@ -278,9 +298,20 @@ UMaterialInstanceDynamic* AFbWebGame::GetMid(int32 MatId, bool bForceVC)
 // ------------------------------------------------------------------------------------------------ assets (sent once)
 void AFbWebGame::OnAsset(const FString& Data)
 {
-	TSharedPtr<FJsonObject> O;
+	// one call carries a list of assets: [ {...}, {...} ]
+	TArray<TSharedPtr<FJsonValue>> List;
 	TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(Data);
-	if (!FJsonSerializer::Deserialize(Reader, O) || !O.IsValid()) return;
+	if (!FJsonSerializer::Deserialize(Reader, List)) return;
+	for (const TSharedPtr<FJsonValue>& V : List)
+	{
+		if (!V.IsValid() || V->Type != EJson::Object) continue;
+		OnAssetObj(V->AsObject());
+	}
+}
+
+void AFbWebGame::OnAssetObj(const TSharedPtr<FJsonObject>& O)
+{
+	if (!O.IsValid()) return;
 	AssetCount++;
 	const FString Type = O->GetStringField(TEXT("t"));
 	if (Type == TEXT("reset")) { ResetScene(); return; }

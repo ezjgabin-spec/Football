@@ -6,6 +6,7 @@
 #include "FbWebGame.generated.h"
 
 class SWebBrowser;
+class FJsonObject;
 class FFbKeyTap;
 class AFbWebGame;
 class UProceduralMeshComponent;
@@ -77,6 +78,7 @@ public:
 	virtual void Tick(float DeltaSeconds) override;
 
 	void OnAsset(const FString& Data);
+	void OnAssetObj(const TSharedPtr<FJsonObject>& O);
 	void OnFrame(const FString& Data);
 	void SetTyping(bool bOn);
 	void QuitGame();
@@ -103,7 +105,8 @@ private:
 	TSet<int32> Visible;
 	FString Url, BridgeJs;
 	bool bInputSet = false, bCustomMats = false;
-	float Age = 0.f, NextLog = 5.f;
+	float Age = 0.f, NextLog = 5.f, FpsT = 0.f, LastFps = 0.f;
+	int32 FpsN = 0, Quality = 0;
 	int32 FrameCount = 0, AssetCount = 0, SkinnedVerts = 0;
 	double SkinMs = 0.0, ParseMs = 0.0;
 
