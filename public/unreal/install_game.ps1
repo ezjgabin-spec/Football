@@ -9,7 +9,7 @@ $utf8 = New-Object System.Text.UTF8Encoding $false
 if (-not (Test-Path "$proj\$name.uproject")) { Write-Host "[FB] FAIL project not found at $proj"; return }
 if (-not (Test-Path $src)) { Write-Host "[FB] FAIL no Source\$name folder"; return }
 
-$files = @("FbData.h","FbSim.h","FbSim.cpp","FbMatch.h","FbMatch.cpp","FbHUD.h","FbHUD.cpp","FbPC.h","FbPC.cpp","FbGameMode.h","FbGameMode.cpp")
+$files = @("FbData.h","FbSim.h","FbSim.cpp","FbMatch.h","FbMatch.cpp","FbHUD.h","FbHUD.cpp","FbPC.h","FbPC.cpp","FbGameMode.h","FbGameMode.cpp","FbWebGame.h","FbWebGame.cpp")
 foreach ($f in $files) {
     $t = (Invoke-WebRequest -UseBasicParsing -UserAgent "Mozilla/5.0" -Uri ($base + $f)).Content
     if ($t -is [byte[]]) { $t = [System.Text.Encoding]::UTF8.GetString($t) }
@@ -26,12 +26,25 @@ public class $name : ModuleRules
 	public $name(ReadOnlyTargetRules Target) : base(Target)
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
-		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "AssetRegistry" });
+		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "AssetRegistry", "Slate", "SlateCore", "WebBrowser" });
 	}
 }
 "@
 [System.IO.File]::WriteAllText("$src\$name.Build.cs", $build, $utf8)
-Write-Host "[FB] OK   Build.cs now lists AssetRegistry"
+Write-Host "[FB] OK   Build.cs written"
+
+# turn on Unreal's built-in web browser plugin for this project
+$up = "$proj\$name.uproject"
+$j = Get-Content $up -Raw | ConvertFrom-Json
+$pl = @()
+if ($j.PSObject.Properties.Name -contains "Plugins") { $pl = @($j.Plugins) }
+if (-not ($pl | Where-Object { $_.Name -eq "WebBrowserWidget" })) {
+    $pl += [pscustomobject]@{ Name = "WebBrowserWidget"; Enabled = $true }
+    if ($j.PSObject.Properties.Name -contains "Plugins") { $j.Plugins = $pl } else { $j | Add-Member -NotePropertyName Plugins -NotePropertyValue $pl }
+    Copy-Item $up "$up.bak2" -Force
+    [System.IO.File]::WriteAllText($up, ($j | ConvertTo-Json -Depth 20), $utf8)
+    Write-Host "[FB] OK   web browser plugin turned on in the project file"
+} else { Write-Host "[FB] OK   web browser plugin already on" }
 
 $ini = "$proj\Config\DefaultEngine.ini"
 $sec = "[/Script/EngineSettings.GameMapsSettings]"
