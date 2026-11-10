@@ -30,16 +30,27 @@ AFbMatch::AFbMatch()
 	RootComponent = Scene;
 	for (int32 i = 0; i < FB_N; i++) { CurAnim[i] = EFbAnim::None; Facing[i] = (i < 11) ? 0.f : 180.f; }
 	for (int32 k = 0; k < 5; k++) KThrow[k] = false;
+	for (int32 i = 0; i < FB_N; i++) AnimLock[i] = 0.f;
 }
 
 // ------------------------------------------------------------------------------------------------ setup
 void AFbMatch::BeginPlay()
 {
 	Super::BeginPlay();
+	for (TActorIterator<AFbMatch> It(GetWorld()); It; ++It)
+		if (*It != this) { UE_LOG(LogTemp, Warning, TEXT("[FB] a second match actor appeared - removing it")); Destroy(); return; }
 	PC = GetWorld()->GetFirstPlayerController();
 	CleanupLevel();
 	LoadAssets();
 	SpawnPuppets();
+	if (Skel.Num() > 0 && Skel[0])
+	{
+		HipsBone = NAME_None;
+		for (int32 b = 0; b < Skel[0]->GetNumBones(); b++)
+			if (Skel[0]->GetBoneName(b).ToString().ToLower().Contains(TEXT("hips"))) { HipsBone = Skel[0]->GetBoneName(b); break; }
+		if (HipsBone == NAME_None && Skel[0]->GetNumBones() > 0) HipsBone = Skel[0]->GetBoneName(0);
+		AssetInfo += FString::Printf(TEXT("  hips=%s  removed-old-actors=%d"), *HipsBone.ToString(), Destroyed);
+	}
 	SpawnBall();
 	SpawnCamera();
 	EnsureField();
@@ -104,7 +115,7 @@ void AFbMatch::CleanupLevel()
 	for (TActorIterator<ASkeletalMeshActor> It(GetWorld()); It; ++It) Kill.Add(*It);
 	for (TActorIterator<AStaticMeshActor> It(GetWorld()); It; ++It)
 		if (It->GetActorNameOrLabel().Contains(TEXT("FB_Ball"))) Kill.Add(*It);
-	for (AActor* A : Kill) if (A) A->Destroy();
+	for (AActor* A : Kill) if (A) { A->Destroy(); Destroyed++; }
 }
 
 void AFbMatch::LoadAssets()
@@ -245,7 +256,7 @@ void AFbMatch::UpdateInput()
 void AFbMatch::Preview(float Los)
 {
 	Sim.Setup(0, Los, FFbMeta::Get().Ratings());
-	for (int32 i = 0; i < FB_N; i++) { CurAnim[i] = EFbAnim::None; Facing[i] = (i < 11) ? 0.f : 180.f; }
+	for (int32 i = 0; i < FB_N; i++) { CurAnim[i] = EFbAnim::None; AnimLock[i] = 0.f; Facing[i] = (i < 11) ? 0.f : 180.f; }
 	CamX = Los - 21.f; CamZ = 0.f;
 }
 
@@ -363,6 +374,8 @@ void AFbMatch::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
 	const float Dt = FMath::Min(DeltaSeconds, 0.1f);
+	CleanT += Dt;
+	if (CleanT < 5.f) { CleanAcc += Dt; if (CleanAcc > 0.5f) { CleanAcc = 0.f; CleanupLevel(); } }
 	UpdateInput();
 
 	if (Stage == EFbStage::Playing)
@@ -397,7 +410,9 @@ void AFbMatch::Tick(float DeltaSeconds)
 void AFbMatch::SetAnim(int32 I, EFbAnim A)
 {
 	if (CurAnim[I] == A) return;
+	if (A != EFbAnim::Tackle && AnimLock[I] > 0.f && CurAnim[I] != EFbAnim::None) return;
 	CurAnim[I] = A;
+	AnimLock[I] = 0.25f;
 	if (!Skel.IsValidIndex(I) || !Skel[I]) return;
 	UAnimSequence* S = nullptr;
 	switch (A)
@@ -409,7 +424,7 @@ void AFbMatch::SetAnim(int32 I, EFbAnim A)
 	default: break;
 	}
 	if (!S) S = AnimIdle;
-	if (S) Skel[I]->PlayAnimation(S, A != EFbAnim::Tackle);
+	if (S) { Skel[I]->PlayAnimation(S, A != EFbAnim::Tackle); Skel[I]->SetPlayRate(1.f); }
 }
 
 void AFbMatch::UpdatePuppets(float Dt)
@@ -428,13 +443,25 @@ void AFbMatch::UpdatePuppets(float Dt)
 
 		const FVector Loc(e.X * FB_YD, e.Z * FB_YD, 2.f);
 		const FRotator Rot(0.f, Facing[i] + ModelYaw, 0.f);
-		if (Skel.IsValidIndex(i) && Skel[i]) Skel[i]->SetWorldLocationAndRotation(Loc, Rot);
+		if (AnimLock[i] > 0.f) AnimLock[i] -= Dt;
+		if (Skel.IsValidIndex(i) && Skel[i])
+		{
+			USkeletalMeshComponent* C = Skel[i];
+			C->SetWorldLocationAndRotation(Loc, Rot);
+			if (HipsBone != NAME_None)
+			{
+				// the clips move the hips away from the spot the player is drawn on (that looked like a second, running copy): hold them in place
+				FVector Drift = C->GetBoneLocation(HipsBone, EBoneSpaces::WorldSpace) - Loc;
+				Drift.Z = 0.f;
+				if (Drift.Size() < 600.f) C->SetWorldLocation(Loc - Drift);
+			}
+		}
 		if (Fallback.IsValidIndex(i) && Fallback[i]) Fallback[i]->SetWorldLocationAndRotation(Loc + FVector(0.f, 0.f, 94.f), Rot);
 
 		EFbAnim A = EFbAnim::Idle;
 		if (bLive && Sim.bEnded && Sim.Tackler == i && Sim.Result != EFbResult::Incomplete) A = EFbAnim::Tackle;
 		else if (CurAnim[i] == EFbAnim::Tackle && bLive && Sim.bEnded && Sim.Tackler == i) A = EFbAnim::Tackle;
-		else if (Spd > 1.2f) A = EFbAnim::Run;
+		else if (Spd > ((CurAnim[i] == EFbAnim::Run) ? 0.9f : 1.7f)) A = EFbAnim::Run;
 		else if (bLive && Sim.Phase == EFbPhase::Live && (e.Kind == EFbKind::OL || e.Kind == EFbKind::DL))
 		{
 			const int32 A0 = (e.Kind == EFbKind::OL) ? FbRole::DL1 : FbRole::OL1;
@@ -445,6 +472,7 @@ void AFbMatch::UpdatePuppets(float Dt)
 			}
 		}
 		SetAnim(i, A);
+		if (CurAnim[i] == EFbAnim::Run && Skel.IsValidIndex(i) && Skel[i]) Skel[i]->SetPlayRate(FMath::Clamp(Spd / 6.0f, 0.6f, 1.5f));
 	}
 
 	if (BallComp)

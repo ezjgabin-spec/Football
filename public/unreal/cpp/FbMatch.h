@@ -67,6 +67,10 @@ private:
 	EFbAnim CurAnim[FB_N];
 	float Facing[FB_N];
 	float PuppetScale = 1.f;
+	FName HipsBone;
+	float AnimLock[FB_N];
+	float CleanAcc = 0.f, CleanT = 0.f;
+	int32 Destroyed = 0;
 	float ModelYaw = -90.f;
 	float CamX = -40.f, CamZ = 0.f, OrbitT = 0.f;
 	EFbStage AfterBanner = EFbStage::PlayCall;
