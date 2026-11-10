@@ -26,15 +26,40 @@
 #include "Async/ParallelFor.h"
 #include "EngineUtils.h"
 #include "HAL/PlatformTime.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Framework/Application/IInputProcessor.h"
+#include "Input/Events.h"
 
 static const float FBW_YD = 91.44f;      // the game works in yards, Unreal in centimetres
 
 static float FbwLin(float C) { return FMath::Pow(FMath::Clamp(C, 0.f, 1.f), 2.2f); }      // the page's colours are display (sRGB) values
 
+// ------------------------------------------------------------------------------------------------ keyboard
+// Unreal reads every key itself (before any widget) and hands it to the game page, so moving works no matter what has the focus.
+class FFbKeyTap : public IInputProcessor
+{
+public:
+	TArray<FString> Pending;
+	bool bTyping = false;        // a text box in the page has the focus: leave the keyboard to the browser
+	virtual void Tick(const float DeltaTime, FSlateApplication& SlateApp, TSharedRef<ICursor> Cursor) override {}
+	virtual const TCHAR* GetDebugName() const override { return TEXT("FbKeyTap"); }
+	bool Take(const FKeyEvent& E, int32 Down)
+	{
+		const int32 Code = (int32)E.GetKeyCode();
+		if (bTyping || E.IsAltDown() || Code == 122 || Code == 0) return false;        // typing, Alt+F4, F11: not ours
+		Pending.Add(FString::Printf(TEXT("window.__fbue&&window.__fbue.key(%d,%d,%d,%d,%d,%d);"), Down, Code, E.IsShiftDown() ? 1 : 0, E.IsControlDown() ? 1 : 0, 0, E.IsRepeat() ? 1 : 0));
+		return true;
+	}
+	virtual bool HandleKeyDownEvent(FSlateApplication& SlateApp, const FKeyEvent& InKeyEvent) override { return Take(InKeyEvent, 1); }
+	virtual bool HandleKeyUpEvent(FSlateApplication& SlateApp, const FKeyEvent& InKeyEvent) override { return Take(InKeyEvent, 0); }
+};
+
 // ------------------------------------------------------------------------------------------------ bridge object
 void UFbBridge::Report(FString Msg) { UE_LOG(LogTemp, Log, TEXT("[FB] page: %s"), *Msg); }
 void UFbBridge::Asset(FString Data) { if (Owner) Owner->OnAsset(Data); }
 void UFbBridge::Frame(FString Data) { if (Owner) Owner->OnFrame(Data); }
+void UFbBridge::Typing(FString On) { if (Owner) Owner->SetTyping(On == TEXT("1")); }
+void UFbBridge::Quit() { if (Owner) Owner->QuitGame(); }
 
 // ------------------------------------------------------------------------------------------------ actor
 AFbWebGame::AFbWebGame()
@@ -42,6 +67,13 @@ AFbWebGame::AFbWebGame()
 	PrimaryActorTick.bCanEverTick = true;
 	Scene = CreateDefaultSubobject<USceneComponent>(TEXT("Scene"));
 	RootComponent = Scene;
+}
+
+void AFbWebGame::SetTyping(bool bOn) { if (KeyTap.IsValid()) KeyTap->bTyping = bOn; }
+
+void AFbWebGame::QuitGame()
+{
+	if (APlayerController* PC = GetWorld()->GetFirstPlayerController()) PC->ConsoleCommand(TEXT("quit"));
 }
 
 void AFbWebGame::PrepareLevel()
@@ -122,10 +154,18 @@ void AFbWebGame::BeginPlay()
 		GEngine->GameViewport->AddViewportWidgetContent(Browser.ToSharedRef(), 10);
 	}
 	else UE_LOG(LogTemp, Error, TEXT("[FB] web game: no game viewport"));
+
+	if (FSlateApplication::IsInitialized())
+	{
+		KeyTap = MakeShared<FFbKeyTap>();
+		FSlateApplication::Get().RegisterInputPreProcessor(KeyTap);
+	}
 }
 
 void AFbWebGame::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
+	if (KeyTap.IsValid() && FSlateApplication::IsInitialized()) FSlateApplication::Get().UnregisterInputPreProcessor(KeyTap);
+	KeyTap.Reset();
 	if (Browser.IsValid() && GEngine && GEngine->GameViewport) GEngine->GameViewport->RemoveViewportWidgetContent(Browser.ToSharedRef());
 	Browser.Reset();
 	Super::EndPlay(EndPlayReason);
@@ -164,6 +204,11 @@ void AFbWebGame::Tick(float DeltaSeconds)
 			bInputSet = true;
 		}
 		if (Cam && PC->GetViewTarget() != Cam) PC->SetViewTarget(Cam);
+	}
+	if (KeyTap.IsValid() && KeyTap->Pending.Num() > 0)
+	{
+		if (Browser.IsValid()) Browser->ExecuteJavascript(FString::Join(KeyTap->Pending, TEXT("")));
+		KeyTap->Pending.Reset();
 	}
 	if (Age > NextLog)
 	{

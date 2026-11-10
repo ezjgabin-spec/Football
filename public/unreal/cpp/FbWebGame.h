@@ -6,6 +6,7 @@
 #include "FbWebGame.generated.h"
 
 class SWebBrowser;
+class FFbKeyTap;
 class AFbWebGame;
 class UProceduralMeshComponent;
 class UMaterialInterface;
@@ -23,6 +24,8 @@ public:
 	UFUNCTION() void Report(FString Msg);        // window.ue.fb.report("text")  -> written to the Unreal log as [FB] ...
 	UFUNCTION() void Asset(FString Data);        // window.ue.fb.asset(json)     -> a mesh, a texture or a material (sent once)
 	UFUNCTION() void Frame(FString Data);        // window.ue.fb.frame(json)     -> this frame: camera, what is visible, where everything is, every player's bones
+	UFUNCTION() void Typing(FString On);         // window.ue.fb.typing("1")   -> a text box has the focus: let the browser have the keyboard
+	UFUNCTION() void Quit();                     // window.ue.fb.quit()         -> close the game
 	UPROPERTY() AFbWebGame* Owner = nullptr;
 };
 
@@ -75,6 +78,8 @@ public:
 
 	void OnAsset(const FString& Data);
 	void OnFrame(const FString& Data);
+	void SetTyping(bool bOn);
+	void QuitGame();
 
 private:
 	UPROPERTY() UFbBridge* Bridge = nullptr;
@@ -91,6 +96,7 @@ private:
 	UPROPERTY() UMaterialInterface* BaseFallback = nullptr;
 
 	TSharedPtr<SWebBrowser> Browser;
+	TSharedPtr<FFbKeyTap> KeyTap;
 	TMap<int32, FFbGeom> Geoms;
 	TMap<int32, FFbMat> Mats;
 	TMap<int32, FFbObj> Objs;

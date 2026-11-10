@@ -6,7 +6,7 @@
 (function () {
   'use strict';
   if (window.__fbue) { try { window.__fbue.hello(); } catch (e) {} return; }
-  var U = window.__fbue = { ver: 5, webGfx: false, frames: 0, bytes: 0, assetBytes: 0, budget: 700000, maxInstVerts: 90000, log: [] };
+  var U = window.__fbue = { ver: 6, webGfx: false, frames: 0, bytes: 0, assetBytes: 0, budget: 700000, maxInstVerts: 90000, log: [] };
   function bridge() { return window.ue && window.ue.fb; }
   function report(m) { try { var b = bridge(); if (b) b.report(String(m)); else console.log('FBUE ' + m); } catch (e) {} }
   U.report = report;
@@ -51,6 +51,28 @@
     }, true);
   });
 
+  // Unreal reads the keyboard itself and calls this for every key press / release (so it does not matter what has the focus).
+  U.ueKeys = false;
+  function editable(el) { return !!(el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)); }
+  U.key = function (down, kc, shift, ctrl, alt, repeat) {
+    U.ueKeys = true;
+    var k = kc, code = '';
+    if (kc === 160 || kc === 161) { code = kc === 160 ? 'ShiftLeft' : 'ShiftRight'; k = 16; }
+    else if (kc === 162 || kc === 163) { code = kc === 162 ? 'ControlLeft' : 'ControlRight'; k = 17; }
+    else if (kc === 164 || kc === 165) { code = kc === 164 ? 'AltLeft' : 'AltRight'; k = 18; }
+    else code = codeOf(kc);
+    if (!code || editable(document.activeElement)) return;
+    var type = down ? 'keydown' : 'keyup';
+    var ev = new KeyboardEvent(type, { key: keyOf(k, !!shift, code), code: code, keyCode: k, which: k, shiftKey: !!shift, ctrlKey: !!ctrl, altKey: !!alt, repeat: !!repeat, bubbles: true, cancelable: true, composed: true });
+    try { Object.defineProperty(ev, 'keyCode', { get: function () { return k; } }); Object.defineProperty(ev, 'which', { get: function () { return k; } }); } catch (x) {}
+    ev.__fb = true;
+    if (keySeen < 4 && down) report('key from Unreal: code=' + code + ' keyCode=' + k);
+    (document.getElementById('game') || document.body).dispatchEvent(ev);
+  };
+  function tellTyping() { try { var b = bridge(); if (b && b.typing) b.typing(editable(document.activeElement) ? '1' : '0'); } catch (e) {} }
+  document.addEventListener('focusin', tellTyping, true);
+  document.addEventListener('focusout', function () { setTimeout(tellTyping, 0); }, true);
+
   // ------------------------------------------------------------------ 2. page layout: the game fills the window, the page's own 3D canvas is hidden, Unreal shows through
   var css = document.createElement('style');
   css.id = 'fbue-css';
@@ -59,12 +81,58 @@
     'html.fbue .screen{background:transparent!important}' +
     'html.fbue .wrap > :not(.screen){visibility:hidden!important}' +
     'html.fbue #gl{background:transparent!important}' +
-    'html.fbue.fbue-native #gl{opacity:0!important}';
+    'html.fbue.fbue-native #gl{opacity:0!important}' +
+    'html.fbue-menu #game{opacity:0!important;pointer-events:none!important}' +
+    '#fbue-menu{display:none;position:fixed;left:0;top:0;width:100vw;height:100vh;z-index:99999;font-family:Arial Black,Arial,Helvetica,sans-serif;color:#fff;background:linear-gradient(90deg,rgba(3,6,16,.92) 0%,rgba(3,6,16,.62) 34%,rgba(3,6,16,0) 60%);user-select:none}' +
+    'html.fbue-menu #fbue-menu{display:block}' +
+    '#fbue-menu .in{position:absolute;left:6vw;top:10vh;width:34vw}' +
+    '#fbue-menu .t1{font-size:7.2vh;line-height:1;letter-spacing:.04em}' +
+    '#fbue-menu .t2{font-size:7.2vh;line-height:1.1;letter-spacing:.04em;color:#ffd24a}' +
+    '#fbue-menu .sub{font:700 1.7vh Arial,Helvetica,sans-serif;letter-spacing:.3em;color:#9fb4d8;margin:1.2vh 0 6vh}' +
+    '#fbue-menu button{display:block;width:100%;margin:0 0 1.8vh;padding:2.1vh 2vw;font:900 3vh Arial Black,Arial,sans-serif;letter-spacing:.06em;text-align:left;color:#fff;background:rgba(18,30,60,.85);border:2px solid rgba(255,255,255,.28);border-left:8px solid #ffd24a;border-radius:6px;cursor:pointer}' +
+    '#fbue-menu button:hover{background:#1f6f3a;border-color:#fff}' +
+    '#fbue-menu button.small{font-size:1.9vh;padding:1.3vh 2vw;border-left-color:#6f86b8;background:rgba(18,30,60,.6)}' +
+    '#fbue-menu .hint{position:absolute;left:6vw;bottom:4vh;font:700 1.6vh Arial,Helvetica,sans-serif;color:#9fb4d8;letter-spacing:.08em}';
   (document.head || document.documentElement).appendChild(css);
   document.documentElement.classList.add('fbue');
   try { document.body.classList.add('fbfs'); } catch (e) {}       // the game's own full-window layout (16:9, centred)
   function setNative(on) { U.webGfx = !on; document.documentElement.classList.toggle('fbue-native', !!on); }
   U.setNative = setNative;
+
+  // ------------------------------------------------------------------ 2b. a plain start menu (click only) instead of the walk-around lobby
+  var menu = document.createElement('div');
+  menu.id = 'fbue-menu';
+  menu.innerHTML = '<div class="in"><div class="t1">ULTIMATE</div><div class="t2">FOOTBALL</div><div class="sub">UNREAL EDITION</div>' +
+    '<button data-a="play">PLAY GAME</button>' +
+    '<button data-a="tut" class="small">TUTORIAL</button>' +
+    '<button data-a="full" class="small">FULL MENU (ULTIMATE TEAM, SHOP, FRIENDS...)</button>' +
+    '<button data-a="quit" class="small">QUIT</button></div>' +
+    '<div class="hint">IN A GAME: WASD MOVE - SHIFT SPRINT - MOUSE AIMS AND THROWS - F9 OLD GRAPHICS - M THIS MENU</div>';
+  (document.body || document.documentElement).appendChild(menu);
+  var menuHold = false;
+  function gameApi() { return window.BLACKTOP && window.BLACKTOP.fb; }
+  menu.addEventListener('click', function (e) {
+    var b = e.target && e.target.closest ? e.target.closest('button') : null; if (!b) return;
+    var a = b.getAttribute('data-a'), G = gameApi();
+    if (a === 'quit') { try { bridge().quit(); } catch (x) {} return; }
+    menuHold = true;                                    // show the game's own screens until we are back in the lobby
+    if (!G) return;
+    try {
+      if (a === 'play') { G.act('play'); setTimeout(function () { try { if (G.FB.scr === 'howto') G.act('howok'); } catch (x) {} }, 400); }
+      else if (a === 'tut') G.act('tut');
+    } catch (x2) { report('menu action failed: ' + x2); }
+  });
+  var wasLobby = false;
+  setInterval(function () {
+    var G = gameApi(), F = G && G.FB, lobby = !!(F && F.on && F.scr === 'lobby');
+    if (lobby && !wasLobby && !menuFirst) menuHold = false;          // came back from a game: show the menu again
+    if (lobby) menuFirst = false;
+    wasLobby = lobby;
+    var show = lobby && !menuHold && !document.getElementById('utAuth') && !document.getElementById('fbLoading');
+    document.documentElement.classList.toggle('fbue-menu', show);
+  }, 150);
+  var menuFirst = true;
+  window.addEventListener('keydown', function (e) { if (e.code === 'KeyM' && !editable(document.activeElement)) { var G = gameApi(); if (G && G.FB && G.FB.scr === 'lobby') menuHold = !menuHold; } }, true);
 
   // ------------------------------------------------------------------ 3. scene streaming
   if (typeof THREE === 'undefined') { report('THREE not found: the page keeps drawing by itself'); return; }
