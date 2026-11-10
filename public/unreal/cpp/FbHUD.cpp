@@ -48,6 +48,7 @@ void AFbHUD::DrawHUD()
 		if (!Match) return;
 	}
 	W = (float)Canvas->SizeX; H = (float)Canvas->SizeY; S = H / 1080.f;
+	Txt(Match->AssetInfo.Left(160), 8.f * S, H - 22.f * S, 0.9f, FLinearColor(1.f, 1.f, 0.4f, 1.f));
 
 	switch (Match->Stage)
 	{

@@ -17,6 +17,11 @@
 #include "AssetRegistry/ARFilter.h"
 #include "Modules/ModuleManager.h"
 #include "EngineUtils.h"
+#include "Engine/Engine.h"
+#include "Engine/DirectionalLight.h"
+#include "Components/LightComponent.h"
+#include "GameFramework/HUD.h"
+#include "GameFramework/GameModeBase.h"
 
 AFbMatch::AFbMatch()
 {
@@ -37,8 +42,59 @@ void AFbMatch::BeginPlay()
 	SpawnPuppets();
 	SpawnBall();
 	SpawnCamera();
+	EnsureField();
 	FFbMeta::Get();
 	GoMenu();
+	const FString Msg = FString::Printf(TEXT("FB: map=%s  gamemode=%s  hud=%s  | %s"), *GetWorld()->GetMapName(),
+		GetWorld()->GetAuthGameMode() ? *GetWorld()->GetAuthGameMode()->GetClass()->GetName() : TEXT("none"),
+		(PC && PC->GetHUD()) ? *PC->GetHUD()->GetClass()->GetName() : TEXT("none"), *AssetInfo);
+	UE_LOG(LogTemp, Log, TEXT("[FB] %s"), *Msg);
+	if (GEngine) GEngine->AddOnScreenDebugMessage(7001, 600.f, FColor::Yellow, Msg);
+}
+
+void AFbMatch::EnsureField()
+{
+	// if the level has no football field (wrong map), build a plain one so there is always something to play on
+	bool bHas = false;
+	for (TActorIterator<AStaticMeshActor> It(GetWorld()); It; ++It)
+		if (It->GetActorNameOrLabel().Contains(TEXT("FB_Turf"))) { bHas = true; break; }
+	if (bHas) return;
+	UStaticMesh* Plane = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Plane.Plane"));
+	UStaticMesh* Cube = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Cube.Cube"));
+	if (Plane)
+	{
+		UStaticMeshComponent* Turf = NewObject<UStaticMeshComponent>(this);
+		Turf->SetStaticMesh(Plane);
+		Turf->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		Turf->RegisterComponent();
+		Turf->AttachToComponent(Scene, FAttachmentTransformRules::KeepRelativeTransform);
+		Turf->SetWorldLocation(FVector(0.f, 0.f, 0.f));
+		Turf->SetWorldScale3D(FVector(130.f * FB_YD / 100.f, 70.f * FB_YD / 100.f, 1.f));
+		UMaterialInstanceDynamic* M = Turf->CreateAndSetMaterialInstanceDynamic(0);
+		if (M) M->SetVectorParameterValue(TEXT("Color"), FLinearColor(0.03f, 0.25f, 0.05f, 1.f));
+	}
+	if (Cube)
+	{
+		for (int32 X = -50; X <= 50; X += 5)
+		{
+			UStaticMeshComponent* L = NewObject<UStaticMeshComponent>(this);
+			L->SetStaticMesh(Cube);
+			L->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+			L->RegisterComponent();
+			L->AttachToComponent(Scene, FAttachmentTransformRules::KeepRelativeTransform);
+			L->SetWorldLocation(FVector((float)X * FB_YD, 0.f, 2.f));
+			L->SetWorldScale3D(FVector(0.12f, 53.3f * FB_YD / 100.f, 0.02f));
+			UMaterialInstanceDynamic* M = L->CreateAndSetMaterialInstanceDynamic(0);
+			if (M) M->SetVectorParameterValue(TEXT("Color"), FLinearColor(0.9f, 0.9f, 0.9f, 1.f));
+		}
+	}
+	ADirectionalLight* Sun = GetWorld()->SpawnActor<ADirectionalLight>(FVector(0.f, 0.f, 3000.f), FRotator(-50.f, 30.f, 0.f));
+	if (Sun && Sun->GetLightComponent())
+	{
+		Sun->GetLightComponent()->SetMobility(EComponentMobility::Movable);
+		Sun->GetLightComponent()->SetIntensity(8.f);
+	}
+	UE_LOG(LogTemp, Log, TEXT("[FB] no FB_Turf in this level - built a plain field"));
 }
 
 void AFbMatch::CleanupLevel()
@@ -55,18 +111,23 @@ void AFbMatch::LoadAssets()
 {
 	FAssetRegistryModule& ARM = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
 	IAssetRegistry& AR = ARM.Get();
+	AR.SearchAllAssets(true);       // finish scanning now (a standalone game starts before the scan is done)
 
 	{
-		FARFilter F;
-		F.PackagePaths.Add(FName(TEXT("/Game/Football")));
-		F.bRecursivePaths = true;
-		F.ClassPaths.Add(USkeletalMesh::StaticClass()->GetClassPathName());
-		TArray<FAssetData> Found;
-		AR.GetAssets(F, Found);
-		for (const FAssetData& D : Found)
+		const TCHAR* Roots[2] = { TEXT("/Game/Football"), TEXT("/Game") };
+		for (int32 r = 0; r < 2 && !PlayerMesh; r++)
 		{
-			USkeletalMesh* M = Cast<USkeletalMesh>(D.GetAsset());
-			if (M) { PlayerMesh = M; break; }
+			FARFilter F;
+			F.PackagePaths.Add(FName(Roots[r]));
+			F.bRecursivePaths = true;
+			F.ClassPaths.Add(USkeletalMesh::StaticClass()->GetClassPathName());
+			TArray<FAssetData> Found;
+			AR.GetAssets(F, Found);
+			for (const FAssetData& D : Found)
+			{
+				USkeletalMesh* M = Cast<USkeletalMesh>(D.GetAsset());
+				if (M) { PlayerMesh = M; break; }
+			}
 		}
 	}
 	if (PlayerMesh)
@@ -76,7 +137,7 @@ void AFbMatch::LoadAssets()
 	}
 	{
 		FARFilter F;
-		F.PackagePaths.Add(FName(TEXT("/Game/Football")));
+		F.PackagePaths.Add(FName(TEXT("/Game")));
 		F.bRecursivePaths = true;
 		F.ClassPaths.Add(UAnimSequence::StaticClass()->GetClassPathName());
 		TArray<FAssetData> Found;

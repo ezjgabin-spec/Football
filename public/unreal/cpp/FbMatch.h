@@ -79,6 +79,7 @@ private:
 	bool Edge(const FKey& K);
 	void UpdateInput();
 	void CleanupLevel();
+	void EnsureField();
 	void LoadAssets();
 	void SpawnPuppets();
 	void SpawnBall();
