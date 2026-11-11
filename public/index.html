@@ -17390,7 +17390,7 @@ const FBD = [
   { n:'PRO',     def:0.95, rush:2.9, cov:0.75, int:0.55, tk:0.75, cpu:1.00, delay:0.30, acc:15 },
   { n:'ALL-PRO', def:1.00, rush:2.3, cov:1.00, int:0.85, tk:0.90, cpu:1.18, delay:0.15, acc:19 }
 ];
-/* v153: DEFENSE LOCK. The higher the tier of the CPU defense (season division 5 -> 1, plus the difficulty), the closer it plays to a lock: faster, tighter in coverage, a pass rush that
+/* v154: DEFENSE LOCK. The higher the tier of the CPU defense (season division 5 -> 1, plus the difficulty), the closer it plays to a lock: faster, tighter in coverage, a pass rush that
    beats the line sooner, more picks, more tackles. Never when YOU are the defense, never in an online 1v1. FB.lock: 0 = how it always was, 1 = a Division 1 lockdown. */
 const FBD_BASE = FBD.map(o => Object.assign({}, o));
 function fbLockSync(){
@@ -18376,17 +18376,18 @@ function fbChoosePlayerAnimation(p,P){
   if(p.eng&&!p.free&&fbHasBlockingContact(p))return FB_MODEL.clips&&FB_MODEL.clips.push?'push':'offenseIdle';
   if(FB.scr==='dead'){if(s&&s.tdcLive){if(p.getUp)return 'offenseIdle';if(p.down||p.tackling)return 'fallen';return speed>=5.5?'fastRun':speed>0.8?'run':'offenseIdle';}if((p.fbPointUntil||0)>now)return 'point';if(p.down||p.tackling)return 'fallen';return 'offenseIdle';}
   if(p.down||p.tackling)return 'fallen';
-  if(p.getUp||p.st==='rise')return 'offenseIdle';   // v153: no hurt / limping clip any more
+  if(p.getUp||p.st==='rise')return 'offenseIdle';   // v154: no hurt / limping clip any more
   if((p.fbPointUntil||0)>now)return 'point';
   if(s&&s.thrown&&s.ball&&s.ball.mode==='fly'&&p.side==='O'&&p===s.targetMan&&p.reachT>0&&fbCatchAnimationMoment(p))return 'catch';
   if(p.diveT>0||p.slid)return p.slid?'slide':'dive';
   if(p.diving)return 'dive';
   if(p.jumpT>0)return 'catch';
-  if(p.role==='QB'&&(p.qbPh||0)>0&&!p.carry)return qbtAnimKey(p);       // v153: cock / whip / follow-through of the QB throw library (or the qbPass throw)
-  if(p.hoK){const hk=hoAnimKey(p);if(hk)return hk;}                        // v153: handoff / toss / play-action pair (or the back's solo carry)
-  if(p.st==='throw'&&!p.carry&&((p.throwAnim||0)>0||(p.qbPh||0)>0||p.role!=='QB'))return 'qbPass';   // v153: a QB who tucked it and ran (or whose throw was cancelled) is not stuck in the throw pose
+  if(p.role==='QB'&&(p.qbPh||0)>0&&!p.carry)return qbtAnimKey(p);       // v154: cock / whip / follow-through of the QB throw library (or the qbPass throw)
+  if(p.hoK){const hk=hoAnimKey(p);if(hk)return hk;}                        // v154: handoff / toss / play-action pair (or the back's solo carry)
+  if(p.st==='throw'&&!p.carry&&((p.throwAnim||0)>0||(p.qbPh||0)>0||p.role!=='QB'))return 'qbPass';   // v154: a QB who tucked it and ran (or whose throw was cancelled) is not stuck in the throw pose
   if(p.st==='point')return 'point';
   if(p.st==='block'&&fbHasBlockingContact(p))return FB_MODEL.clips&&FB_MODEL.clips.push?'push':'offenseIdle';
+  { const tk=fbTurnAnim(p,speed,now); if(tk) return tk; }   // v154: sharp turns / turning on the spot
   if(p.carry||p.st==='carry')return speed>=5.5&&FB_MODEL.clips&&FB_MODEL.clips.fastRun?'fastRun':speed>0.8?'run':'offenseIdle';
   if(FB.scr==='live'){ const dk=dmChoose(p,now); if(dk) return dk; }
   if(speed>0.8||P.run){
@@ -18412,12 +18413,24 @@ function fbCatchAnimationMoment(p){
   const closing=d>0.001?-(rx*rvx+rz*rvz)/d:0;
   return d<3.8&&closing>0.5&&d/closing<0.28;
 }
+function fbTurnAnim(p,speed,now){   // v154: any player cutting hard at speed plays the run-turn clip (it was only used once per play by edge rushers); turning on the spot steps instead of rotating in the idle pose
+  if(FB.scr!=='live'||p.down||p.tackling||(p.eng&&!p.free)||p.st==='block'||p.diving||p.juke>0) return null;
+  if(p.side==='D'&&DM.state==='ready'&&DM_IDS[fbKind(p.role)]) return null;   // the defensive library (DEF_BREAK_*) has its own breaks
+  const C=FB_MODEL.clips; if(!C) return null; const yr=p.yawRate||0;
+  if(now<(p.turnClipUntil||0)&&C[p.turnClipKey]) return p.turnClipKey;
+  if(speed>3.5&&Math.abs(yr)>3&&now>(p.turnClipCd||0)&&C.runLeftTurn&&C.runRightTurn){ p.turnClipKey=yr>0?'runLeftTurn':'runRightTurn'; p.turnClipUntil=now+0.5; p.turnClipCd=now+1.1; return p.turnClipKey; }
+  if(speed<=0.8&&Math.abs(yr)>2.2&&C.run) p.turnStepUntil=now+0.25;
+  if(now<(p.turnStepUntil||0)&&speed<=0.8&&C.run) return 'run';
+  return null;
+}
+function fbRunTs(p,key){ const sp=Math.hypot(p.vx||0,p.vz||0); if(sp<=0.8) return 0.6; return key==='fastRun' ? clamp(sp/8.5,0.75,1.2) : key==='runBack' ? clamp(sp/4,0.6,1.2) : clamp(sp/4.5,0.55,1.15); }   // v154: 1.0 at the speed each loop was made for (stepping on the spot: 0.6)
 function fbTickPlayerAnimation(p,dt){
   const rg=p&&p.rig;if(!rg||!rg.fbMixer)return;
   const silent=['lobby','call','dcall','defask','hold','wait','dwait','drive','dead','over'].includes(FB.scr)&&!(FB.scr==='lobby'&&p===FB.lobbyAv)&&!(FB.scr==='dead'&&((p.fbPointUntil||0)>performance.now()/1000||(FB.s&&FB.s.hurtBy===p.role&&FB.s.deadClock>=2&&FB.s.deadClock<4)||(FB.s&&FB.s.tdcLive)))||FB_MODEL.loading||FB_MODEL.animLoading;
   const nowS=performance.now()/1000, uoLive=!!(p.uoK&&(nowS<(p.uoUntil||0)||(p.uoHold&&(p.down||p.tackling)))&&uoHas(p.uoK));
   if(silent&&!(uoLive&&!FB_MODEL.loading&&!FB_MODEL.animLoading)){if(rg.fbCurrent){Object.values(rg.fbActions||{}).forEach(a=>a.stop());if(rg.fbUoActs)Object.values(rg.fbUoActs).forEach(a=>a.stop());rg.fbCurrent=null;}return;}
   if(!FB_MODEL.clips)return;
+  { let yd=fbAd(p.face||0, p.aYaw===undefined ? (p.face||0) : p.aYaw); if (Math.abs(yd) > 1.2) yd = 0; p.aYaw=p.face||0; p.yawRate=dt>0 ? (p.yawRate||0)*0.7 + 0.3*yd/dt : 0; }   // v154: how fast his body is really turning (view only), for the turn clips
   const key=fbChoosePlayerAnimation(p,fbPoseOf(p));let action=key&&rg.fbActions[key];
   if(!action&&key&&(key.slice(0,3)==='uo:'||key.slice(0,3)==='dm:')){const uc=uoClipFor(rg,key.slice(3));if(uc){rg.fbUoActs=rg.fbUoActs||{};action=rg.fbUoActs[key]||(rg.fbUoActs[key]=rg.fbMixer.clipAction(uc));}}
   if(!action){if(rg.fbCurrent){Object.values(rg.fbActions).forEach(a=>a.stop());if(rg.fbUoActs)Object.values(rg.fbUoActs).forEach(a=>a.stop());rg.fbCurrent=null;}rg.fbMixer.update(HFX.stop>0?0:dt);return;}
@@ -18431,8 +18444,9 @@ function fbTickPlayerAnimation(p,dt){
     rg.fbCurrent=key;
   }
   if(key.slice(0,3)==='dm:')action.setEffectiveTimeScale(p.dmTs||1);
+  else if(key==='run'||key==='fastRun'||key==='runBack')action.setEffectiveTimeScale(fbRunTs(p,key));   // v154: the run cycle follows his real speed (no skating feet, no frozen sprint while he turns slowly)
   if(p.role==='QB'&&(p.qbPh||0)>0&&(key===QB_THROW.legacy.key||(p.qbClip&&key==='dm:'+p.qbClip.path))){action.setEffectiveTimeScale(0);action.time=qbtClipTime(p,action.getClip().duration);}   // the clip follows the throw phase frame by frame
-  if(p.hoK&&key.slice(0,3)==='dm:'&&HO.ids[p.hoK]&&key==='dm:'+HO.ids[p.hoK].path){action.setEffectiveTimeScale(0);action.time=clamp(p.hoT||0,0,action.getClip().duration-0.001);}   // v153: the pair's clock is the game's exchange
+  if(p.hoK&&key.slice(0,3)==='dm:'&&HO.ids[p.hoK]&&key==='dm:'+HO.ids[p.hoK].path){action.setEffectiveTimeScale(0);action.time=clamp(p.hoT||0,0,action.getClip().duration-0.001);}   // v154: the pair's clock is the game's exchange
   try{dmAdditive(p,rg,nowS);}catch(e){}
   rg.fbMixer.update(HFX.stop>0?0:dt);
   if(rg.fbPoseTransition){const tr=rg.fbPoseTransition;tr.time+=dt;const u=Math.min(1,tr.time/.12),w=u*u*(3-2*u);tr.bones.forEach(v=>v.bone.quaternion.slerpQuaternions(v.q,v.bone.quaternion.clone(),w));if(u>=1)rg.fbPoseTransition=null;}
@@ -18895,7 +18909,7 @@ function fbHitSound(level, imp){
    The renderer works in the old "legacy" colour pipeline (no sRGB output, light x albedo goes through the ACES curve as it is), so these are plain multipliers. */
 const PIC_LOOK = {
   night: {                                   // the floodlit night game (the only state the game can reach today)
-    exposure: 1.16, exposureGfx: 1.0,        // ACES exposure with the cinematic picture (GFX, F8) off = the default / on (GFX runs the curve a second time, which lifts the mid-tones). The ONE place the football exposure is set (picExposure)
+    exposure: 1.08, exposureGfx: 1.08,       // exposure of the ONE tone curve, straight picture / HDR chain: the same number, the two pictures agree. The ONE place the football exposure is set (picExposure)
     key: '#f7f9ff', keyI: 1.12,              // the shadow-casting key: neutral white, a breath cool
     hemiSky: '#e3e8f2', hemiGround: '#6f7c5c', hemi: 0.52,   // sky side = the spill of all the banks; ground side = bounce off the lit turf (green-grey, bright enough that undersides never go black)
     fill: '#f2f5fc', fillI: 0.42,            // the 4 point lights on the canopy edge above the sidelines: the floodlight banks as soft cross light on bodies
@@ -18941,10 +18955,10 @@ function picRig(on){
   const q = on ? PIC_LOOK.night : PIC_LOOK.day;
   if (fbHemi) { fbHemi.intensity = q.hemi; fbHemi.color.set(q.hemiSky); fbHemi.groundColor.set(q.hemiGround); }
   if (fbSun) { fbSun.intensity = q.keyI; fbSun.color.set(q.key); }
-  if (FB.nightLights) FB.nightLights.forEach(L => { L.intensity = q.fillI; L.color.set(q.fill); });
+  if (FB.nightLights) FB.nightLights.forEach(L => { L.intensity = q.fillI * (PIC.fillK || 1); L.color.set(q.fill); });
   if (FB.blueLights) FB.blueLights.forEach(L => { L.intensity = q.blueI; L.color.set(q.blue); });
   const r = FB.rimLight; if (r) { r.intensity = q.rimI; r.color.set(q.rim); r.position.set(q.rimDir[0]*100, q.rimDir[1]*100, q.rimDir[2]*100); }
-  PIC.q = q; picExposure();
+  PIC.q = q; picExposure(); try { picLights(FBQ.level); } catch(e){}
 }
 // exposure: every drawn football frame (and from picRig). Follows the cinematic picture being switched on / off (F8, its frame-rate governor) so both pictures are equally bright.
 function picExposure(){
@@ -19228,7 +19242,7 @@ function fldStripMat(col){
    the shader gives every fan his own shirt, skin, hair and trousers. Poses, standing up, jumping and the wave are chosen in the vertex shader from a handful of numbers
    (CROWD.U) that crowdTick() sets once per frame - nothing per fan runs on the CPU. */
 const CROWD_LOOK = {
-  dimNight: 0.74,                 // brightness of everything in the stands at night (fans, seats, concrete), 1 = as painted. The field stays bright, the stands sit back
+  dimNight: 0.90,                 // brightness of everything in the stands at night (fans, seats, concrete), 1 = as painted. The field stays bright, the stands sit back
   dimDay: 0.92,                   // the same in daylight
   tintNight: '#eef1ff',           // colour of the light that reaches the stands at night (neutral, a touch cool)
   tintDay: '#fff3e2',             // ... by day
@@ -19738,7 +19752,7 @@ const CAM_LOOK = {
   on: true,                                  // false: every style behaves like CLASSIC (kill switch)
   rigs: [                                    // relative to the camera focus (the QB before the snap, the ball carrier / the ball in flight after it)
     { name:'BROADCAST', back:16.5, h:12.5, ahead:8.0, lookY:0.9, fov:44, zPos:0.76, zLook:0.76, ahead0:8.0 },   // pitch about 25 degrees down; zPos = zLook: the camera never yaws, the yard lines stay level
-    { name:'CLASSIC',   back:12.6, h:9.3,  ahead:17,  lookY:0.9, fov:58, zPos:0.92, zLook:0.90, ahead0:13 }     // the v153 camera, untouched numbers
+    { name:'CLASSIC',   back:12.6, h:9.3,  ahead:17,  lookY:0.9, fov:58, zPos:0.92, zLook:0.90, ahead0:13 }     // the v154 camera, untouched numbers
   ],
   kick: { back:12.6, h:6, ahead:17, zPos:0.92, zLook:0.90, dx:-1, dy:1, lookDx:6, lookY:0.5, fov:62 },          // field goal / extra point (both styles)
   ovFov: 50,                                 // lens of the override shots (lobby, coach cut-scene)
@@ -19841,7 +19855,7 @@ function fbCamFrame(s){
   }
   if (kick) { fbCam.position.set(c.x+G.dx,c.y+G.dy,c.z); fbCam.lookAt(c.lx+G.lookDx,G.lookY,c.lz); fbCam.fov = G.fov; }
   else if (ov) { fbCam.lookAt(c.lx, ov.ly, c.lz); fbCam.fov = L.ovFov; }
-  else { fbCam.lookAt(lx,ly,lz); fbCam.fov = fov; try { fbCineApply({ x:lx, y:ly, z:lz }, fov); } catch(e){} }
+  else { fbCam.lookAt(lx,ly,lz); fbCam.fov = fov; try { const lk = fbCamSt.lk || (fbCamSt.lk = { x:0, y:0, z:0 }); lk.x = lx; lk.y = ly; lk.z = lz; fbCineApply(lk, fov); } catch(e){} }
   if (FB.intro) { try { fbIntroCam(); } catch(e){ console.error('introcam',e); FB.intro = null; } }
   if (HFX.t0 > 0 && scr!=='replay' && scr!=='lobby') fbHitCam();      // HITFX: additive punch
   fbCam.updateProjectionMatrix();
@@ -20503,9 +20517,17 @@ function utxAct(id){
    The field is drawn into a high-range off-screen picture first; bright things (floodlights, ad boards, white kit under the lights) then glow,
    the whole picture gets a filmic tone curve, a light colour grade, a soft vignette and a touch of sharpening, and helmets / pads pick up
    reflections of the stadium lights. Football only. F8 switches it on and off; it turns itself down if the frame rate drops. */
-const GFX = { on:false, level:2, ready:false, fail:false, rt:null, down:[], up:[], scene:null, cam:null, tri:null, mPre:null, mDown:null, mUp:null, mFinal:null, w:0, h:0, lvl:-1, half:false,
-  bloom:0.30, thr:1.18, knee:0.22, vig:0.30, sat:1.14, con:1.10, sharp:0.07, env:null, envFor:null, tPrev:0, acc:0, n:0, slow:0, MIPS:5 };
-try { GFX.on = localStorage.getItem('uf-gfx') === '1'; } catch(e){}      // off unless the player switched it on with F8
+/* GFX_LOOK: every number of the HDR picture chain. Scene units are BEFORE exposure and before the tone curve (the scene pass is drawn with no tone mapping). */
+const GFX_LOOK = {
+  thr: 1.55, knee: 0.45,                    // bloom bright pass: only what is brighter than lit white kit glows = the lamps / LED boards (their colour is lifted above 1 while the chain is on)
+  bloom: [0, 0, 0.55, 0.70],                // glow strength per preset LOW / MEDIUM / HIGH / ULTRA (0 = no bloom passes)
+  sat: 1.04, con: 1.03, vig: 0.10,          // the grade: nearly neutral (the straight picture has none, the two must look like the same game)
+  emit: { flood: 5.0, led: 1.55, screen: 1.35 }   // colour multiplier of the emitters while the chain is on: floodlight faces, LED boards / ribbons, the video board
+};
+const GFX = { on:false, level:0, mode:0, force:'', live:false, tm:THREE.ACESFilmicToneMapping, ready:false, fail:false, lost:false, chk:0, v2:null, em:null, rt:null, down:[], up:[], scene:null, cam:null, tri:null, mPre:null, mDown:null, mUp:null, mFinal:null, w:0, h:0, lvl:-1, half:false,
+  bloom:0, thr:GFX_LOOK.thr, knee:GFX_LOOK.knee, vig:GFX_LOOK.vig, sat:GFX_LOOK.sat, con:GFX_LOOK.con, env:null, envFor:null, MIPS:5 };
+// GFX.force: '' = the graphics preset decides (HIGH / ULTRA run the HDR chain), '1' / '0' = forced on / off (localStorage 'uf-gfx', set by the test harness). GFX.on / .mode = what is really running (gfxApply)
+try { const v = localStorage.getItem('uf-gfx'); GFX.force = v === '1' ? '1' : v === '0' ? '0' : ''; } catch(e){}
 function gfxInit(){
   if (GFX.ready || GFX.fail) return GFX.ready;
   try {
@@ -20534,30 +20556,31 @@ function gfxInit(){
       'void main(){ vec3 s = texture2D(tD, vUv + vec2(-hp.x*2.0, 0.0)).rgb; s += texture2D(tD, vUv + vec2(-hp.x, hp.y)).rgb * 2.0; s += texture2D(tD, vUv + vec2(0.0, hp.y*2.0)).rgb; s += texture2D(tD, vUv + vec2(hp.x, hp.y)).rgb * 2.0;',
       '  s += texture2D(tD, vUv + vec2(hp.x*2.0, 0.0)).rgb; s += texture2D(tD, vUv + vec2(hp.x, -hp.y)).rgb * 2.0; s += texture2D(tD, vUv + vec2(0.0, -hp.y*2.0)).rgb; s += texture2D(tD, vUv + vec2(-hp.x, -hp.y)).rgb * 2.0;',
       '  gl_FragColor = vec4(s / 12.0 + texture2D(tA, vUv).rgb * wA, 1.0); }'].join('\n'), { tD:{value:null}, tA:{value:null}, hp:{value:new THREE.Vector2()}, wA:{value:1} });
-    // 4. the final picture: glow added, filmic tone curve (the same one the game used before), colour grade, vignette, sharpening, smooth edges
+    // 4. the final picture: glow added, ONE filmic tone curve (the scene pass was drawn with none), a nearly neutral grade, a soft vignette, dither. No sharpening (it only drew halos round the kit).
     GFX.mFinal = mk([
-      'varying vec2 vUv; uniform sampler2D tS; uniform sampler2D tB; uniform vec2 px; uniform float strength; uniform float exposure; uniform float filmic; uniform float vig; uniform float sat; uniform float con; uniform float sharp; uniform float fxaa; uniform float tm;',
+      'varying vec2 vUv; uniform sampler2D tS; uniform sampler2D tB; uniform vec2 px; uniform float strength; uniform float exposure; uniform float vig; uniform float sat; uniform float con; uniform float fxaa; uniform float tm;',
       'vec3 fit(vec3 v){ vec3 a = v * (v + 0.0245786) - 0.000090537; vec3 b = v * (0.983729 * v + 0.4329510) + 0.238081; return a / b; }',
       'vec3 aces(vec3 c){ const mat3 mi = mat3(vec3(0.59719, 0.07600, 0.02840), vec3(0.35458, 0.90834, 0.13383), vec3(0.04823, 0.01566, 0.83777)); const mat3 mo = mat3(vec3(1.60475, -0.10208, -0.00327), vec3(-0.53108, 1.10813, -0.07276), vec3(-0.07367, -0.00605, 1.07602));',
-      '  c *= exposure / 0.6; c = mi * c; c = fit(c); c = mo * c; return clamp(c, 0.0, 1.0); }',
-      'vec3 tone(vec3 c){ return filmic > 0.5 ? aces(c) : clamp(c, 0.0, 1.0); }',
+      '  c *= exposure / 0.6; c = mi * c; c = fit(c); c = mo * c; return clamp(c, 0.0, 1.0); }',       // the same curve three.js puts into the materials (ACESFilmicToneMapping), so the chain and the straight picture agree
       'float luma(vec3 c){ return dot(c, vec3(0.299, 0.587, 0.114)); }',
-      'vec3 scn(vec2 uv){ return texture2D(tS, uv).rgb + texture2D(tB, uv).rgb * strength; }',
+      'vec3 scn(vec2 uv){ vec3 h = texture2D(tS, uv).rgb; if (strength > 0.0) h += texture2D(tB, uv).rgb * strength; return aces(max(h, vec3(0.0))); }',
       'void main(){',
-      '  vec3 c = tone(scn(vUv));',
-      '  vec3 n = tone(scn(vUv + vec2(0.0, px.y))), s = tone(scn(vUv - vec2(0.0, px.y))), e = tone(scn(vUv + vec2(px.x, 0.0))), w = tone(scn(vUv - vec2(px.x, 0.0)));',
+      '  vec3 c = scn(vUv);',
       '  if (fxaa > 0.5) {',                                   // a light edge smoothing for when true multisampling is not available
+      '    vec3 n = scn(vUv + vec2(0.0, px.y)), s = scn(vUv - vec2(0.0, px.y)), e = scn(vUv + vec2(px.x, 0.0)), w = scn(vUv - vec2(px.x, 0.0));',
       '    float lc = luma(c), ln = luma(n), ls = luma(s), le = luma(e), lw = luma(w); float lo = min(lc, min(min(ln, ls), min(le, lw))), hi = max(lc, max(max(ln, ls), max(le, lw)));',
       '    if (hi - lo > max(0.05, hi * 0.125)) { vec2 dir = vec2(-((ln) - (ls)), (le) - (lw)); float dl = max(abs(dir.x), abs(dir.y)) + 1e-4; dir = clamp(dir / dl, -1.0, 1.0) * px;',
-      '      vec3 ra = 0.5 * (tone(scn(vUv + dir * 0.5)) + tone(scn(vUv - dir * 0.5))); c = mix(c, ra, 0.75); } }',
-      '  else c = clamp(c + (c * 4.0 - n - s - e - w) * sharp, 0.0, 1.0);',
+      '      vec3 ra = 0.5 * (scn(vUv + dir * 0.5) + scn(vUv - dir * 0.5)); c = mix(c, ra, 0.75); } }',
       '  float l = dot(c, vec3(0.2126, 0.7152, 0.0722));',
       '  c = mix(vec3(l), c, sat); c = (c - 0.5) * con + 0.5;',
-      '  c += vec3(-0.010, 0.000, 0.016) * (1.0 - l) + vec3(0.012, 0.006, -0.008) * l;',          // shadows a touch cooler, highlights a touch warmer
       '  vec2 d = vUv - 0.5; c *= 1.0 - vig * smoothstep(0.18, 0.95, dot(d, d) * 2.2);',
       '  c += (fract(sin(dot(vUv * (1.0 + tm), vec2(12.9898, 78.233))) * 43758.5453) - 0.5) / 255.0;',  // hides colour banding in the dark sky
       '  gl_FragColor = vec4(clamp(c, 0.0, 1.0), 1.0); }'].join('\n'),
-      { tS:{value:null}, tB:{value:null}, px:{value:new THREE.Vector2()}, strength:{value:GFX.bloom}, exposure:{value:1}, filmic:{value:1}, vig:{value:GFX.vig}, sat:{value:GFX.sat}, con:{value:GFX.con}, sharp:{value:GFX.sharp}, fxaa:{value:0}, tm:{value:0} });
+      { tS:{value:null}, tB:{value:null}, px:{value:new THREE.Vector2()}, strength:{value:0}, exposure:{value:1}, vig:{value:GFX.vig}, sat:{value:GFX.sat}, con:{value:GFX.con}, fxaa:{value:0}, tm:{value:0} });
+    GFX.v2 = new THREE.Vector2();
+    // three.js does not throw when a shader fails to compile: compile every post shader now and look at the result. Anything wrong = no chain, the plain picture.
+    [GFX.mPre, GFX.mDown, GFX.mUp, GFX.mFinal].forEach(m => { GFX.tri.material = m; R3.compile(GFX.scene, GFX.cam); });
+    [GFX.mPre, GFX.mDown, GFX.mUp, GFX.mFinal].forEach(m => { const pr = R3.properties.get(m).currentProgram; if (!pr || (pr.diagnostics && pr.diagnostics.runnable === false)) throw new Error('post shader did not compile'); });
     GFX.ready = true;
   } catch(e){ console.warn('GFX init failed', e); GFX.fail = true; }
   return GFX.ready;
@@ -20594,41 +20617,144 @@ function gfxEnv(scene){
   } catch(e){ console.warn('GFX env failed', e); GFX.env = null; }
   return GFX.env;
 }
+function gfxPlain(scene, cam){                           // the straight picture: the tone curve sits in the materials, one pass
+  if (R3.toneMapping !== GFX.tm) R3.toneMapping = GFX.tm;
+  if (R3.getRenderTarget() !== null) R3.setRenderTarget(null);
+  R3.render(scene, cam);
+}
 function gfxRender(scene, cam){
-  if (!GFX.on || GFX.level <= 0 || !gfxInit()) { R3.render(scene, cam); return; }      // the reflection map is NOT tied to this chain any more (picEnvApply)
+  if (GFX.lost) return;                                  // the GL context is gone: three.js draws nothing until it is back
+  if (!GFX.on || GFX.mode <= 0 || GFX.fail || !GFX.ready) { gfxPlain(scene, cam); return; }
   try {
-    const now = performance.now();
-    if (GFX.tPrev) { const dt = now - GFX.tPrev; if (dt < 500) { GFX.acc += dt; GFX.n++; } }
-    GFX.tPrev = now;
-    if (GFX.n >= 150) {                                 // every ~150 frames: if we cannot hold ~36 frames a second, turn the picture quality down one step
-      const fps = 1000 * GFX.n / GFX.acc; GFX.acc = 0; GFX.n = 0;
-      if (fps < 36) { if (++GFX.slow >= 2) { GFX.slow = 0; GFX.level--; console.log('GFX quality lowered to ' + GFX.level + ' (' + fps.toFixed(0) + ' fps)'); if (GFX.level <= 0) { try { fbMsg('CINEMATIC GRAPHICS OFF (FRAME RATE)', '#ffd24a', 150); } catch(e){} } } } else GFX.slow = 0;
-      if (GFX.level <= 0) { R3.render(scene, cam); return; }
-    }
-    const sz = R3.getDrawingBufferSize(new THREE.Vector2()), w = Math.max(4, sz.x | 0), h = Math.max(4, sz.y | 0);
+    if (R3.toneMapping !== THREE.NoToneMapping) R3.toneMapping = THREE.NoToneMapping;     // the scene pass must hold raw light values: r150 would put the curve into the materials even for a render target
+    const sz = R3.getDrawingBufferSize(GFX.v2), w = Math.max(4, sz.x | 0), h = Math.max(4, sz.y | 0), gl = GFX.chk < 2 ? R3.getContext() : null;
+    if (gl && GFX.chk === 0) { while (gl.getError() !== 0) {} }                                 // the first frame of the chain is checked for GL errors (an unsupported framebuffer would give a black picture)
     gfxTargets(w, h);
     R3.setRenderTarget(GFX.rt); R3.render(scene, cam);
-    // bright parts -> half size
-    let u = GFX.mPre.uniforms; u.tD.value = GFX.rt.texture; u.px.value.set(1 / w, 1 / h); u.thr.value = GFX.thr; u.knee.value = GFX.knee;
-    gfxPass(GFX.mPre, GFX.down[0]);
-    for (let i = 1; i < GFX.MIPS; i++) { u = GFX.mDown.uniforms; u.tD.value = GFX.down[i-1].texture; u.hp.value.set(0.5 / GFX.down[i].width, 0.5 / GFX.down[i].height); gfxPass(GFX.mDown, GFX.down[i]); }
-    let src = GFX.down[GFX.MIPS - 1];
-    for (let i = GFX.MIPS - 2; i >= 0; i--) { u = GFX.mUp.uniforms; u.tD.value = src.texture; u.tA.value = GFX.down[i].texture; u.hp.value.set(0.5 / GFX.up[i].width, 0.5 / GFX.up[i].height); u.wA.value = 1; gfxPass(GFX.mUp, GFX.up[i]); src = GFX.up[i]; }
-    u = GFX.mFinal.uniforms; u.tS.value = GFX.rt.texture; u.tB.value = src.texture; u.px.value.set(1 / w, 1 / h);
-    u.strength.value = GFX.bloom / (GFX.MIPS - 1); u.exposure.value = R3.toneMappingExposure; u.filmic.value = R3.toneMapping === THREE.ACESFilmicToneMapping ? 1 : 0;
-    u.vig.value = GFX.vig; u.sat.value = GFX.sat; u.con.value = GFX.con; u.sharp.value = GFX.sharp; u.fxaa.value = GFX.level >= 2 ? 0 : 1; u.tm.value = (now * 0.001) % 7;
+    const bl = GFX.bloom > 0;
+    let u, src = null;
+    if (bl) {
+      u = GFX.mPre.uniforms; u.tD.value = GFX.rt.texture; u.px.value.set(1 / w, 1 / h); u.thr.value = GFX.thr; u.knee.value = GFX.knee;
+      gfxPass(GFX.mPre, GFX.down[0]);                                                          // bright parts -> half size
+      for (let i = 1; i < GFX.MIPS; i++) { u = GFX.mDown.uniforms; u.tD.value = GFX.down[i-1].texture; u.hp.value.set(0.5 / GFX.down[i].width, 0.5 / GFX.down[i].height); gfxPass(GFX.mDown, GFX.down[i]); }
+      src = GFX.down[GFX.MIPS - 1];
+      for (let i = GFX.MIPS - 2; i >= 0; i--) { u = GFX.mUp.uniforms; u.tD.value = src.texture; u.tA.value = GFX.down[i].texture; u.hp.value.set(0.5 / GFX.up[i].width, 0.5 / GFX.up[i].height); u.wA.value = 1; gfxPass(GFX.mUp, GFX.up[i]); src = GFX.up[i]; }
+    }
+    u = GFX.mFinal.uniforms; u.tS.value = GFX.rt.texture; u.tB.value = bl ? src.texture : GFX.rt.texture; u.px.value.set(1 / w, 1 / h);
+    u.strength.value = bl ? GFX.bloom / (GFX.MIPS - 1) : 0; u.exposure.value = R3.toneMappingExposure;
+    u.vig.value = GFX.vig; u.sat.value = GFX.sat; u.con.value = GFX.con; u.fxaa.value = GFX.mode >= 2 ? 0 : 1; u.tm.value = (performance.now() * 0.001) % 7;
     gfxPass(GFX.mFinal, null);
-  } catch(e){ console.warn('GFX frame failed, turning it off', e); GFX.fail = true; try { R3.setRenderTarget(null); } catch(e2){} R3.render(scene, cam); }
+    if (gl) { GFX.chk++; const er = gl.getError(); if (er !== 0 && GFX.chk === 1) throw new Error('GL error ' + er + ' in the first HDR frame'); }
+  } catch(e){ console.warn('GFX frame failed, plain picture from now on', e); GFX.fail = true; try { R3.setRenderTarget(null); } catch(e2){} try { gfxApply(); } catch(e3){ GFX.tm = THREE.ACESFilmicToneMapping; } gfxPlain(scene, cam); }
 }
-window.addEventListener('keydown', e => {
+/* gfxApply: decide ONCE (football entered / preset changed / a failure) whether the HDR chain runs, and put the renderer into the matching state.
+   chain on  = the scene is drawn with NO tone mapping into a half-float picture; ONE ACES curve + glow + grade in the last pass.
+   chain off = the same ACES curve sits in the materials (the way the game always looked). Both use the same exposure (PIC_LOOK) so they agree in brightness.
+   Flipping R3.toneMapping recompiles the lit shaders: this runs at those moments only, never per frame. */
+function gfxApply(enter){
+  if (!R3) return;
+  if (enter) GFX.live = true;
+  const L = Math.max(0, Math.min(3, FBQ.level|0));
+  let mode = GFX.force === '0' ? 0 : GFX.force === '1' ? 2 : (FBQ_LOOK.pipe[L] | 0);
+  if (mode > 0 && GFX.live && !GFX.fail && !GFX.lost) { if (!gfxInit() || !GFX.half) { GFX.fail = true; try { console.warn('GFX: no HDR chain (' + (GFX.half ? 'init' : 'no float render targets') + ')'); } catch(e){} } }
+  if (GFX.fail || GFX.lost) mode = 0;
+  GFX.mode = mode; GFX.on = mode > 0; GFX.level = mode;
+  GFX.bloom = GFX_LOOK.bloom[L] || 0; GFX.thr = GFX_LOOK.thr; GFX.knee = GFX_LOOK.knee; GFX.vig = GFX_LOOK.vig; GFX.sat = GFX_LOOK.sat; GFX.con = GFX_LOOK.con;
+  GFX.tm = mode > 0 ? THREE.NoToneMapping : THREE.ACESFilmicToneMapping;
+  if (GFX.live && R3.toneMapping !== GFX.tm) R3.toneMapping = GFX.tm;
+  try { gfxEmit(mode > 0); } catch(e){}
+  try { picExposure(); } catch(e){}
+}
+// emitters: floodlight faces, LED boards and ribbons, the video board. Found once after the stadium is built (their colour multiplies their picture); lifted above 1 only while the HDR chain runs, so they glow
+// there and look exactly as before in the straight picture.
+function gfxEmitFind(){
+  if (GFX.em || typeof fbScene === 'undefined' || !fbScene) return;
+  const E = GFX_LOOK.emit, srcs = [], add = (t, k) => { if (t && t.source) srcs.push([t.source, k]); };
+  try { if (FB.adTexs) FB.adTexs.forEach(t => add(t, E.led)); if (FB.ribbonMat) add(FB.ribbonMat.map, E.led); if (FB.jb && FB.jb.tex) add(FB.jb.tex, E.screen); } catch(e){}
+  const list = [], seen = new Set();
+  fbScene.traverse(o => { const m = o.isMesh ? o.material : null; if (!m || !m.isMeshBasicMaterial || !m.map || m.transparent || seen.has(m)) return; seen.add(m);
+    let k = 0; const im = m.map.image;
+    if (im && im.width === 128 && im.height === 64 && m.map.source && !srcs.some(q => q[0] === m.map.source)) k = E.flood;      // the floodlight face texture (128 x 64, drawn by fbvFloodTex)
+    else for (let i = 0; i < srcs.length; i++) if (srcs[i][0] === m.map.source) { k = srcs[i][1]; break; }
+    if (k > 0) list.push({ m, k, c:m.color.clone() }); });
+  GFX.em = list;
+}
+function gfxEmit(on){
+  const L = GFX.em; if (!L) return;
+  for (let i = 0; i < L.length; i++) { const q = L[i]; q.m.color.copy(q.c); if (on) q.m.color.multiplyScalar(q.k); }
+}
+FBH.build.push(function gfxBuildHook(){ gfxEmitFind(); try { gfxEmit(GFX.on); } catch(e){} });
+function gfxLeave(){ GFX.live = false; try { R3.setRenderTarget(null); } catch(e){} }      // football is left (hubEnter): the other mode sets its own tone mapping
+try { glc.addEventListener('webglcontextlost', () => { GFX.lost = true; }, false);
+  glc.addEventListener('webglcontextrestored', () => { GFX.lost = false; GFX.fail = true; GFX.rt = null; GFX.down = []; GFX.up = []; GFX.env = null; GFX.envFor = null; try { fbScene.environment = null; } catch(e){} try { gfxApply(); } catch(e){} }, false); } catch(e){}
+/* ===================== FBQ presets: what each level does =====================
+   LOW is the cheap picture for weak laptops / integrated graphics, HIGH the default, ULTRA spends. Other listeners (fbqOn): picShadowSet (shadow map, LOW = none), picContactQ, picEnvApply (reflections),
+   crowdQuality (fans, seats, people sheet), fieldQuality (turf canvas, detail overlay), pv2Quality, hudQuality (HUD canvas), fbpQuality (particles), picLights + gfxApply (below). */
+const FBQ_LOOK = {                                       // index = LOW, MEDIUM, HIGH, ULTRA
+  dpr:   [1.0, 1.25, 1.5, 2.0],                          // the highest devicePixelRatio the 3D picture is drawn at (a 4K / dpr 3 screen is not drawn pixel for pixel)
+  scale: [0.85, 1.0, 1.0, 1.0],                          // render scale on top of that (LOW draws 85 % of the window width and the browser stretches it)
+  maxPx: [0.95e6, 1.55e6, 2.5e6, 4.2e6],                 // and never more pixels than this (0.95 M = about 1280 x 720, 2.5 M = about 2100 x 1180, 4.2 M = about 2730 x 1530)
+  pipe:  [0, 0, 2, 2],                                   // 0 = straight picture (tone curve in the materials, 4x MSAA on the screen), 2 = HDR chain: half-float picture with 4x MSAA, glow, one tone curve, grade
+  fills: [2, 4, 4, 4]                                    // how many of the 4 sideline fill lights shine (the others are switched off, the remaining ones get the light of all four)
+};
+function fbSizeGL(){                                     // football's own sizing in place of sizeGL: preset-dependent pixel ratio, scale and pixel cap
+  if (!R3) return;
+  const L = Math.max(0, Math.min(3, FBQ.level|0)), K = FBQ_LOOK, dpr = Math.min(window.devicePixelRatio || 1, K.dpr[L]);
+  let w = Math.max(320, Math.round(glc.clientWidth * dpr * K.scale[L])), h = Math.round(w*9/16);
+  if (w*h > K.maxPx[L]) { const k = Math.sqrt(K.maxPx[L] / (w*h)); w = Math.max(320, Math.round(w*k)); h = Math.round(w*9/16); }
+  if (glc.width !== w || glc.height !== h) R3.setSize(w, h, false);
+}
+function picLights(level){                               // light COUNT by preset (changing it recompiles the lit shaders: only when the preset changes, and the blue end-zone lights, always off at night, are gone for good)
+  if (typeof FB === 'undefined' || !FB.nightLights) return;
+  const n = FBQ_LOOK.fills[Math.max(0, Math.min(3, level|0))], P = PIC.q || PIC_LOOK.night, k = n >= 4 ? 1 : 4/n;
+  PIC.fillK = k;
+  FB.nightLights.forEach((L, i) => { const v = n >= 4 || i === 0 || i === 3; if (L.visible !== v) L.visible = v; L.intensity = P.fillI * k; });
+  if (FB.blueLights) FB.blueLights.forEach(L => { const v = P.blueI > 0; if (L.visible !== v) L.visible = v; });
+}
+fbqOn(function picQuality(level){ try { gfxApply(); } catch(e){ console.error('gfxApply', e); } try { picLights(level); } catch(e){ console.error('picLights', e); } });
+FBH.build.push(function picQualityBuild(){ picLights(FBQ.level); });
+function fbqLabel(){ return FBQ.auto ? 'AUTO (' + FBQ.NAMES[FBQ.level] + ')' : FBQ.NAMES[FBQ.level]; }
+function fbGfxBtns(g, x, y, w, h, x2){                    // the two small buttons: ids 'gfxq' (graphics preset) and 'camstyle' (camera style); x2 = where the second one starts
+  const sz = h < 10 ? 3.7 : 4.2;
+  fbBtn(g,'gfxq',x,y,w,h,'GRAPHICS: '+fbqLabel(),{size:sz,line:'#c792ff',tc:'#e6d4ff'});
+  fbBtn(g,'camstyle',x2 == null ? x + w + 4 : x2,y,w,h,'CAMERA: '+fbCamStyleName(),{size:sz,line:'#6fd0ff',tc:'#cfeeff'});
+}
+function fbqAuto(){ FBQ.auto = true; try { localStorage.removeItem('uf-quality'); } catch(e){} FBQ.rev++; }
+function fbqCycle(){                                     // the GRAPHICS button: LOW > MEDIUM > HIGH > ULTRA > AUTO > LOW ...
+  const cur = FBQ.auto ? 4 : FBQ.level, nx = (cur + 1) % 5;
+  GFX.force = ''; try { localStorage.removeItem('uf-gfx'); } catch(e){}
+  if (nx === 4) { fbqAuto(); try { gfxApply(); } catch(e){} } else fbqSet(nx);
+  try { fbSfx('tick'); fbMsg('GRAPHICS: ' + fbqLabel(), '#ffd24a', 100); } catch(e){}
+}
+/* ---- the frame-rate governor: only while FBQ.auto and FBGOV.on. Counts real animation-frame times during PLAY (not menus, not hidden tabs, not the first seconds), steps ONE preset down when clearly
+   too slow (two slow windows in a row), never goes back up by itself, tells the player. FBQ.auto = false (the player chose, or a test) or FBGOV.on = false switches it off. ---- */
+const FBGOV = { on:true, slowMs:28, win:3500, warm:6000, cool:12000, need:2, since:0, acc:0, n:0, bad:0, last:0, steps:0, told:'' };
+function fbGovTick(t){
+  requestAnimationFrame(fbGovTick);
+  const G = FBGOV, dt = t - G.last; G.last = t;
+  let play = false;
+  try { play = G.on && FBQ.auto && FBQ.level > 0 && FB.on && FB.built && !document.hidden && !FB.esc && !FB.paused && !FBL.el && (FB.scr === 'live' || FB.scr === 'pre' || FB.scr === 'dead' || FB.scr === 'impact' || FB.scr === 'kick'); } catch(e){}
+  if (!play) { G.since = 0; G.acc = 0; G.n = 0; G.bad = 0; return; }
+  if (dt <= 0 || dt > 500) { G.acc = 0; G.n = 0; G.since = Math.min(G.since, 0); return; }       // a stall (tab switch, loading, a debugger): not a measurement
+  G.since += dt; if (G.since < G.warm) return;
+  G.acc += dt; G.n++;
+  if (G.acc < G.win) return;
+  const avg = G.acc / G.n; G.acc = 0; G.n = 0;
+  if (avg <= G.slowMs) { G.bad = 0; return; }
+  if (++G.bad < G.need) return;
+  G.bad = 0; G.since = -G.cool; G.steps++;
+  const nl = FBQ.level - 1; fbqSet(nl, { auto:true });
+  try { fbMsg('GRAPHICS LOWERED TO ' + FBQ.NAMES[nl] + ' FOR SMOOTHER PLAY  (' + Math.round(1000/avg) + ' FPS)', '#ffd24a', 200); } catch(e){}
+  try { console.log('FBT governor: ' + Math.round(1000/avg) + ' fps -> ' + FBQ.NAMES[nl]); } catch(e){}
+}
+try { requestAnimationFrame(fbGovTick); } catch(e){}
+window.addEventListener('keydown', e => {                // F8: quick preset cycle (the GRAPHICS button does the same, with AUTO)
   if (e.code !== 'F8' || typeof FB === 'undefined' || !FB.on) return;
-  e.preventDefault(); GFX.on = !GFX.on; if (GFX.on && GFX.level <= 0) GFX.level = 2;
-  try { localStorage.setItem('uf-gfx', GFX.on ? '1' : '0'); } catch(e2){}
-  try { fbMsg(GFX.on ? 'CINEMATIC GRAPHICS ON  (F8)' : 'CINEMATIC GRAPHICS OFF  (F8)', '#ffd24a', 110); } catch(e3){}
+  e.preventDefault(); try { fbqCycle(); } catch(e2){ console.error(e2); }
 });
 function fbRender(){
   if (!R3) return;
-  sizeGL();
+  fbSizeGL();
   const s = FB.s;
   tdcClock();
   try { fbXfUpdate(); } catch(e){}
@@ -20715,10 +20841,144 @@ function fbDress(){
 
 const fbFxList = [];
 let fbTrail = [], fbTrailG = null, fbHist = [], fbCrowdP = null;
+/* ===== FXP: pooled particles. Dust, firework sparks and the throw trail are ONE Points object each (soft round sprites, sized on the GPU), built once with the stadium (FBH.build):
+   no mesh / geometry / material per puff any more (that leaked GPU memory and cost 7..34 draw calls per effect). Spawning stays fbDust / fbFirework / fbFireworks.
+   The old per-puff meshes drew 12 uuids from Math.random each (three.js does that for every object). The simulation shares that stream (tackles, drops ...), so the spawn functions
+   still draw the same amount of numbers (FX_LOOK.burn): seeded replays and the regression bot see the very same game. ===== */
+const FX_LOOK = {
+  q: [0.5, 0.75, 1, 1.25],                                    // how many puffs / sparks are spawned per preset LOW / MEDIUM / HIGH / ULTRA
+  burn: { dust: 12, fw: 12 },                                 // Math.random draws the old Mesh + SphereGeometry + MeshBasicMaterial of ONE puff / spark made (3 uuids x 4)
+  dust: { max: 160, life: 0.9, col: '#cdbf9a', alpha: 0.62, r: 0.30, grow: 3.0, y: 0.3, drag: 0.94 },    // soft sprites: radius in yards, growth over the life
+  fw: { max: 288, burst: 34, g: 9, drag: 0.985, head: 0.85, tail: [0.55, 0.32], tailLag: [0.06, 0.13], glow: 6.0, hot: 0.45, core: 16, coreLife: 0.42, coreSize: 16, rise: 0, view: { ny: [0.22, 0.62], nx: 0.72, d: [32, 52], yMin: 16, yMax: 64 } },   // view: bursts are placed in the upper part of what the camera shows (NDC range, distance in yards): from the field the roof line is above the picture, so the old fixed spots (28 - 38 yd up behind the end zone) never showed   // sparks: head size in yards, two fading tail points, HDR brightness, flash at the burst
+  trail: { n: 12, size: 0.24, a: 0.5 }                        // the throw trail: 12 soft dots behind the ball
+};
+const FXP = { q: 1, t: 0, dust: null, fw: null, trail: null, built: false, c: null, hist: new Float32Array(40*3), hn: 0, hh: 0, err: 0 };
+fbqOn(function fbpQuality(l){ FXP.q = FX_LOOK.q[Math.max(0, Math.min(3, l|0))] || 1; });
+function fxpPoints(n, additive, name){
+  const geo = new THREE.BufferGeometry(), pos = new Float32Array(n*3), col = new Float32Array(n*3), sa = new Float32Array(n*2);
+  const aP = new THREE.BufferAttribute(pos, 3), aC = new THREE.BufferAttribute(col, 3), aS = new THREE.BufferAttribute(sa, 2);
+  aP.setUsage(THREE.DynamicDrawUsage); aC.setUsage(THREE.DynamicDrawUsage); aS.setUsage(THREE.DynamicDrawUsage);
+  geo.setAttribute('position', aP); geo.setAttribute('aCol', aC); geo.setAttribute('aSA', aS);
+  const mat = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending, fog: false,
+    uniforms: { uScale: { value: 800 }, uMax: { value: 128 } },
+    vertexShader: ['attribute vec3 aCol; attribute vec2 aSA; uniform float uScale; uniform float uMax; varying vec3 vC; varying float vA;',
+      'void main(){ vC = aCol; vA = aSA.y; vec4 mv = modelViewMatrix * vec4(position, 1.0); gl_Position = projectionMatrix * mv;',
+      '  float s = aSA.x * uScale / max(0.2, -mv.z); gl_PointSize = min(uMax, s); if (aSA.x <= 0.0 || aSA.y <= 0.0 || mv.z > -0.2) gl_Position = vec4(2.0, 2.0, 2.0, 1.0); }'].join('\n'),
+    fragmentShader: ['varying vec3 vC; varying float vA;',
+      'void main(){ vec2 d = gl_PointCoord - 0.5; float r2 = dot(d, d) * 4.0; if (r2 >= 1.0) discard; float f = 1.0 - r2; f *= f;',
+      '  gl_FragColor = vec4(vC, vA * f);',
+      '  #include <tonemapping_fragment>', '}'].join('\n') });
+  const pts = new THREE.Points(geo, mat); pts.frustumCulled = false; pts.renderOrder = 3; pts.name = name; pts.visible = false; fbScene.add(pts);
+  return { pts, pos, col, sa, aP, aC, aS, n, cur: 0, live: 0, dirty: false };
+}
+function fxpBuild(){
+  if (FXP.built || typeof fbScene === 'undefined' || !fbScene) return;
+  const mr = Math.random; let sd = 987654321; Math.random = () => { sd = (Math.imul(sd, 1664525) + 1013904223) >>> 0; return sd / 4294967296; };   // three.js draws uuids: not from the game's stream
+  try {
+    const D = FX_LOOK.dust, F = FX_LOOK.fw, TR = FX_LOOK.trail;
+    FXP.c = new THREE.Color();
+    const d = FXP.dust = fxpPoints(D.max, false, 'fxDust'); d.px = new Float32Array(D.max); d.py = new Float32Array(D.max); d.pz = new Float32Array(D.max); d.vx = new Float32Array(D.max); d.vy = new Float32Array(D.max); d.vz = new Float32Array(D.max); d.t = new Float32Array(D.max).fill(9); d.s = new Float32Array(D.max);
+    const f = FXP.fw = fxpPoints(F.max*3 + F.core, true, 'fxFirework'); f.px = new Float32Array(F.max); f.py = new Float32Array(F.max); f.pz = new Float32Array(F.max); f.vx = new Float32Array(F.max); f.vy = new Float32Array(F.max); f.vz = new Float32Array(F.max);
+    f.t = new Float32Array(F.max).fill(9); f.life = new Float32Array(F.max).fill(1); f.cr = new Float32Array(F.max); f.cg = new Float32Array(F.max); f.cb = new Float32Array(F.max);
+    f.ct = new Float32Array(F.core).fill(9); f.cx = new Float32Array(F.core); f.cy = new Float32Array(F.core); f.cz = new Float32Array(F.core); f.cc = new Float32Array(F.core*3); f.ci = 0;
+    const t = FXP.trail = fxpPoints(TR.n, false, 'fxTrail');
+    for (let i = 0; i < TR.n; i++) { t.col[i*3] = t.col[i*3+1] = t.col[i*3+2] = 1; t.sa[i*2] = TR.size; t.sa[i*2+1] = 0; }
+    t.aC.needsUpdate = true; t.aS.needsUpdate = true;
+    d.pts.visible = f.pts.visible = t.pts.visible = true; d.dirty = f.dirty = true;       // drawn (empty) for the first frame so the sprite shader compiles while the game loads, not at the first tackle
+    FXP.built = true;
+  } finally { Math.random = mr; }
+}
+FBH.build.push(function fxpBuildHook(){ fxpBuild(); });
 function fbDust(x,z,n,sc){
   if (!FB.built) return;
-  for (let i=0;i<(n||7);i++) { const m = new THREE.Mesh(new THREE.SphereGeometry(0.28,8,6), new THREE.MeshBasicMaterial({color:'#cdbf9a',transparent:true,opacity:0.7,depthWrite:false}));
-    m.position.set(x+(Math.random()-0.5)*1.2,0.3,z+(Math.random()-0.5)*1.2); fbScene.add(m); fbFxList.push({m, t:0, vx:(Math.random()-0.5)*2.4, vz:(Math.random()-0.5)*2.4, vy:1+Math.random()*1.5, sc:sc||1}); }
+  const D = FX_LOOK.dust, P = FXP.dust, nn = Math.max(1, Math.round((n||7) * FXP.q)), c = FXP.c, bn = FX_LOOK.burn.dust;
+  if (P) c.set(D.col);
+  for (let i=0;i<(n||7);i++) {
+    for (let k = 0; k < bn; k++) Math.random();                                      // see the comment above FX_LOOK
+    const ox = Math.random() - 0.5, oz = Math.random() - 0.5, vx = Math.random() - 0.5, vz = Math.random() - 0.5, vy = Math.random();
+    if (!P || i >= nn) continue;
+    const j = P.cur; P.cur = (j + 1) % P.n;
+    P.px[j] = x + ox*1.2; P.py[j] = D.y; P.pz[j] = z + oz*1.2; P.vx[j] = vx*2.4; P.vz[j] = vz*2.4; P.vy[j] = 1 + vy*1.5; P.t[j] = 0; P.s[j] = sc || 1;
+    P.col[j*3] = c.r; P.col[j*3+1] = c.g; P.col[j*3+2] = c.b; P.aC.needsUpdate = true;
+  }
+}
+function fbFirework(x,y,z,col){
+  if (!FB.built) return;
+  const F = FX_LOOK.fw, P = FXP.fw, c = FXP.c, nn = Math.max(1, Math.round(F.burst * FXP.q)), bn = FX_LOOK.burn.fw;
+  if (P) c.set(col || '#ffd24a');
+  if (P) { const k = P.ci; P.ci = (k + 1) % F.core; P.ct[k] = 0; P.cx[k] = x; P.cy[k] = y + F.rise; P.cz[k] = z; P.cc[k*3] = 0.55 + c.r*0.45; P.cc[k*3+1] = 0.55 + c.g*0.45; P.cc[k*3+2] = 0.55 + c.b*0.45; }
+  for (let i=0;i<F.burst;i++) {
+    for (let k = 0; k < bn; k++) Math.random();
+    const a = Math.random()*6.283, b = Math.random()*3.14, v = 7+Math.random()*7, life = 1.5+Math.random()*0.5;
+    if (!P || i >= nn) continue;
+    const j = P.cur; P.cur = (j + 1) % F.max;
+    P.px[j] = x; P.py[j] = y + F.rise; P.pz[j] = z; P.vx[j] = Math.cos(a)*Math.sin(b)*v; P.vy[j] = Math.cos(b)*v; P.vz[j] = Math.sin(a)*Math.sin(b)*v; P.t[j] = 0; P.life[j] = life; P.cr[j] = c.r; P.cg[j] = c.g; P.cb[j] = c.b;
+  }
+  fbSfx('swat');
+}
+function fbFireworks(n){ const cols = ['#ffd24a','#ff4d4d','#6fd0ff','#7ddc8a','#ff8ad8','#ffffff']; for (let i=0;i<(n||4);i++) setTimeout(() => {
+  const r1 = Math.random(), r2 = Math.random(), r3 = Math.random(), col = cols[(Math.random()*6)|0];     // the same four draws as always (the order does not matter, the count does)
+  const V = FX_LOOK.fw.view, v = FXP.v3 || (FXP.v3 = new THREE.Vector3());
+  try { fbCam.updateMatrixWorld(); v.set((i%2 ? -1 : 1)*(0.15 + r1*V.nx*0.85), V.ny[0] + r2*(V.ny[1] - V.ny[0]), 0.5).unproject(fbCam).sub(fbCam.position).normalize().multiplyScalar(V.d[0] + r3*(V.d[1] - V.d[0])).add(fbCam.position); v.y = Math.max(V.yMin, Math.min(V.yMax, v.y)); fbFirework(v.x, v.y, v.z, col); }
+  catch(e){ fbFirework(i%2 ? 112+r1*8 : r1*8, 22+r2*10, (r3-0.5)*40, col); } }, i*380); }
+function fbpUpdate(dt){                                    // every drawn frame (fbFx): advance the pools. Allocates nothing. dt = real seconds (at most 1/20)
+  if (!FXP.built) return;
+  const D = FX_LOOK.dust, F = FX_LOOK.fw, tw = FXP.t + dt; FXP.t = tw;
+  const dr = Math.pow(D.drag, dt*60), fd = Math.pow(F.drag, dt*60);
+  const sc = glc.height / (2*Math.tan(fbCam.fov*Math.PI/360));
+  { const P = FXP.dust; let live = 0;
+    for (let i = 0; i < P.n; i++) {
+      const t = P.t[i]; if (t >= D.life) { if (P.sa[i*2+1] !== 0) { P.sa[i*2+1] = 0; P.sa[i*2] = 0; } continue; }
+      const nt = t + dt; P.t[i] = nt; live++;
+      P.px[i] += P.vx[i]*dt; P.pz[i] += P.vz[i]*dt; P.py[i] += P.vy[i]*dt; P.vy[i] *= dr;
+      const u = Math.min(1, nt / D.life); P.pos[i*3] = P.px[i]; P.pos[i*3+1] = P.py[i]; P.pos[i*3+2] = P.pz[i];
+      P.sa[i*2] = 2*D.r*(1 + u*D.grow)*P.s[i]; P.sa[i*2+1] = Math.max(0, D.alpha*(1 - u)*(1 - u*0.35));
+    }
+    fxpFlush(P, live, sc); }
+  { const P = FXP.fw; let live = 0; const nS = F.max, o2 = nS*0, base = nS;           // sparks: head at [0, max), tail 1 at [max, 2max), tail 2 at [2max, 3max); the burst flashes after that
+    for (let i = 0; i < nS; i++) {
+      const t = P.t[i], life = P.life[i];
+      if (t >= life) { if (P.sa[i*2+1] !== 0 || P.sa[(base+i)*2+1] !== 0) { P.sa[i*2+1] = 0; P.sa[(base+i)*2+1] = 0; P.sa[(2*base+i)*2+1] = 0; } continue; }
+      const nt = t + dt; P.t[i] = nt; live++;
+      P.vy[i] -= F.g*dt; P.vx[i] *= fd; P.vz[i] *= fd; P.vy[i] *= fd;
+      P.px[i] += P.vx[i]*dt; P.py[i] += P.vy[i]*dt; P.pz[i] += P.vz[i]*dt;
+      const u = Math.min(1, nt / life), f = Math.pow(1 - u, 1.1) * (0.82 + 0.18*Math.sin(nt*26 + i*1.7)), hw = F.hot*(1 - u), r = (P.cr[i] + (1 - P.cr[i])*hw)*F.glow, g = (P.cg[i] + (1 - P.cg[i])*hw)*F.glow, b = (P.cb[i] + (1 - P.cb[i])*hw)*F.glow;
+      for (let k = 0; k < 3; k++) {
+        const j = k*base + i, lag = k ? F.tailLag[k-1] : 0, q = k ? 0.9/k : 1;
+        P.pos[j*3] = P.px[i] - P.vx[i]*lag; P.pos[j*3+1] = P.py[i] - P.vy[i]*lag; P.pos[j*3+2] = P.pz[i] - P.vz[i]*lag;
+        P.col[j*3] = r; P.col[j*3+1] = g; P.col[j*3+2] = b;
+        P.sa[j*2] = k ? F.tail[k-1] : F.head; P.sa[j*2+1] = f * (k ? q : 1);
+      }
+    }
+    for (let k = 0; k < F.core; k++) {
+      const j = 3*base + k, t = P.ct[k];
+      if (t >= F.coreLife) { if (P.sa[j*2+1] !== 0) { P.sa[j*2+1] = 0; } continue; }
+      const nt = t + dt; P.ct[k] = nt; live++;
+      const u = Math.min(1, nt / F.coreLife); P.pos[j*3] = P.cx[k]; P.pos[j*3+1] = P.cy[k]; P.pos[j*3+2] = P.cz[k];
+      P.col[j*3] = P.cc[k*3]*3; P.col[j*3+1] = P.cc[k*3+1]*3; P.col[j*3+2] = P.cc[k*3+2]*3;
+      P.sa[j*2] = F.coreSize*(0.35 + 0.65*Math.sqrt(u)); P.sa[j*2+1] = (1 - u)*(1 - u);
+    }
+    P.aC.needsUpdate = true; fxpFlush(P, live, sc); }
+}
+function fxpFlush(P, live, sc){                            // upload only while something lives (and once more when the last one has gone)
+  const on = live > 0;
+  if (on || P.dirty) { P.aP.needsUpdate = true; P.aS.needsUpdate = true; }
+  P.dirty = on; if (P.pts.visible !== on) P.pts.visible = on;
+  if (on) P.pts.material.uniforms.uScale.value = sc;
+}
+function fbpTrail(s){                                      // the throw trail: the last positions of the ball in flight, one soft dot every 2nd position
+  const T = FXP.trail; if (!T) return;
+  const H = FXP.hist, TR = FX_LOOK.trail;
+  if (s && s.ball && s.ball.mode === 'fly' && s.thrown) { const b = s.ball, k = FXP.hh; H[k*3] = b.x; H[k*3+1] = b.y; H[k*3+2] = b.z; FXP.hh = (k + 1) % 40; if (FXP.hn < 40) FXP.hn++; }
+  else FXP.hn = 0;
+  let any = false;
+  for (let i = 0; i < TR.n; i++) {
+    const back = (i + 1)*2, ok = back < FXP.hn; let a = 0;
+    if (ok) { const k = (FXP.hh - 1 - back + 80) % 40; T.pos[i*3] = H[k*3]; T.pos[i*3+1] = H[k*3+1]; T.pos[i*3+2] = H[k*3+2]; a = TR.a*(1 - i/TR.n); any = true; }
+    if (T.sa[i*2+1] !== a) { T.sa[i*2+1] = a; T.aS.needsUpdate = true; }
+  }
+  if (any) { T.aP.needsUpdate = true; T.pts.material.uniforms.uScale.value = glc.height / (2*Math.tan(fbCam.fov*Math.PI/360)); }
+  if (T.pts.visible !== any) T.pts.visible = any;
 }
 function fbDress2(){
   // sideline crowd of staff / subs (instanced)
@@ -20735,14 +20995,13 @@ function fbDress2(){
   if (0) [-1,1].forEach(sd => { const c = new THREE.Mesh(new THREE.BoxGeometry(160,0.8,16), lm('#1c2030')); c.position.set(60,19,sd*61); c.rotation.x = -sd*0.18; fbScene.add(c);
  });
   // throw trail
-  fbTrailG = new THREE.Group(); for (let i=0;i<12;i++) { const m = new THREE.Mesh(new THREE.SphereGeometry(0.11,6,5), new THREE.MeshBasicMaterial({color:'#ffffff',transparent:true,opacity:0.5*(1-i/12),depthWrite:false})); m.visible = false; fbTrailG.add(m); fbTrail.push(m); } fbScene.add(fbTrailG);
+  // the throw trail is one pooled Points object now (FXP.trail, built by the FBH.build hook)
   // a small rim light so the players pop
   const rim = new THREE.DirectionalLight('#9fc2ff',0.35); rim.position.set(80,25,40); fbScene.add(rim); FB.rimLight = rim;   // colour, strength and direction: picRig
 }
 function fbFx(){
   const now = performance.now()/1000, dt = 1/60;
-  for (let i=fbFxList.length-1;i>=0;i--) { const f = fbFxList[i]; f.t += dt; f.m.position.x += f.vx*dt; f.m.position.z += f.vz*dt; f.m.position.y += f.vy*dt; f.vy *= 0.94; const u = f.t/0.9; if (f.fw) continue; f.m.scale.setScalar((1+u*3)*f.sc); f.m.material.opacity = Math.max(0,0.7*(1-u)); if (f.t > 0.9) { fbScene.remove(f.m); fbFxList.splice(i,1); } }
-  for (let i=fbFxList.length-1;i>=0;i--) { const f = fbFxList[i]; if (!f.fw) continue; f.vy -= 9*dt; f.vx *= 0.985; f.vz *= 0.985; f.m.material.opacity = Math.max(0, 1 - f.t/f.life); if (f.t > f.life) { fbScene.remove(f.m); fbFxList.splice(i,1); } }
+  { const n2 = performance.now(); let d2 = (n2 - (FXP.t0 || n2))/1000; FXP.t0 = n2; if (!(d2 > 0)) d2 = 1/60; if (d2 > 0.05) d2 = 0.05; try { fbpUpdate(d2); } catch(e){ if (!FXP.err) { FXP.err = 1; console.error('particles', e); } } }
   if (FB.s) FB.s.night = FB.nightPref !== 'off';         // night is the house look; the lobby's NIGHT toggle set to OFF gives the sunset calibration
   if (FB.built && FB.s && FB.nightOn !== !!FB.s.night) { try { fbNightApply(!!FB.s.night); } catch(e){} }   // the host's call, everyone's sky
   try { fbBenchTick(dt); fbChainTick(); fbCoachTick(dt); } catch(e){ console.error('sideline', e); }
@@ -20752,9 +21011,7 @@ function fbFx(){
   try { fbLobbyTick(dt); } catch(e){ console.error('lobby', e); }
   const s = FB.s; fbCrowdUpdate(); try { fbArenaTick(); } catch(e){}
   if (FB.crowdMat) { FB.crowdMat.map.offset.x = Math.sin(now*0.4)*0.012; FB.crowdMat.color.setScalar(0.92+0.1*Math.sin(now*2.1)); }
-  if (s && s.ball && s.ball.mode==='fly' && s.thrown) { fbHist.push([s.ball.x,s.ball.y,s.ball.z]); if (fbHist.length > 40) fbHist.shift(); }
-  else if (fbHist.length) fbHist.length = 0;
-  fbTrail.forEach((m,i) => { const h = fbHist[fbHist.length-1-(i+1)*2]; m.visible = !!h; if (h) m.position.set(h[0],h[1],h[2]); });
+  try { fbpTrail(s); } catch(e){ if (!FXP.err) { FXP.err = 1; console.error('trail', e); } }
 }
 
 /* ====================================================================
@@ -20872,7 +21129,7 @@ function fbSetup(play){
   if (!s.keepD) s.disg = (!s.defMode && !FBN.on && !s.tutMode && !play.kneel && !play.spike && (FB.forceDisg || (!FB.noDisg && Math.random() < 0.35))) ? 1 : 0;
   if (s.disg) { if (s.shell2) { DP.S1 = [8,-7]; DP.S2 = [15,0]; } else { DP.S1 = [14,-8]; DP.S2 = [14,8]; } }
   if (s.adjShift|0) ['CB1','CB2','S1','S2'].forEach(r => { DP[r] = [DP[r][0], clamp(DP[r][1] + (s.adjShift|0)*3, -FB_Z+2, FB_Z-2)]; });   // V46 (11): the secondary shift (7/8) survives audibles
-  fbDef().forEach(p => { fbPlace(p, los+DP[p.role][0], DP[p.role][1], Math.PI, (fbKind(p.role)==='DL' && DP[p.role][0] < 2.5) ? 'stance' : 'ready'); });
+  fbDef().forEach(p => { fbPlace(p, Math.min(los+DP[p.role][0], 118.5), DP[p.role][1], Math.PI,   /* v154: inside the field (a deep safety near the goal line was placed at x 122 and the bounds clamp yanked him 3-4 yd on the first live tick) */ (fbKind(p.role)==='DL' && DP[p.role][0] < 2.5) ? 'stance' : 'ready'); });
   fbDef().forEach(p => { p.base = DP[p.role]; p.adjTo = null; p.disgT = 0; }); { const a = fbBy('S1'), b = fbBy('S2'); if (a) a.realBase = realS.S1; if (b) b.realBase = realS.S2; }   // V46: where the safeties REALLY belong (the disguise toggle walks them back)
   fbMotionSetup(play);
   s.ball = { mode:'ground', x:los, z:0, ry:0 };
@@ -21006,14 +21263,14 @@ function fbPathHit(p){                                              // ANYTIME: 
 }
 
 /* ------------------------------------------------------------------ movement */
-function fbOffCeil(){          // the fastest an offensive skill player can run right now: no defender may out-run it (v153: defenders win with reads and angles, never with speed)
+function fbOffCeil(){          // the fastest an offensive skill player can run right now: no defender may out-run it (v154: defenders win with reads and angles, never with speed)
   const s = FB.s; if (!s) return 99; if (fbOffCeil.t === s.t && fbOffCeil.v) return fbOffCeil.v;
   let m = 0; fbRigs.forEach(q => { if (q.side === 'O' && /^(W|TE|RB)/.test(q.role)) { const v = FB_SP[fbKind(q.role)] * (q.ur ? q.ur.spd : 1) * fbRm(q); if (v > m) m = v; } });
   fbOffCeil.t = s.t; return fbOffCeil.v = (m || 9.8);
 }
 function fbMove(p, tx, tz, maxSp, dt, acc){
   if (p.ur) maxSp *= p.ur.spd;                                                  // Ultimate Team: the equipped card's speed
-  if (p.side === 'D' && !p.carry && !(FB.s && FB.s.turn)) maxSp = Math.min(maxSp, fbOffCeil());   // v153 speed limit: never faster than the offense
+  if (p.side === 'D' && !p.carry && !(FB.s && FB.s.turn)) maxSp = Math.min(maxSp, fbOffCeil());   // v154 speed limit: never faster than the offense
   const dx = tx-p.x, dz = tz-p.z, d = Math.hypot(dx,dz);
   let want = Math.min(maxSp, d*5.5); if (d < 0.05) want = 0;
   let wx = d>0.001 ? dx/d*want : 0, wz = d>0.001 ? dz/d*want : 0;
@@ -21096,7 +21353,7 @@ function fbLive(dt){
     const top = c.carry ? (c.role==='RB' ? 9.8 : c.role==='QB' ? 8.2 : 9.8) : 8.0;
     const bk = (c.carry && c.role==='RB' && s.play && fbIsRun(s.play) && c.x < s.los+0.4) ? 1.3 : 1;        // V80: the back gets a burst while he is still behind the line
     const sp = ((spr || c.hsT > 0) ? top : base) * fbRm(c) * bk;   // V46: the juke cost (p.jukeK) is applied in fbVel so the CPU carrier and defenders pay the same
-    if (c.diveT > 0 || c.wrapBy || c.brkBy || c.possT > 0) { /* diving / sliding, or wrapped up and fighting forward: moved elsewhere */ }
+    if (c.diveT > 0 || c.wrapBy || c.brkBy || c.possT > 0 || fbPoOn(c))   /* v154: + driven out of bounds */ { /* diving / sliding, or wrapped up and fighting forward: moved elsewhere */ }
     else if (c.juke > 0) { c.juke -= dt; c.st = 'juke'; fbVel(c, c.jx, c.jz, dt, 90); }
     else if (c.auto && c.route) { const o = c.spd; if (bk > 1 && o) c.spd = o*bk; fbRouteStep(c, dt); c.spd = o; }
     else {
@@ -21111,7 +21368,7 @@ function fbLive(dt){
     if (isQB && c.carry) c.st = 'carry';
     // user pressed space -> juke (carrier only)
     // dive forward: launch out in the direction you're running, land, play is over where you hit the turf
-    if (s.wantDive) { s.wantDive = false; if (c.carry && !c.diveT && !c.down && !c.wrapBy && !c.brkBy && !(c.possT > 0) && (c.role!=='QB' || c.x > s.los)) { const sp0 = Math.hypot(c.vx,c.vz), dx = sp0 > 1 ? c.vx/sp0 : Math.cos(c.face), dz = sp0 > 1 ? c.vz/sp0 : -Math.sin(c.face), v = Math.max(6.5, sp0*0.95);
+    if (s.wantDive) { s.wantDive = false; if (c.carry && !c.diveT && !c.down && !c.wrapBy && !c.brkBy && !fbPoOn(c) && !(c.possT > 0) && (c.role!=='QB' || c.x > s.los)) { const sp0 = Math.hypot(c.vx,c.vz), dx = sp0 > 1 ? c.vx/sp0 : Math.cos(c.face), dz = sp0 > 1 ? c.vz/sp0 : -Math.sin(c.face), v = Math.max(6.5, sp0*0.95);
       const qbs = c.role==='QB'; if (qbs) { const now = performance.now()/1000; c.slid = true; c.slide0 = c.x; c.fbHitClip = 'slide'; c.fbHitOffset = 0; c.fbHitUntil = now + fbClipLen('slide',1.5); c.fbClipRestart = true; fbMsg('QB SLIDE', '#7ddc8a', 50); }
       s.tutDive = true; c.diveT = qbs ? FB_SLIDE_SEAT : 0.5; c.dvx = dx*(qbs ? Math.max(2.5, sp0*0.55) : v); c.dvz = dz*(qbs ? Math.max(2.5, sp0*0.55) : v); c.fallTo = qbs ? 0.9 : -1.0; c.fallT = 0; c.fallRoll = (Math.random()-0.5)*0.3; c.st = 'reach'; c.catchKind = null; fbSfx('juke'); } }
     if (c.diveT > 0) { c.diveT -= dt; const dk = Math.pow(c.slid ? 0.05 : 0.2, dt); c.dvx *= dk; c.dvz *= dk; fbVel(c, c.dvx, c.dvz, dt, c.slid ? 18 : 60); c.st = c.slid ? 'ready' : 'reach';
@@ -21160,7 +21417,27 @@ function fbLive(dt){
   try { uoStep(dt); } catch(e){}
   try { fbFpStep(); } catch(e){}
   fbFalls();
+  try { fbSpeedClamp(dt); } catch(e){ console.error('speed clamp', e); }   // v154 safety net: nobody but the ball carrier can move faster than his legs this tick
   fbCamFocus();
+}
+const fbClampStat = { n:0, max:0, who:'' };   // v154: how often (and by how much) the per-tick speed limit had to step in - read by the test harness
+function fbSpeedCap(p){                         // v154: his real top speed (sim yd/s): position speed x card speed x role, a burst, the user's sprint; a CPU defender also never beats the offense's fastest man
+  const s = FB.s, k = fbKind(p.role), us = (p.ur && p.ur.spd) || 1; let c = (FB_SP[k.charAt(0)==='W' ? 'W' : k] || 9.3)*us*fbRm(p);
+  if (p.side === 'O') c = Math.max(c, fbTopSpeed(p, false)*us);
+  if (p.burstT > 0) c *= 1.12;
+  if (fbUD(p) || p === s.ctl) c *= 1.15; else if (p.side === 'D' && !s.turn) c = Math.min(c, Math.max(fbOffCeil(), 8.2*us));
+  return c;
+}
+function fbSpeedClamp(dt){                      // v154: |position change| per live tick <= top speed x dt x 1.1 for every non-carrier (fbSkillTimers stores prevX/prevZ at the start of the tick)
+  const s = FB.s; if (!s || !(dt > 0)) return; const car = s.carrier || (s.ball && s.ball.mode==='held' ? s.ball.h : null);
+  fbRigs.forEach(p => {
+    if (p.prevX === undefined || p === car || p.carry || p.juke > 0) return;
+    const px0 = clamp(p.prevX, 1, 119), pz0 = clamp(p.prevZ, -FB_Z-3, FB_Z+3), dx = p.x - px0, dz = p.z - pz0, /* v154: measured from his in-bounds start so the field clamp itself is never undone */ d = Math.hypot(dx, dz), cap = fbSpeedCap(p);
+    const an = (p.uo && p.uo.anchor) || (car && (car.brkBy === p || car.wrapBy === p || car.poBy === p) ? car : null);   // glued to a runner (tackle / catch pair, shed, push-out): he may also move with him
+    let lim = cap*dt*(p.dtk && !p.dtk.landed ? 2.3 : p.diving ? 1.4 : 1.1) + 0.004; if (an && an.prevX !== undefined) lim += Math.hypot(an.x - an.prevX, an.z - an.prevZ);
+    if (d > lim) { const k = lim/d; p.x = px0 + dx*k; p.z = pz0 + dz*k; fbClampStat.n++; if (d - lim > fbClampStat.max) { fbClampStat.max = d - lim; fbClampStat.who = p.side + p.role + ':' + (p.st || '') + (p.down ? ':down' : ''); } }
+    const v = Math.hypot(p.vx||0, p.vz||0), vl = cap*(p.diving || p.dtk ? 1.4 : 1.1);   /* a dive-tackle lunge (dtk) is its own 0.5 s move: fbDiveTkStep + the fbFalls slide, ~19 yd/s, left as tuned */ if (v > vl) { p.vx *= vl/v; p.vz *= vl/v; }
+  });
 }
 function fbRouteStep(p, dt){
   const r = p.route; if (!r || p.ri >= r.length) { fbVel(p,0,0,dt,30); return; }
@@ -21264,7 +21541,7 @@ function fbDefStep(dt){
     if (car && (car.slid || car.kneel) && !(d.eng && !d.free)) { fbVel(d,0,0,dt,22); d.st = 'ready'; return; }   // he gave himself up: pull up
     const k = fbKind(d.role), msp = FB_SP[k] * D.def * (s.tutMode && s.defMode ? 0.45 : 1);   // top speed is Speed (in fbMove) and difficulty only
     let sl = d.slow!==undefined ? d.slow : 1; d.slow = 1; if (d.disgT > 0) { d.disgT -= dt; sl *= 1.35; }   // V46: rotating out of a disguise in the first 0.6 s
-    if (d.stun > 0) { d.st = d.lungeT > 0 ? 'lunge' : 'stumble'; fbVel(d,0,0,dt,d.offG ? 6 : 30);
+    if (d.stun > 0) { d.st = d.lungeT > 0 ? 'lunge' : 'stumble'; fbVel(d,0,0,dt,d.offG ? (d.fallT > 0.24 ? 45 : 6) : 30);   /* v154: knocked off his feet: once he is on the turf the ground stops him (was 6 yd/s2 the whole time = 2-3 yd glides on his back) */
       if (d.offG) { if (d.stun < 0.5) { d.fallTo = 0; d.fall *= 0.88; d.st = 'rise'; } if (d.stun <= dt+0.001) { d.offG = false; d.fall = 0; d.fallTo = 0; d.fallRoll = 0; } } return; }
     if (d.eng && !d.free) return;                                  // locked up with a blocker (handled in the line code)
     if (d.tackling) return;
@@ -21279,6 +21556,7 @@ function fbDefStep(dt){
       if (run && tg.carry && Math.abs(tg.vz||0) > 2) { const dz = Math.sign(tg.vz), rel = (d.z - tg.z)*dz;                                   // leverage: keep the runner inside you so he can't bounce
         if (rel < 1.5) pz += dz*(0.15 + 1.9*IQ)*clamp(fbDist(d,tg)/7, 0.25, 1); }
       if (d.contain && !fbVs() && s.t < 1.3 + 2.4*IQ && !(tg.x > d.x + 1.2)) { const m = 0.5 + 1.3*IQ; pz = d.contain > 0 ? Math.max(pz, tg.z + m) : Math.min(pz, tg.z - m); }   // contain: the edge man stays outside longer and wider at higher tiers
+      if (tg.carry && !s.turn) { const sg = Math.sign(tg.z) || 1, sd = FB_Z - Math.abs(tg.z), dd = fbDist(d,tg); if (sd < 5 && dd < 8 && d.z*sg < tg.z*sg + 0.5) { const ins = clamp((5 - sd)/3.5, 0, 1)*clamp(dd/2.5, 0.3, 1); pz = sg*Math.min(pz*sg, (ic.z - sg*0.9*ins)*sg); } }   // v154: near the sideline take the inside-out angle (the sideline is the 12th man): a hit from the inside can drive him out
       fbMove(d, px, pz, v, dt, d.rusher && k==='LB' ? 14 : 36); };
     if (s.turn) { const ch = s.carrier; fbBlockDef(d,dt); return; }
     // someone has the ball and it's a live carry -> pursue
@@ -21344,7 +21622,7 @@ function fbDefStep(dt){
       if (behind) { tx = r.x + r.vx*0.25; tz = r.z + r.vz*0.25; }
       if ((s.rdL||0) > 0 && r!==s.ctl) { const pr = fbObsPred(r, s.t + 0.75); if (pr) { const w = 0.65*s.rdL; tx += (pr.x + 0.4 - tx)*w; tz += (pr.z - tz)*w; } }   // he saw where this guy went from this setup last time: jump it
       fbMove(d, tx, tz, msp*sl, dt, D.acc + (k==='CB'?4:0) + (d.disgT>0?60:0));   // full Speed; skill shows in where he goes and when he sees it
-      if (fbCpuDef(d) && (FB.lock||0) > 0 && s.t > 0.45 && !(d.biteT > 0) && !(d.eng && !d.free)) { const pk = clamp(2.2*FB.lock*dt, 0, 0.4); d.x += (tx - d.x)*pk; d.z += (tz - d.z)*pk; }   // v153: a lockdown corner stays glued to his man   // a corner who is much worse than the receiver gets torn apart (slow to react, big cushion); a lockdown corner stays on him
+      if (fbCpuDef(d) && (FB.lock||0) > 0 && s.t > 0.45 && !(d.biteT > 0) && !(d.eng && !d.free)) { const pk = clamp(2.2*FB.lock*dt, 0, 0.4); fbLockNudge(d, tx, tz, pk, msp*sl, dt); }   // v154: was d.x += (tx-d.x)*pk: an unlimited position lerp = 40-90 yd/s teleports onto his man right at t=0.45   // v154: a lockdown corner stays glued to his man   // a corner who is much worse than the receiver gets torn apart (slow to react, big cushion); a lockdown corner stays on him
       fbFace(d, r.x, r.z);
     } else if (cv && cv.spot && s.fav) {
       // sitting on your favourite spot: shade over early, then drive on it as the QB sets up
@@ -21366,7 +21644,7 @@ function fbDefStep(dt){
       if (thr) { if (deep) { tx = Math.max(zx-3, thr.x + 3 + (1-fbCovEff(D,d,thr))*1.5); tz = thr.z*0.7 + zz*0.3; } else { tx = thr.x + 1.3; tz = thr.z + (thr.z > zz ? -0.3 : 0.3); } }
       else if (s.t > 1.2) tz = zz + (q.z-zz)*0.2;
       fbMove(d, tx, tz, msp*(deep ? 1.04 : 0.97)*sl, dt, D.acc+3+(d.disgT>0?60:0));
-      if (thr && fbCpuDef(d) && (FB.lock||0) > 0 && s.t > 0.6 && !(d.eng && !d.free)) { const pk = clamp(1.6*FB.lock*dt, 0, 0.3); d.x += (tx - d.x)*pk; d.z += (tz - d.z)*pk; }   // v153: the zone closes on the receiver
+      if (thr && fbCpuDef(d) && (FB.lock||0) > 0 && s.t > 0.6 && !(d.eng && !d.free)) { const pk = clamp(1.6*FB.lock*dt, 0, 0.3); fbLockNudge(d, tx, tz, pk, msp*sl, dt); }   // v154: speed-limited (was a raw position lerp)   // v154: the zone closes on the receiver
       fbFace(d, q.x, q.z);
     } else if (cv && cv.zone && k==='CB') {
       d.aiState = 'ZONE_COVERAGE'; const [zz] = cv.zone; let thr = null, best = -1;
@@ -21393,6 +21671,10 @@ function fbDefStep(dt){
     }
   });
 }
+function fbLockNudge(d, tx, tz, pk, msp, dt){   // v154: the lockdown glue may only spend the speed he has left this tick (top speed and the offense's ceiling still rule)
+  const cap = Math.min(msp*((d.ur && d.ur.spd) || 1), fbOffCeil()), room = Math.max(0, cap - Math.hypot(d.vx||0, d.vz||0))*dt;
+  const dx = (tx - d.x)*pk, dz = (tz - d.z)*pk, L = Math.hypot(dx, dz); if (L < 1e-6 || room <= 0) return; const k = Math.min(1, room/L); d.x += dx*k; d.z += dz*k;
+}
 function fbBlockDef(d, dt){
   const s = FB.s, ch = s.carrier, msp = FB_SP[fbKind(d.role)]*FBD[FB.diff].def;
   const tg = fbOff().filter(o => !o.down).sort((a,b) => fbDist(a,d)-fbDist(b,d))[0];
@@ -21411,7 +21693,7 @@ function fbAimBehind(aim){                              // aiming within 2 yd of
   return fbOff().some(o => ['W1','W2','W3','TE','RB'].includes(o.role) && !o.down && Math.hypot(o.vx||0,o.vz||0) > 6 && Math.hypot(o.x-aim.x, o.z-aim.z) < 2);
 }
 /* ====================================================================================================
-   QB THROWING (v153). One continuous power curve (how long you hold), the QB's arm (Throw Power) and body (planted, stepping in,
+   QB THROWING (v154). One continuous power curve (how long you hold), the QB's arm (Throw Power) and body (planted, stepping in,
    rolling, sprinting, backpedaling, jumping back, off balance, pressure) shape release SPEED and ACCURACY separately.
    The throw is a real motion: the arm cocks while you hold, whips forward when you let go, and the ball leaves the hand on the
    release frame. The flight itself is the same projectile as before (same arcs, same landing math, same catching).
@@ -21471,24 +21753,24 @@ function qbtBody(q, aim, pw){                                // what his body is
   else cat = P < 0.15 ? (L < 10 ? 'qb_quick_dish' : 'qb_short') : P < 0.4 ? 'qb_short' : P < 0.78 ? 'qb_medium' : 'qb_full_power';
   return { mv, ma, maC, cat, sp, step, back, side, sprint, across, off, press, air, dx:sp > 0.2 ? vx/sp : 0, dz:sp > 0.2 ? vz/sp : 0 };
 }
-function qbtRelTime(q, pw, B, cpu){ const C = QB_THROW.cfg; let t = (C.rel[0] + (C.rel[1] - C.rel[0])*pw)*(1 + C.relArm*(0.5 - qbtArmN(q)))*((q && q.ur && q.ur.rel) || 1);   /* v153: a quick-release QB gets the ball out sooner */ if (B.cat === 'qb_off_balance') t *= 0.85; return cpu ? t*C.cpuRel : t; }
+function qbtRelTime(q, pw, B, cpu){ const C = QB_THROW.cfg; let t = (C.rel[0] + (C.rel[1] - C.rel[0])*pw)*(1 + C.relArm*(0.5 - qbtArmN(q)))*((q && q.ur && q.ur.rel) || 1);   /* v154: a quick-release QB gets the ball out sooner */ if (B.cat === 'qb_off_balance') t *= 0.85; return cpu ? t*C.cpuRel : t; }
 function qbtFlightT(d, pw, thrPow){                          // the old touch arc at no power, the old bullet at full power, a real blend in between
   const tb = fbFlightT(d, 0, 'pass'), tl = Math.min(tb*1.35 + 0.5*clamp(d/25, 0.2, 1), 3.6), k = pw*pw*(3 - 2*pw);
-  return (tl + (tb - tl)*k)*QB_THROW.cfg.air/(thrPow || 1);   // v153: a little more air time everywhere
+  return (tl + (tb - tl)*k)*QB_THROW.cfg.air/(thrPow || 1);   // v154: a little more air time everywhere
 }
 function qbtV(d, t, y0){ const vh = d/t, vy = (0.45 - y0 + 0.5*FB_G*t*t)/t; return Math.hypot(vh, vy); }
 function qbtTMin(d, y0){ let a = 0.12, b = 6; for (let i = 0; i < 36; i++) { const m1 = a + (b - a)*0.382, m2 = a + (b - a)*0.618; if (qbtV(d, m1, y0) < qbtV(d, m2, y0)) b = m2; else a = m1; } return (a + b)/2; }   // the flight time that needs the least arm
 function qbtReach(y0, vCap){ let lo = 1.5, hi = 120; for (let i = 0; i < 26; i++) { const m = (lo + hi)/2; if (qbtV(m, qbtTMin(m, y0), y0) <= vCap) lo = m; else hi = m; } return lo; }     // the farthest he can get it at this speed
 function qbtSolve(sx, sz, y0, tx, tz, tDes, vCap){          // the ball ALWAYS lands on the spot. Keep the wanted flight time when the arm can make it; else more air (a higher arc); past his arm's reach: the highest, easiest arc that still gets there
   const d = Math.hypot(tx - sx, tz - sz), tm = qbtTMin(d, y0);
-  if (qbtV(d, tm, y0) > vCap) return { t:tm, tx, tz, short:false, far:true };      // v153: never short - he heaves it up and it comes down on the spot
+  if (qbtV(d, tm, y0) > vCap) return { t:tm, tx, tz, short:false, far:true };      // v154: never short - he heaves it up and it comes down on the spot
   if (qbtV(d, tDes, y0) <= vCap) return { t:tDes, tx, tz, short:false };
   let bad = tDes, good = tm; for (let i = 0; i < 28; i++) { const m = (bad + good)/2; if (qbtV(d, m, y0) <= vCap) good = m; else bad = m; } return { t:good, tx, tz, short:false };
 }
 function qbtCanReach(q, aim, pw){ if (!q || !aim) return true; const B = qbtBody(q, aim, pw), d = Math.hypot(aim.x - q.x, aim.z - q.z); return qbtReach(2.2, qbtVCap(q, qbtPowEff(pw, B.mv), 1)) >= d - 0.5; }
 function qbtStep(dt){                                        // every live frame: the cock while you hold, the forward whip to the release frame, the follow-through
   const s = FB.s, q = fbBy('QB'); if (!q) return; const C = QB_THROW.cfg, P = s.throwPend, A = q.qbt;
-  if (q.thFace != null) { if ((P || q.throwAnim > 0) && !q.down && !q.tackling) { let da = q.thFace - q.face; while (da > Math.PI) da -= 2*Math.PI; while (da < -Math.PI) da += 2*Math.PI; const rem = P ? Math.max(0.04, P.at - s.t) : 0.04, st = Math.max(10, Math.abs(da)/rem*1.3)*dt; q.face += Math.abs(da) <= st ? da : Math.sign(da)*st; } else q.thFace = null; }   // v153: shoulders square to the target by the release
+  if (q.thFace != null) { if ((P || q.throwAnim > 0) && !q.down && !q.tackling) { let da = q.thFace - q.face; while (da > Math.PI) da -= 2*Math.PI; while (da < -Math.PI) da += 2*Math.PI; const rem = P ? Math.max(0.04, P.at - s.t) : 0.04, st = Math.max(10, Math.abs(da)/rem*1.3)*dt; q.face += Math.abs(da) <= st ? da : Math.sign(da)*st; } else q.thFace = null; }   // v154: shoulders square to the target by the release
   if (s.charging && s.ctl === q && !P && !s.thrown && s.ball.mode === 'held') {
     const want = Math.hypot(q.vx || 0, q.vz || 0) < C.cockMaxSpd ? clamp((s.chargeF || 0)/60/(C.cockS*((q.ur && q.ur.rel) || 1)), 0, 1) : 0;
     q.qbCk = want; q.qbPh = want; q.qbCat = q.qbCat || 'qb_medium';
@@ -21540,15 +21822,15 @@ function qbtClipTime(p, dur){                                // phase 0..1 windu
 function fbThrowCircle(ax, az, pw){      // where the ball CAN land: radius grows with distance and shrinks with QB accuracy; it stretches the way a bad QB is moving
   const s = FB.s, q = s && s.ctl; if (!q || q.role!=='QB') return null;
   if (xfHas(q, 'unshakable')) return { r:0.1, a:0.1, c:0.1, ux:1, uz:0, ox:0, oz:0, ang:0 };      // UNSHAKABLE: no warp, no spread - the circle is a dot on the spot
-  const d = Math.hypot(ax-q.x, az-q.z), ovr = q.ur && q.ur.thrCirc!=null ? q.ur.thrCirc : q.ur && q.ur.ovr!=null ? q.ur.ovr : 80, acc = clamp((ovr-50)/40, 0, 1);   // v153: a card can set its own throwing accuracy for the circle ('Throw Accuracy'); everyone else: overall
+  const d = Math.hypot(ax-q.x, az-q.z), ovr = q.ur && q.ur.thrCirc!=null ? q.ur.thrCirc : q.ur && q.ur.ovr!=null ? q.ur.ovr : 80, acc = clamp((ovr-50)/40, 0, 1);   // v154: a card can set its own throwing accuracy for the circle ('Throw Accuracy'); everyone else: overall
   const press = fbDef().some(p => !p.down && !(p.eng && !p.free) && p.rusher && fbDist(p,q) < 3.3);
-  let r = (2.6 - 2.35*acc + (0.115 - 0.105*acc)*d) * (press ? 1.6 : 1) * ((q.ur && q.ur.circK) || 1);   // v153: a card can run a tighter (or looser) circle ('Circle Size')                 // 60 OVR: huge at any range, wider the deeper he goes. 99 OVR: tiny short and deep.
+  let r = (2.6 - 2.35*acc + (0.115 - 0.105*acc)*d) * (press ? 1.6 : 1) * ((q.ur && q.ur.circK) || 1);   // v154: a card can run a tighter (or looser) circle ('Circle Size')                 // 60 OVR: huge at any range, wider the deeper he goes. 99 OVR: tiny short and deep.
   const sp = Math.hypot(q.vx||0, q.vz||0), w = clamp(sp/7, 0, 1.3) * (1 - 0.7*acc) * 1.8;   // throwing on the run: bad QBs get a stretched, shifted circle
-  { const P0 = pw != null ? pw : (s.charging ? qbtPower((s.chargeF||0)/60) : 0.5), Bq = qbtBody(q, { x:ax, z:az }, P0); r *= Bq.maC*(1 + 0.12*P0*(1 - qbtAccN(q))); }   // v153: his body and how hard he lets it go
+  { const P0 = pw != null ? pw : (s.charging ? qbtPower((s.chargeF||0)/60) : 0.5), Bq = qbtBody(q, { x:ax, z:az }, P0); r *= Bq.maC*(1 + 0.12*P0*(1 - qbtAccN(q))); }   // v154: his body and how hard he lets it go
   const ux = sp > 0.3 ? q.vx/sp : 1, uz = sp > 0.3 ? q.vz/sp : 0;
   return { r, a:r*(1+w), c:r*(1+0.15*w), ux, uz, ox:ux*r*w*0.5, oz:uz*r*w*0.5, ang:Math.atan2(-uz, ux) };
 }
-function fbThrow(aim, power, cpu, kind, opt){              // v153: starts the throwing motion; qbtRelease() lets the ball go on the release frame
+function fbThrow(aim, power, cpu, kind, opt){              // v154: starts the throwing motion; qbtRelease() lets the ball go on the release frame
   if (FB.esc) return;
   const s = FB.s, q = s.ctl;
   if (!q || q.role!=='QB' || q.carry || q.down || s.thrown || s.throwPend || s.ball.mode!=='held') return;
@@ -21561,7 +21843,7 @@ function fbThrow(aim, power, cpu, kind, opt){              // v153: starts the t
     release_t:rel, release_norm:null, blend_s:legacy.blend_in_s, root:{ dx:(q.vx||0)*(rel + QB_THROW.cfg.fol), dz:(q.vz||0)*(rel + QB_THROW.cfg.fol) }, cock:ck, t0:s.t, cpu:!!cpu };
   q.qbt.release_norm = (rel + 1e-6)/(rel + QB_THROW.cfg.fol);
   s.throwPend = { aim:{ x:aim.x, z:aim.z }, pw, cpu:!!cpu, at:s.t + rel, rel };
-  q.st = 'throw'; q.throwAnim = rel + QB_THROW.cfg.fol; q.qbPh = Math.max(1, ck); q.thT = 0; q.thFace = Math.atan2(-(aim.z - q.z), aim.x - q.x);   // v153: he turns to face where he throws
+  q.st = 'throw'; q.throwAnim = rel + QB_THROW.cfg.fol; q.qbPh = Math.max(1, ck); q.thT = 0; q.thFace = Math.atan2(-(aim.z - q.z), aim.x - q.x);   // v154: he turns to face where he throws
   qbtEmit('start', q);
   if (now) qbtRelease();
 }
@@ -21600,7 +21882,7 @@ function fbCatchCheck(b){
   fbRigs.forEach(p => {
     if (p.down || p.eng && !p.free || p.role==='QB' && s.t - b.t0 < 0.6) return;
     const k = fbKind(p.role); if (p.side==='O' && (k==='OL' || p.role==='QB')) return;
-    const R = p.side==='O' ? (p.diving ? 2.8 : 1.8) * ({W2:1.2,TE:1.3,W3:0.95}[p.role]||1) * (p.reachT>0 && p===s.rctl ? 1.3 : 1) : (fbUD(p) && p.tkWin>0 ? 2.7 : k==='DL' ? 1.0 : 1.35*(1+0.35*(s.cbL||0))*(1+0.55*(FB.lock||0)*(k==='CB'||k==='S' ? 1 : 0.5)));   // v153: a locked-down secondary reaches farther for the ball
+    const R = p.side==='O' ? (p.diving ? 2.8 : 1.8) * ({W2:1.2,TE:1.3,W3:0.95}[p.role]||1) * (p.reachT>0 && p===s.rctl ? 1.3 : 1) : (fbUD(p) && p.tkWin>0 ? 2.7 : k==='DL' ? 1.0 : 1.35*(1+0.35*(s.cbL||0))*(1+0.55*(FB.lock||0)*(k==='CB'||k==='S' ? 1 : 0.5)));   // v154: a locked-down secondary reaches farther for the ball
     const dd = Math.hypot(b.x-p.x, b.z-p.z); if (dd < R) cands.push({p,dd});
   });
   if (!cands.length) return false;
@@ -21615,7 +21897,7 @@ function fbCatchCheck(b){
     if (closeQ && defs.length) { fbDrop(w, b, 'BATTED DOWN AT THE LINE', null, true); return true; }
     if (ud) { const rr = Math.random(); if (rr < 0.52) { fbIntercept(ud.p, b); return true; } if (rr < 0.82) { fbDrop(w, b, 'PASS BROKEN UP', null, true); return true; } }
     if (defs.length && Math.random() < 0.28*D.int + (s.defMode ? 0.04 : 0.07) + 0.22*(s.cbL||0) + 0.3*(FB.lock||0)) { fbIntercept(defs[0].p, b); return true; }
-    if (defs.length && (FB.lock||0) > 0 && Math.random() < 0.55*(FB.lock||0)) { fbDrop(w, b, 'PASS BROKEN UP', null, true); return true; }   // v153: the ball is there, so is the defender: he knocks it away
+    if (defs.length && (FB.lock||0) > 0 && Math.random() < 0.55*(FB.lock||0)) { fbDrop(w, b, 'PASS BROKEN UP', null, true); return true; }   // v154: the ball is there, so is the defender: he knocks it away
     if (near.length) {
       const nd = near[0], cs = Math.hypot(nd.vx-w.vx, nd.vz-w.vz), strong = cs > 6.5 || nd.st==='lunge';
       if (Math.random() < Math.min(0.95, fbDropOdds(0, cs)*(1 + 0.3*(s.cbL||0) + 1.1*(FB.lock||0))*fbSizeK(w))) { fbDrop(w, b, 'HIT ON THE CATCH - DROP', nd); return true; }
@@ -21779,7 +22061,7 @@ function fbFalls(){
       if (p.fallT === undefined) p.fallT = 0;
       p.fallT += 1/60;
       if (p.fallT > 0) { const u = Math.min(1,p.fallT/0.24); p.fall = p.fallTo*(1-(1-u)*(1-u)); }
-      if (p.down || p.tackling) { p.x += (p.slideX||p.vx)/60; p.z += (p.slideZ||p.vz)/60; p.slideX = (p.slideX||0)*0.93; p.slideZ = (p.slideZ||0)*0.93; p.anim += 0; }
+      if (p.down || p.tackling) { const gk = p.fallT > 0.24 ? 0.8 : 0.93, sx = p.slideX || p.vx || 0, sz = p.slideZ || p.vz || 0; p.x += sx/60; p.z += sz/60; p.slideX = sx*gk || 1e-9; p.slideZ = sz*gk || 1e-9; p.vx = (p.vx||0)*gk; p.vz = (p.vz||0)*gk; p.anim += 0; }   // v154 GROUND FRICTION: once the body is on the turf (fall done) the slide dies in ~0.25 s; the old fallback to his running speed (slideX 0) never decayed = long glides
     }
   });
 }
@@ -22088,14 +22370,6 @@ function fbNightApply(on){
   fbScene.traverse(o => { if (o.isMesh && o.material && o.material.emissiveMap) { o.material.emissive.set('#ffffff'); o.material.emissiveIntensity = on ? 0.55 : 0.3; } });
   fbHookRun('night', on);
 }
-function fbFirework(x,y,z,col){
-  if (!FB.built) return;
-  for (let i=0;i<34;i++) { const m = new THREE.Mesh(new THREE.SphereGeometry(0.22,6,5), new THREE.MeshBasicMaterial({color:col||'#ffd24a',transparent:true,opacity:1,depthWrite:false}));
-    m.position.set(x,y,z); fbScene.add(m); const a = Math.random()*6.283, b = Math.random()*3.14, v = 7+Math.random()*7;
-    fbFxList.push({ m, t:0, fw:true, vx:Math.cos(a)*Math.sin(b)*v, vy:Math.cos(b)*v, vz:Math.sin(a)*Math.sin(b)*v, sc:1, life:1.5+Math.random()*0.5 }); }
-  fbSfx('swat');
-}
-function fbFireworks(n){ const cols = ['#ffd24a','#ff4d4d','#6fd0ff','#7ddc8a','#ff8ad8','#ffffff']; for (let i=0;i<(n||4);i++) setTimeout(() => fbFirework(i%2 ? 112+Math.random()*8 : Math.random()*8, 22+Math.random()*10, (Math.random()-0.5)*40, cols[(Math.random()*6)|0]), i*380); }
 /* ---------------------------------------------------------------- the coach: on your sideline, in your colors, with a clipboard he does not always keep */
 const FB_COACH_DUR = { int:8.6, sack:16.3, run:10.8 };
 function fbCoachBuild(){
@@ -22741,7 +23015,7 @@ function fbLobbyWalkDraw(g){
 
   if (PV2.state==='ready') T('MODELS: PLAYER BLAKEALLEN25 - HELMET EXODUSKS - CLEATS LISENHAO - TROPHY G_BORY32 (SKETCHFAB, CC BY 4.0)', 160, 176.6, '#5d6a8f', 2.1, 'center');
   try { onlPanelDraw(g); } catch(e){ console.error('onl', e); }
-  T('BUILD v153',314,174,'#8fa0cc',4,'right'); { const us = uoStatus(); if (us) T(us, 6, 174, UO.state==='off' ? '#ff8b7b' : '#6f7ea8', 3, 'left'); }
+  T('BUILD v154',314,174,'#8fa0cc',4,'right'); { const us = uoStatus(); if (us) T(us, 6, 174, UO.state==='off' ? '#ff8b7b' : '#6f7ea8', 3, 'left'); }
 }
 /* ===================== WHO'S ONLINE: a live list in the lobby (signed-in players + what they are doing), chat and party invites.
    Anything sent to you pops up as a small red note in the top corner, wherever you are in the game. ===================== */
@@ -22910,7 +23184,7 @@ const UT_DEMO_CFG = { maxBuyAtOnce:5, rarityWeights:UT_DEMO_RAR, packs:(() => { 
   Object.keys(pos).forEach(k => add(k, pos[k][0]+' PACK', 5, UT_DEMO_STD, null, { pos:pos[k][1] }));
   add('legend','SEASON LEGEND PACK',1,{ S:60, A:40 },{ Legendary:1 }); return P; })() };
 function utDemoWeighted(w){ const ks = Object.keys(w), tot = ks.reduce((a,k) => a+w[k], 0); let r = Math.random()*tot; for (const k of ks) { r -= w[k]; if (r < 0) return k; } return ks[ks.length-1]; }
-const utTierName = t => t === 'LG' ? 'LEGEND' : t;      // v153: LEGEND tier (code 'LG'): plays, rolls and sells like S tier, rated a touch higher
+const utTierName = t => t === 'LG' ? 'LEGEND' : t;      // v154: LEGEND tier (code 'LG'): plays, rolls and sells like S tier, rated a touch higher
 function utDemoPool(tier, pos){ const f = t => utDB().filter(p => p.tier === t && p.pos !== 'K' && (!pos || p.pos === pos)); if (tier === 'S' && Math.random() < 0.4) { const lg = f('LG'); if (lg.length) return lg; } return f(tier); }   // 4 in 10 S-tier pulls are LEGENDS
 function utDemoRoll(pack){
   const ORDER = ['S','A','B','C','D'], one = (tw, pos, rar) => { let t = utDemoWeighted(tw), pool = utDemoPool(t, pos); for (let i = ORDER.indexOf(t); !pool.length && i < 4;) pool = utDemoPool(ORDER[++i], pos); const p = pool[Math.floor(Math.random()*pool.length)]; return { pid:p.id, rarity:rar }; };
@@ -23015,7 +23289,7 @@ function utGameStart(){
   FB.utTeams = null; FB.utMid = ''; FB.cpuEdge = 0; FB.cpuEdgeP = 0; FB.cpuEdgeR = 0; FB.cpuStyle = fbStyleFor(''); try { fbFieldTheme(null); } catch(e){}
   FB.training = !!FB.trainNext; FB.trainNext = false;
   if (FB.training) { FB.utTeams = { me:(FB.trainTeams||{}).me || null, cpu:(FB.trainTeams||{}).cpu || null }; s.clock = 1e9; try { utApplyTeams(); } catch(e){} return; }
-  if (FB.mdGame && FBN.on && FBN.mode === 'vs') { try { FB.utTeams = { host:utBuildTeam(FB.mdGame.host), guest:utBuildTeam(FB.mdGame.guest) }; utApplyTeams(); } catch(e){ console.error('mega draft teams', e); } return; }   // v153: MEGA DRAFT - both drafted teams, no server match
+  if (FB.mdGame && FBN.on && FBN.mode === 'vs') { try { FB.utTeams = { host:utBuildTeam(FB.mdGame.host), guest:utBuildTeam(FB.mdGame.guest) }; utApplyTeams(); } catch(e){ console.error('mega draft teams', e); } return; }   // v154: MEGA DRAFT - both drafted teams, no server match
   if (utSrv.token) {
     const t = utBuildTeam(utLocalSnap());
     FB.utTeams = !FBN.on ? { me:t } : FBN.role === 'host' ? { host:t } : { guest:t };
@@ -23167,7 +23441,7 @@ function fbXfUpdate(){
     const on = !hide && p.xfa && p.rig && p.rig.root && p.rig.root.visible;
     if (!on) { if (p.xfSpr) p.xfSpr.visible = false; return; }
     if (!p.xfSpr) { const cv = document.createElement('canvas'); cv.width = cv.height = 256; const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map:new THREE.CanvasTexture(cv), transparent:true, depthWrite:false, fog:false })); sp.scale.set(3.4, 3.4, 1); sp.userData.cv = cv; fbScene.add(sp); p.xfSpr = sp; p.xfF = 0; }
-    const sp = p.xfSpr; sp.visible = true; const wp = p.rig.root.getWorldPosition(new THREE.Vector3()), dx = wp.x - fbCam.position.x, dz = wp.z - fbCam.position.z, L = Math.hypot(dx, dz) || 1;
+    const sp = p.xfSpr; sp.visible = true; const wp = p.rig.root.getWorldPosition(_bt.P), dx = wp.x - fbCam.position.x, dz = wp.z - fbCam.position.z, L = Math.hypot(dx, dz) || 1;
     sp.position.set(wp.x + dx/L*0.7, wp.y + 1.9, wp.z + dz/L*0.7);          // behind him, away from the camera
     if ((p.xfF++ & 1) === 0) xfDrawFlameX(sp.userData.cv.getContext('2d'), t + (p.num||0)), sp.material.map.needsUpdate = true;
   });
@@ -23725,7 +23999,7 @@ function utCard(g,x,y,w,h,p,rar,dup){
   if (p && w >= 34 && p.skills && p.skills.length) utCardSkills(g, x, y, w, k, p, rar);
   const nm = p ? p.name.toUpperCase() : '?';
   T(nm.length > 12*(k<1?1:k) ? nm.slice(0, 11)+'.' : nm, x+w/2, y+22*k, R.ink, 2.7*k, 'center');
-  T(p ? (p.nickname ? '"'+String(p.nickname).toUpperCase().slice(0,18)+'"  '+(p.team || 'FA') : (p.team || 'FA')) : '', x+w/2, y+25.8*k, R.ink, 2.1*k, 'center');   // v153: legends show their nickname
+  T(p ? (p.nickname ? '"'+String(p.nickname).toUpperCase().slice(0,18)+'"  '+(p.team || 'FA') : (p.team || 'FA')) : '', x+w/2, y+25.8*k, R.ink, 2.1*k, 'center');   // v154: legends show their nickname
   if (p) { const sk = A.skin_hex || '#c68642', cx = x+w/2, by = y+h-9.5*k, hd = (()=>{ const n = parseInt(String(sk).slice(1),16); return '#'+[(n>>16)&255,(n>>8)&255,n&255].map(v=>Math.max(0,v-45).toString(16).padStart(2,'0')).join(''); })();
     g.save(); g.beginPath(); g.rect(x+2*k, y+31*k, w-4*k, by-(y+31*k)); g.clip();
     const wt = p.game_weight_lb || p.weight_lb || 200, fat = Math.max(0, Math.min(1, (wt-230)/260)), sw = 15*(1+0.4*fat), hx = 4.4*(1+0.95*fat), hy = 5.2*(1+0.22*fat);   // heavier players are drawn wider; the 490 lb kicker fills the card
@@ -23944,7 +24218,7 @@ function utSeasonGameOver(){
 }
 function utSeasonForfeit(){ const G = FB.seasonGame, s = FB.s; if (!G || !s || s.seasonRec) return; s.seasonRec = true; const S = utSeasonGet(); if (!S || S.div !== G.div || S.no !== G.no) { FB.seasonGame = null; return; }
   utSeasonApply(S, false, Math.min(s.you|0, 0), Math.max(21, s.cpu|0)); utSeasonSave(S); FB.seasonGame = null; }
-function utSeasonPlayedAll(S){ return !!S && S.champ === 'YOU' && !S.poSim && S.log.filter(l => l.wk === 'PO' && !l.sim).length >= 3; }   // v153: rewards need the Super Bowl AND every playoff game played by you (QF, SF, SB), none simulated
+function utSeasonPlayedAll(S){ return !!S && S.champ === 'YOU' && !S.poSim && S.log.filter(l => l.wk === 'PO' && !l.sim).length >= 3; }   // v154: rewards need the Super Bowl AND every playoff game played by you (QF, SF, SB), none simulated
 function utSeasonRewards(S){          // paid once the season is over: only the best thing you did counts (playoffs < Super Bowl < champion)
   if (!S || S.phase !== 'done') return; const U = FB.ut, claimed = utSrv.seasonClaimed || [];
   const kind = utSeasonPlayedAll(S) ? 'champ' : null; if (!kind || claimed.indexOf(kind) >= 0) return;      // only the Super Bowl pays, and only when you played every playoff game
@@ -23981,7 +24255,7 @@ function utLgSnap(id, div){      // a league team as a saved-team snapshot, so t
 }
 function utSeasonSimWeek(){                             // SIM instead of playing: your team's rating against theirs decides it, same odds as every other game in the league
   const S = utSeasonGet(); if (!S || (FB.ut && FB.ut.busy)) return; const opp = utSeasonOpp(S); if (!opp) return;
-  if (S.phase === 'po') { if (FB.ut) { FB.ut.err = 'PLAYOFF GAMES MUST BE PLAYED - NO SIMMING'; FB.ut.msgT = 0; } return; }      // v153
+  if (S.phase === 'po') { if (FB.ut) { FB.ut.err = 'PLAYOFF GAMES MUST BE PLAYED - NO SIMMING'; FB.ut.msgT = 0; } return; }      // v154
   const [pf, pa] = utLgSim(utLgYouOvr(), utLgTeamOvr(opp, S.div)); utSeasonApply(S, pf > pa, pf, pa, true); utSeasonSave(S).then(() => { try { utSeasonRewards(S); } catch(e){} });
   if (FB.ut) { FB.ut.msg = 'SIMMED: '+(pf > pa ? 'WIN ' : 'LOSS ')+pf+'-'+pa+' VS '+opp; FB.ut.msgT = 0; }
 }
@@ -24298,8 +24572,9 @@ function fbBenchBuild(){
   if (CROWD_LOOK.sideCards) try { const sl = []; FB.bench.forEach(b => { b.men.forEach((m, i) => { const row = [0,3,0,5,3,2][i%6]; sl.push([m.x, m.z, b.team === 'away' ? 1 : 0, row, row === 2 ? 2 : 0]); }); b.body.visible = b.head.visible = false; }); crowdSideBuild(sl); } catch(e){ console.error('bench people', e); }
 }
 function fbBenchMood(team, mood){ (FB.bench||[]).forEach(b => { if (b.team===team) { b.mood = mood; b.moodT = 2.6; } }); }
+const _bt = { M:new THREE.Matrix4(), Q:new THREE.Quaternion(), P:new THREE.Vector3(), S:new THREE.Vector3(1,1,1), cl:new THREE.Color(), E:new THREE.Euler(0,0,0) };   // scratch: fbBenchTick runs every drawn frame
 function fbBenchTick(dt){
-  if (!FB.bench) return; const M = new THREE.Matrix4(), Q = new THREE.Quaternion(), P = new THREE.Vector3(), S = new THREE.Vector3(1,1,1), cl = new THREE.Color(), t = performance.now()/1000;
+  if (!FB.bench) return; const M = _bt.M, Q = _bt.Q, P = _bt.P, S = _bt.S, cl = _bt.cl, t = performance.now()/1000;
   FB.bench.forEach(b => {
     const col = FB.look[b.team]; if (b.col!==col) { b.col = col; for (let i=0;i<b.men.length;i++) { b.body.setColorAt(i, cl.set(col)); b.head.setColorAt(i, cl.set(b.men[i].skin)); } b.body.instanceColor.needsUpdate = true; b.head.instanceColor.needsUpdate = true; }
     if (b.moodT > 0) b.moodT -= dt; else b.mood = '';
@@ -24307,7 +24582,7 @@ function fbBenchTick(dt){
       let y = 0, lean = 0, bob = Math.sin(t*1.3 + m.ph)*0.02;
       if (b.mood==='cheer') { const u = clamp(b.moodT/2.6,0,1); y = Math.abs(Math.sin(t*9 + m.ph))*0.55*u; }
       else if (b.mood==='slump') { lean = -0.35*clamp(b.moodT/2.6,0,1); }
-      Q.setFromEuler(new THREE.Euler(lean, b.sd > 0 ? Math.PI : 0, 0)); P.set(m.x, 0.8 + y + bob, m.z); M.compose(P,Q,S); b.body.setMatrixAt(i,M);
+      Q.setFromEuler(_bt.E.set(lean, b.sd > 0 ? Math.PI : 0, 0)); P.set(m.x, 0.8 + y + bob, m.z); M.compose(P,Q,S); b.body.setMatrixAt(i,M);
       P.set(m.x + Math.sin(lean)*0.8, 1.62 + y + bob - (1-Math.cos(lean))*0.8, m.z); M.compose(P,Q,S); b.head.setMatrixAt(i,M);
     });
     b.body.instanceMatrix.needsUpdate = true; b.head.instanceMatrix.needsUpdate = true;
@@ -24383,7 +24658,7 @@ function fbPumpFake(){                                   // a quick tap / double
 }
 function fbPumpStep(dt){ const s = FB.s; if (s.pumpT > 0) s.pumpT -= dt; }
 function fbBodies(dt){                                   // bodies don't pass through each other: a soft shove apart, the heavier man wins
-  const P = fbRigs.filter(p => !p.down && !p.tackling && !(p.eng && !p.free) && !p.wrapBy && !p.wrapping && !(p.diveT > 0) && !p.pusher && !p.push && !p.kneel && !p.carry && !(p.jumpT > 0));
+  const P = fbRigs.filter(p => !p.down && !p.tackling && !p.getUp && !(p.offG && p.stun > 0) && !(p.eng && !p.free) && !p.wrapBy && !p.wrapping && !(p.diveT > 0) && !p.pusher && !p.push && !p.kneel && !p.carry && !(p.jumpT > 0));
   for (let i = 0; i < P.length; i++) for (let j = i+1; j < P.length; j++) {
     const a = P[i], b = P[j], dx = b.x-a.x, dz = b.z-a.z, d = Math.hypot(dx,dz); if (d >= 0.72 || d < 0.001) continue;
     const ma = FB_BODY[fbKind(a.role)]||0.47, mb = FB_BODY[fbKind(b.role)]||0.47, k = (0.72-d)*0.55, nx = dx/d, nz = dz/d, wa = mb/(ma+mb), wb = ma/(ma+mb);
@@ -24792,7 +25067,7 @@ function fbScoutLine(){                                   // one line for the ca
 }
 
 /* ---------------------------------------------------------------- the CPU drive sim */
-function fbCpuDrive(yl, down0, toGo0){          // v153: down0 / toGo0 = pick the drive up in the middle (SIM THE REST while you are on defense)
+function fbCpuDrive(yl, down0, toGo0){          // v154: down0 / toGo0 = pick the drive up in the middle (SIM THE REST while you are on defense)
   const s = FB.s, D = FBD[FB.diff];
   let y = yl, down = down0 || 1, toGo = toGo0 ? Math.min(toGo0, 100-y) : Math.min(10,100-y), pl = 0, t = 0, start = yl, pts = 0, res = '', userYl = 25;
   while (pl < 14) {
@@ -25007,7 +25282,7 @@ function fbSimRest(){                                  // escape menu: sim out t
 function fbEscDraw(g){
   const s = FB.s, online = !!FBN.on, can = !online && utSrv.token && s && s.utGid && !s.utClaimed, save = !online && !(s && s.tutMode) && !FB.training;
   g.fillStyle = 'rgba(2,5,14,.78)'; g.fillRect(0,0,W,H); uiPanel(g,50,6,220,168,{ r:8, fill:'rgba(10,15,30,.97)' });
-  T('ESCAPE',160,10,'#ffd24a',8,'center');
+  T('ESCAPE',160,10,'#ffd24a',8,'center'); fbGfxBtns(g, 54, 8, 76, 9, 190);
   let y = 24;
   if (save) { fbBtn(g,'esave',64,y,192,16,'SAVE AND QUIT',{size:5.4,col:'#7ddc8a'}); T('KEEP THE SCORE, DOWN AND CLOCK. RESUME LATER.',160,y+17,'#9fb0dc',2.8,'center'); y += 29; }
   if (can) { const est = utEstEarly(s.cst || {}); fbBtn(g,'eclaim',64,y,192,16,'LEAVE AND CLAIM COINS  (~'+est+')',{size:4.6,col:'#ffd24a'}); T('YARDS AND PLAYS ONLY - NO COMPLETION BONUS, NO WIN BONUS.',160,y+17,'#9fb0dc',2.8,'center'); y += 29; }
@@ -25032,6 +25307,7 @@ function fbStep(){
     if (s.daudPend && s.preT >= s.daudPend.at) { const id = s.daudPend.id; s.daudPend = null; fbAudibleDApply(id); }
     try { fbDefAdjustStep(1/60); } catch(e){ console.error('adj', e); }
     fbMotionStep(); try { fbPreDefMove(1/60); } catch(e){ console.error('predef', e); }
+    fbDef().forEach(d => { if (d.x > 119) { d.x = 119; if (d.vx > 0) d.vx = 0; } });   // v154: a deep safety shading pre-snap stays inside the end line (the live field clamp yanked him back 1-4 yd on the first tick)
     if (s.audF > 0) { s.audF--; if (s.audF <= 0) s.audN = ''; }
     fbOff().forEach(p => { p.anim += 0.02; }); fbDef().forEach(p => { p.anim += 0.02; });
     if (s.preT > 0.9 && !s.cpuAud) { try { fbCpuAudible(); } catch(e){} }
@@ -25042,7 +25318,7 @@ function fbStep(){
   else if (sc==='live' && s.intFz > 0) { s.intFz -= 1/60; if (s.intFz <= 0) s.intFz = 0; fbRigs.forEach(p => { p.anim += 0.01; }); }
   else if (sc==='live') {
     // charging a throw
-    if (s.charging) { s.chargeF = FB.rmbMeter ? Math.max(0, (s.chargeF||0) - QB_THROW.cfg.drain) : (s.chargeF||0)+1; s.charge = qbtPower(s.chargeF/60); } else FB.rmbMeter = false;   // v153: right click drains the meter
+    if (s.charging) { s.chargeF = FB.rmbMeter ? Math.max(0, (s.chargeF||0) - QB_THROW.cfg.drain) : (s.chargeF||0)+1; s.charge = qbtPower(s.chargeF/60); } else FB.rmbMeter = false;   // v154: right click drains the meter
     if (FB.tapPending && !FB.tapPending.guest && performance.now() - FB.tapPending.at >= 200) { const tp = FB.tapPending; FB.tapPending = null; if (!s.thrown && !s.charging) fbThrow(tp.p, qbtPower(tp.h||0), false, 'lob'); }   // the short click: the lob goes
     if (s.tutMode) fbTutTick();
     if (!s.defMode && s.ctl && s.ctl.role==='QB' && !s.thrown && s.hover) {
@@ -25073,7 +25349,7 @@ const FB_COL = { RB:'#ffb74a', TE:'#7ddc8a', W1:'#6fd0ff', W2:'#ff8ad8', W3:'#ff
 function fbEnter(){
   try { fbLoadShow(); uoInit(); } catch(e){ console.warn('loading screen', e); }
   window.IslandGame?.setDockVisible(false);const dock=document.getElementById('island-dock-button');if(dock){dock.style.display='none';dock.style.pointerEvents='none';}
-  fbBuild(); try { uoInit(); } catch(e){} try { hubApply(); } catch(e){} R3.toneMapping = THREE.ACESFilmicToneMapping; R3.toneMappingExposure = 1.08; FB.on = true; fbNewGame(); fbToCall(); FB.scr = 'lobby'; FB.camSnap = true; FB.btns = []; FB.mouse = null; try { fbLobbyInit(); } catch(e){ console.error('lobby init', e); }
+  fbBuild(); try { uoInit(); } catch(e){} try { hubApply(); } catch(e){} R3.toneMapping = THREE.ACESFilmicToneMapping; R3.toneMappingExposure = 1.08; FB.on = true; try { gfxApply(true); } catch(e){ console.error('gfxApply', e); } fbNewGame(); fbToCall(); FB.scr = 'lobby'; FB.camSnap = true; FB.btns = []; FB.mouse = null; try { fbLobbyInit(); } catch(e){ console.error('lobby init', e); }
   FB.s.camFocus = { x:FB.s.los+4, z:0 };
   try { unlockAudio(); } catch(e){}
 }
@@ -25306,10 +25582,11 @@ function fbLobbyDraw(g){
   if (PARTY.npc && !PARTY.on) T(PARTY.npc.name+' SUITS UP AS YOUR W1',160,55,'#7ddc8a',5,'center');
   fbBtn(g,'lobbyback',6,5,76,12,'< BACK TO THE FIELD',{size:4.6});
   fbBtn(g,'party',6,19,76,10,PARTY.on ? 'PARTY  '+PARTY.code.toUpperCase() : 'PLAY WITH A FRIEND',{size:4.4,line:'#7ddc8a',tc:'#c9f7d0'});
-  T('BUILD v153',314,174,'#8fa0cc',4,'right');   // so you can tell which build is live
+  T('BUILD v154',314,174,'#8fa0cc',4,'right');   // so you can tell which build is live
   fbBtn(g,'tut',100,141,58,13,'TUTORIAL',{size:5,line:'#ffd24a',tc:'#ffe9a8'}); fbBtn(g,'howlobby',162,141,58,13,'HOW TO PLAY',{size:4.4,line:'#ffd24a',tc:'#ffe9a8'});
   fbBtn(g,'shop',6,141,90,13,'PLAY SHOP',{size:5.5,line:'#7ddc8a',tc:'#c9f7d0'});
   fbBtn(g,'stats',224,141,90,13,'MY STATS',{size:5.5,line:'#6fd0ff',tc:'#cfeeff'});
+  fbGfxBtns(g, 6, 163, 104, 10);                                   // GRAPHICS preset + CAMERA style (also in the escape menu)
 }
 
 /* ===== PLAY PICKER (Madden-Mobile style): light panel, big title, 3 x 2 near-black tiles, SUGGESTED ribbon, hint strip. Same ids + keys as before: tab0-2, pgp, pgn, play0-5 ===== */
@@ -25535,6 +25812,8 @@ function fbOverDraw(g){
 function fbPtr(e){ const r = canvas.getBoundingClientRect(); return { px:(e.clientX-r.left)/r.width, py:(e.clientY-r.top)/r.height }; }
 function fbBtnAt(px,py){ const x = px*W, y = py*H; return (FB.btns||[]).find(b => x>=b.x && x<=b.x+b.w && y>=b.y && y<=b.y+b.h); }
 function fbAct(id){
+  if (id==='gfxq') { fbqCycle(); return; }
+  if (id==='camstyle') { fbCamStyleNext(); try { fbSfx('tick'); fbMsg('CAMERA: '+fbCamStyleName(), '#ffd24a', 90); } catch(e){} return; }
   if (/^onl_/.test(id)) { onlAct(id); return; }
   if (/^nwarn:/.test(id)) { const u = id.slice(6), e = ntagMap().get(u); FB.warnPop = { u, msg:(e && e.warn) || '' }; try { fbSfx('tick'); } catch(e2){} return; }
   if (id === 'nwarnx') { FB.warnPop = null; return; }
@@ -25684,7 +25963,7 @@ document.getElementById('game').addEventListener('pointerdown', e => {
   }
   e.stopImmediatePropagation(); e.preventDefault();
   try { const ae = document.activeElement; if (ae && ae!==document.body && typeof ae.blur==='function' && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)) ae.blur(); } catch(_){}
-  if (e.button===2) { const cs = FB.s; if (cs && cs.charging && cs.ctl && cs.ctl.role==='QB' && !cs.thrown) { FB.rmbMeter = true; FB.rmb = true; return; }   // v153: right click while charging a throw = the meter goes down (no sprint)
+  if (e.button===2) { const cs = FB.s; if (cs && cs.charging && cs.ctl && cs.ctl.role==='QB' && !cs.thrown) { FB.rmbMeter = true; FB.rmb = true; return; }   // v154: right click while charging a throw = the meter goes down (no sprint)
     keys.ShiftRight = true; FB.rmb = true; return; }          // V81: right click = sprint (hold)
   try { unlockAudio(); } catch(_){}
   const { px, py } = px0, s = FB.s, sc = FB.scr;
@@ -25730,7 +26009,7 @@ window.addEventListener('pointerup', e => {
   if (FBN.on && FBN.role==='guest') { fbnGuestUp(); return; }
   if (FB.scr==='live' && s.charging) {
     s.charging = false; const p = s.hover ? fbRay(s.hover.px, s.hover.py, 1.0) : null;
-    const hS = (s.chargeF||0)/60; if (p) { if ((s.chargeF||0) < 12) FB.tapPending = { p, at:performance.now(), h:hS }; else fbThrow(p, qbtPower(hS), false, 'pass'); } s.aimShow = false;   // v153: how long you held = how hard he throws it   // a short click lobs it (after a beat, in case a second click makes it a pump fake)
+    const hS = (s.chargeF||0)/60; if (p) { if ((s.chargeF||0) < 12) FB.tapPending = { p, at:performance.now(), h:hS }; else fbThrow(p, qbtPower(hS), false, 'pass'); } s.aimShow = false;   // v154: how long you held = how hard he throws it   // a short click lobs it (after a beat, in case a second click makes it a pump fake)
   }
 }, true);
 function fbDrawPt(x,y){
@@ -25743,7 +26022,7 @@ function fbDrawPt(x,y){
 }
 
 window.addEventListener('blur', () => { if (FB && FB.rmb) { FB.rmb = false; FB.rmbMeter = false; keys.ShiftRight = false; } });
-// v153: right click while a throw is charging = the meter goes down. With the left button already held the browser sends no pointerdown for the second button, so the button mask is read from every mouse / pointer event
+// v154: right click while a throw is charging = the meter goes down. With the left button already held the browser sends no pointerdown for the second button, so the button mask is read from every mouse / pointer event
 { const rm = e => { try { const cs = FB && FB.s; if (!FB.on || !cs || !cs.charging || !cs.ctl || cs.ctl.role!=='QB' || cs.thrown) return; const dn = e.type==='mouseup' ? (e.buttons & 2) : (e.buttons & 2) || (e.type==='mousedown' && e.button===2); FB.rmbMeter = !!dn; if (dn) keys.ShiftRight = false; } catch(_){} };
   ['pointermove','mousemove','mousedown','mouseup','pointerup'].forEach(t => window.addEventListener(t, rm, true)); }
 
@@ -26258,7 +26537,7 @@ const FB_DCALLS = [
 const FB_ROLEN = { DL:'DL', LB:'LB', CB:'CB', S:'S' };
 
 /* ---------------------------------------------------------------- starting / ending a defensive drive */
-/* v153: you are not locked into the whole drive any more: SIM DRIVE finishes it from where it stands (the same drive sim the game uses when you skip the defense) */
+/* v154: you are not locked into the whole drive any more: SIM DRIVE finishes it from where it stands (the same drive sim the game uses when you skip the defense) */
 function fbDefSimOk(){ const s = FB.s; return !!(s && s.defMode && !FBN.on && !s.train && !s.tutMode && !s.pat && !s.conv && (FB.scr==='dcall' || FB.scr==='live')); }
 function fbDefSimRest(){
   const s = FB.s; if (!fbDefSimOk()) return;
@@ -28062,7 +28341,7 @@ function tdcSlots(K){
   }
   return out;
 }
-function tdcMoveTo(p,x,z,dt,max){ const d = Math.hypot(x-p.x, z-p.z); fbMove(p, x, z, Math.min(max, Math.max(5, d*1.6)), dt, 34); p.st = 'ready'; return d; }
+function tdcMoveTo(p,x,z,dt,max){ const d = Math.hypot(x-p.x, z-p.z); fbMove(p, x, z, Math.min(max, 9, Math.max(5, d*1.6)), dt, 34);   /* v154: dead-ball runs are at a real sprint (was up to 15 yd/s of wall clock = twice top speed) */ p.st = 'ready'; return d; }
 function tdcClear(p,dt){      // the other team walks out of the picture
   const s = FB.s, X = s.tdcSg>0 ? 120 : 0;
   if (Math.abs(p.x-X) > 15 || Math.abs(p.z-s.tdcZ) > 10) { fbVel(p,0,0,dt,20); return; }
@@ -28649,7 +28928,7 @@ function fbSkillBlock(p, tg, base){
 // the ball sits in the real hand(s): tucked along the forearm when carrying, between both hands for the QB / on a catch
 const _fbH1 = new THREE.Vector3(), _fbH2 = new THREE.Vector3(), _fbE = new THREE.Vector3(), _fbX = new THREE.Vector3(1,0,0), _fbQ = new THREE.Quaternion();
 function fbBallInHands(h){
-  if (h.tuckOn && h.tuckPos) { fbBall.position.copy(h.tuckPos); fbBall.quaternion.copy(h.tuckQ); return; }   // v153: tucked carry
+  if (h.tuckOn && h.tuckPos) { fbBall.position.copy(h.tuckPos); fbBall.quaternion.copy(h.tuckQ); return; }   // v154: tucked carry
   const rg=h.rig,bones=rg&&rg.fbBones,keys=bones?Object.keys(bones):[],findBone=(side,part)=>bones&&(bones['mixamorig'+side+part]||bones['mixamorig:'+side+part]||bones[side+part]||bones[keys.find(k=>new RegExp(side+'.*'+part,'i').test(k))]);
   if(bones&&rg.fbModel){
     const hand=findBone('Right','Hand'),fore=findBone('Right','ForeArm'),arm=findBone('Right','Arm'),other=findBone('Left','Hand');
@@ -28941,7 +29220,7 @@ function fbShopDraw(g){
   });
   T('LOCKED PLAYS CANNOT BE CALLED OFFLINE.  IN ONLINE GAMES BOTH PLAYERS GET EVERY PLAY.',160,170,'#8fa0cc',3.8,'center');
 }
-/* v153: TIME PLAYED - the real seconds you spend inside a game (not the lobby, menus or training hub), kept with your football stats */
+/* v154: TIME PLAYED - the real seconds you spend inside a game (not the lobby, menus or training hub), kept with your football stats */
 const FB_TP_NO = ['lobby','ut','train','howto','over','defask'];
 function fbPlayClock(){
   const now = performance.now(), last = FB.tpLast || now; FB.tpLast = now;
@@ -28968,7 +29247,7 @@ function fbStatsDraw(g){
   most.forEach((p,i) => { const y = 103 + i*9.4; T((i+1)+'  '+p.n,156,y,'#fff',4.8,'left'); T(p.c+' CALLS  '+p.y+' YDS',308,y,'#9fb0dc',4.4,'right'); });
 }
 
-/* ===================== v153: HANDOFF + PLAY-ACTION LIBRARY (anim/ho): the QB and the back play one synced pair =====================
+/* ===================== v154: HANDOFF + PLAY-ACTION LIBRARY (anim/ho): the QB and the back play one synced pair =====================
    The game still decides WHEN the exchange happens (the same handoff / toss / fake timing as before); the pair's own events are lined up
    to it: mesh_start (or toss_release / pull) = the moment the ball starts to move, transfer (or catch) = the moment the back has it.
    rb_path_m is matched visually: the back (and a little of the QB) is drawn up to 0.75 yd toward the authored path during the mesh only. */
@@ -29114,7 +29393,7 @@ const fbnIsHost = () => FBN.on && FBN.role==='host';
 const fbnIsGuest = () => FBN.on && FBN.role==='guest';
 function fbMain(){ if (FBN.on && FBN.role==='guest') fbnGuestStep(); else { fbStep(); if (FBN.on) fbnHostTick(); } }
 function fbVs(){ return !!(FBN.on && FBN.mode==='vs'); }
-function fbFlip(){ return false; }     // v153: one camera for everyone - behind the offense, on offense AND defense, solo, co-op and online (the same view the online 1v1 uses)
+function fbFlip(){ return false; }     // v154: one camera for everyone - behind the offense, on offense AND defense, solo, co-op and online (the same view the online 1v1 uses)
 function fbDirNow(){ const s = FB.s; return (fbFlip() || (s && s.turn)) ? -1 : 1; }      // after a turnover everyone sees the field from the other end
 function fbVsFix(t){                                                          // drive-screen text is written once (tokens) and read per player
   if (typeof t!=='string' || t.indexOf('{')<0) return t; const g = FBN.role==='guest', on = fbnOtherName();
@@ -29182,7 +29461,7 @@ function fbnFx(n){ FBN.fxq.push([++FBN.fxId, n]); if (FBN.fxq.length > 6) FBN.fx
 function fbnHold(){ const s = FB.s; FB.scr = 'hold'; s.phase = 'hold'; }
 
 /* ---------------------------------------------------------------- HOST: open a room, wait for the friend */
-/* ===================== v153: MEGA DRAFT (1v1 with your party member) =====================
+/* ===================== v154: MEGA DRAFT (1v1 with your party member) =====================
    One shared pool, both of you pick from it in turn (snake order), 15 players each - the same card for both of you is impossible.
    Everyone plays at the same card level, both O-lines and D-lines are the same level, so the draft itself decides the game. No wagers, no rewards: it is for fun.
    The leader's game runs the draft (host); the other player sends picks over the party room. */
@@ -29557,7 +29836,7 @@ function fbnGuestStep(){
   if (b && b.mode==='fly') { b.x += b.vx/60; b.y += b.vy/60; b.z += b.vz/60; b.vy -= FB_G*(b.tipped?FB_TIP_G:1)/60; }
   if (sc==='pre') s.preT += 1/60; else if (sc==='drive' || sc==='half') s.driveT = (s.driveT||0)+1; else if (sc==='over') s.overT = (s.overT||0)+1;
   if (sc==='live') {
-    if (s.charging) { s.chargeF = FB.rmbMeter ? Math.max(0, (s.chargeF||0) - QB_THROW.cfg.drain) : (s.chargeF||0)+1; s.charge = qbtPower(s.chargeF/60); } else FB.rmbMeter = false;   // v153: right click drains the meter
+    if (s.charging) { s.chargeF = FB.rmbMeter ? Math.max(0, (s.chargeF||0) - QB_THROW.cfg.drain) : (s.chargeF||0)+1; s.charge = qbtPower(s.chargeF/60); } else FB.rmbMeter = false;   // v154: right click drains the meter
     if (FB.tapPending && FB.tapPending.guest && performance.now() - FB.tapPending.at >= 200) { const tp = FB.tapPending; FB.tapPending = null; fbnEv({ n:'cu', x:fbnR(tp.p.x), z:fbnR(tp.p.z), k:'touch', h:fbnR(tp.h||0) }); }   // the guest's short click: the touch pass goes
     if (!s.defMode && FBN.mode==='vs' && s.ctl && s.ctl.role==='QB' && !s.thrown && s.hover) {
       const g = fbRay(s.hover.px, s.hover.py, 0.01);
@@ -29653,7 +29932,7 @@ function fbnGuestPtr(px,py,sc){
 function fbnGuestUp(){
   const s = FB.s; if (FB.scr!=='live' || !s.charging) return;
   s.charging = false; const p = s.hover ? fbRay(s.hover.px, s.hover.py, 1.0) : null; s.aimShow = false;
-  const hS = (s.chargeF||0)/60; if (p) { if ((s.chargeF||0) < 12) FB.tapPending = { p, at:performance.now(), guest:true, h:hS }; else fbnEv({ n:'cu', x:fbnR(p.x), z:fbnR(p.z), k:'pass', h:fbnR(hS) }); }   // v153: the hold time goes with it (the host turns it into power)   // a short click waits a beat (a second click makes it a pump fake), a hold is a bullet, hold + Shift a lob
+  const hS = (s.chargeF||0)/60; if (p) { if ((s.chargeF||0) < 12) FB.tapPending = { p, at:performance.now(), guest:true, h:hS }; else fbnEv({ n:'cu', x:fbnR(p.x), z:fbnR(p.z), k:'pass', h:fbnR(hS) }); }   // v154: the hold time goes with it (the host turns it into power)   // a short click waits a beat (a second click makes it a pump fake), a hold is a bullet, hold + Shift a lob
 }
 
 /* ---------------------------------------------------------------- shared */
@@ -30260,7 +30539,7 @@ function hubStoreRig(){
 /* ---------------------------------------------------------------- entering / leaving */
 function hubEnter(scr, from){
   if ((scr||'park')==='park') partyLead('park');
-  hubBuild(); try { R3.toneMapping = THREE.ACESFilmicToneMapping; R3.toneMappingExposure = 1.05; } catch(e){}
+  hubBuild(); try { R3.toneMapping = THREE.ACESFilmicToneMapping; R3.toneMappingExposure = 1.05; } catch(e){} try { gfxLeave(); } catch(e){}
   HUB.on = true; HUB.scr = scr || 'park'; HUB.fade = 1; HUB.go = null; HUB.btns = []; HUB.mouse = null; HUB.camSnap = true;
   if (typeof FB !== 'undefined') FB.on = false;
   { const m = HUB.me; m.vx = m.vz = 0; if (from==='court') { m.x = 0; m.z = 60; m.face = Math.PI/2; HUB.yaw = 0; } else if (from==='football') { m.x = 0; m.z = -36; m.face = -Math.PI/2; HUB.yaw = Math.PI; } }
@@ -32106,7 +32385,7 @@ function fbProtectionStep(dt,run){
   if((s.slide|0)&&!advancing&&available.filter(d=>d.rusher).length>free.length){const far=available.filter(d=>Math.sign(d.z-q.z)===-(s.slide|0)).sort((a,b)=>Math.abs(b.z-q.z)-Math.abs(a.z-q.z))[0];if(far){available.splice(available.indexOf(far),1);available.push(far);}}   // V46 (12): the line slides away from the far edge - that rusher is the back's (or nobody's)
   for(const d of available){if(reserved.has(d))continue;let best=null,score=Infinity;for(const o of free){if(o.passTarget&&reserved.has(o.passTarget))continue;const anchor=fbPocketAnchor(o,q,advancing),sidePenalty=Math.sign(o.protectZ)&&Math.sign(d.z-q.z)!==Math.sign(o.protectZ)?2.3:0,slideP=((s.slide|0)&&!advancing)?(fbKind(o.role)==='OL'&&Math.sign(d.z-q.z)===-(s.slide|0)?1.6:(o.role==='RB'&&Math.sign(d.z-q.z)===(s.slide|0)?1.6:0)):0,v=fbDist(o,d)+Math.abs(d.z-anchor.z)*.65+sidePenalty+slideP;if(v<score){score=v;best=o;}}if(best){if(best.passTarget!==d){best.passTarget=d;best.reactionAt=s.t+(.12+(1-(best.blockEff||1))*.15)*(1-.45*fbLineN(best));}best.targetReadUntil=s.t+.28;reserved.add(d);}}
   free.forEach(o=>{
-    const eff=o.blockEff||.8,olN=fbLineN(o),mvK=Math.min(1.55,eff*(fbKind(o.role)==='OL'?((o.ur&&o.ur.blk)||1)*(1+.5*olN):1)),anchor=fbPocketAnchor(o,q,advancing);let target=o.passTarget;   // v153: a better lineman moves, reaches and reacts like one
+    const eff=o.blockEff||.8,olN=fbLineN(o),mvK=Math.min(1.55,eff*(fbKind(o.role)==='OL'?((o.ur&&o.ur.blk)||1)*(1+.5*olN):1)),anchor=fbPocketAnchor(o,q,advancing);let target=o.passTarget;   // v154: a better lineman moves, reaches and reacts like one
     if(!target||!threats.includes(target)||target.eng||!reserved.has(target)){target=null;o.passTarget=null;}
     if(o.recoveryT>0){o.recoveryT=Math.max(0,o.recoveryT-dt);o.blockPlant=false;fbVel(o,0,0,dt,24);return;}
     let tx=anchor.x,tz=anchor.z;if(target&&s.t>=o.reactionAt&&advancing){const rx=q.x-target.x,rz=q.z-target.z,L=Math.hypot(rx,rz)||1;tx=target.x+(target.vx||0)*.2+rx/L*.9;tz=target.z+(target.vz||0)*.2+rz/L*.9;}   // for the runner: go meet the closest chaser, don't wait for him
@@ -32118,11 +32397,11 @@ function fbProtectionStep(dt,run){
 }
 function fbRunBlock(p,dt){p.runBlockReady=true;p.st='ready';}
 function fbBlockAI(p,dt){p.runBlockReady=true;p.st='ready';}
-// v153: how good a lineman is, 0..1 (line level 1 = 0 = the old lineman, level 10 = 1). A good O-line really holds the pocket and drives the run; a good D-line / elite edge beats it.
+// v154: how good a lineman is, 0..1 (line level 1 = 0 = the old lineman, level 10 = 1). A good O-line really holds the pocket and drives the run; a good D-line / elite edge beats it.
 function fbLineN(p){ const u=p&&p.ur; if(!u) return 0; if(u.lvl) return clamp((u.lvl-1)/9,0,1); return clamp(((u.blk||u.rush||1)-1)/0.45,0,1); }
 function fbLineEngage(e,dt,D,q){
   const d=e.d,o=e.o,s=FB.s;if(e.ended)return;const olN=fbLineN(o),rushN=clamp((((d.ur&&d.ur.rush)||1)-1)/0.45,0,1)*0.7+fbLineN(d)*0.3;
-  const eff=(e.eff||o.blockEff||1)*(o.ur?o.ur.blk:1)*(1+0.6*olN);   // v153: a maxed line is about twice the blocker (it was +20%)
+  const eff=(e.eff||o.blockEff||1)*(o.ur?o.ur.blk:1)*(1+0.6*olN);   // v154: a maxed line is about twice the blocker (it was +20%)
   if(e.flashed===undefined||(e.reFlash&&s.t>=(e.winOpen||0))){e.flashed=true;e.reFlash=false;if(fbUD(d))fbRushFlash(d,'MOVE!',.35);}   // v46 (16): the move window opens at first contact, and again after a stonewall
   if(e.ripAt){if(s.t>=e.ripAt){e.ripAt=0;fbRushWin(e,'rip',q);}else{d.vx*=.5;d.vz*=.5;o.vx*=.5;o.vz*=.5;fbFace(o,d.x,d.z);fbFace(d,o.x,o.z);o.st=d.st='block';o.blockContact=d.blockContact=true;}return;}   // the rip takes .3 s to work the arm through
   if(d.wantSwim||d.wantMove){const side=d.wantSwim||0,kind=d.wantMove||'swim';d.wantSwim=0;d.wantMove=null;if(fbRushMove(e,kind,side,q)||e.ended)return;}
@@ -32147,7 +32426,7 @@ function fbLineEngage(e,dt,D,q){
   const pastShoulder=Math.abs(shoulder)>.96,behind=(d.x-o.x)*nx+(d.z-o.z)*nz>.12;
   if(age>(xfHas(d,'shark')?.35:.7)&&pastShoulder&&(e.progress>(xfHas(d,'shark')?.4:.62)||behind)){fbReleaseBlock(e,true);return;}
   if(!user&&d.bullUntil&&s.t>d.bullUntil){d.bullHeld=false;d.bullUntil=0;}
-  if(e.cpuGo===undefined)e.cpuGo=Math.random()<clamp(1-0.82*olN+0.45*rushN+0.3*(FB.lock||0),0.1,1);   // v153: does this rusher get a move this play? a maxed line says no most of the time; an elite edge against a weak line almost always does
+  if(e.cpuGo===undefined)e.cpuGo=Math.random()<clamp(1-0.82*olN+0.45*rushN+0.3*(FB.lock||0),0.1,1);   // v154: does this rusher get a move this play? a maxed line says no most of the time; an elite edge against a weak line almost always does
   if(!user&&!e.cpuMove&&age>=.1&&age<=.33&&!(d.stonewallUntil>s.t)){e.cpuMove=true;if(e.cpuGo&&Math.random()<.08+.08*FB.diff){const heavy=fbBodyMass(d)>=fbBodyMass(o)-.001;if(heavy&&Math.random()<.4){d.bullHeld=true;d.bullUntil=s.t+1.3;}else fbRushMove(e,Math.random()<.75?'auto':'wrong',side,q);}}   // v46 (16): the CPU reads the same tells and uses the same three moves inside the same window (one try per engagement)
   if(!user&&e.cpuGo&&age>1.6+(slideK>0?1.7:slideK<0?-.5:0)+1.2*olN&&Math.abs(shoulder)>.36&&d.swimCd<=0&&s.t>=e.nextMove){const ofx=Math.cos(o.face),ofz=-Math.sin(o.face),swimSide=Math.sign((d.x-o.x)*(-ofz)+(d.z-o.z)*ofx)||-side,attempt=FBS.swim(e,swimSide,s.t);if(attempt.success){fbLineSwim(e,swimSide);return;}e.nextMove=s.t+.19;}
 }
@@ -32178,12 +32457,13 @@ function fbPathBlocked(a,b,ignore){
 }
 function fbSeparate(){
   const a=fbRigs;a.forEach(p=>{p.contactVx=p.vx;p.contactVz=p.vz;});for(let iteration=0;iteration<3;iteration++)for(let i=0;i<a.length;i++)for(let j=i+1;j<a.length;j++){
-    const p=a[i],q=a[j];if(p.down&&q.down)continue;if(p.side===q.side&&((p.hoGhost||0)>FB.s.t||(q.hoGhost||0)>FB.s.t)&&(p.role==='QB'||q.role==='QB'))continue;let dx=q.x-p.x,dz=q.z-p.z,d=Math.hypot(dx,dz);const rp=['OL','DL'].includes(fbKind(p.role))?.56:.46,rq=['OL','DL'].includes(fbKind(q.role))?.56:.46,R=rp+rq;
+    const p=a[i],q=a[j],fp=fbSepFixed(p),fq=fbSepFixed(q);if(fp&&fq)continue;if((p.uo&&p.uo.anchor===q)||(q.uo&&q.uo.anchor===p))continue;   /* v154: a clip pair (tackle / break / catch) owns its own spacing: shoving them apart made the glue yank the runner ~1 yd a tick */   /* v154: a man lying down or getting up is never shoved by bodies (was mass x10 only) */ if(p.side===q.side&&((p.hoGhost||0)>FB.s.t||(q.hoGhost||0)>FB.s.t)&&(p.role==='QB'||q.role==='QB'))continue;let dx=q.x-p.x,dz=q.z-p.z,d=Math.hypot(dx,dz);const rp=['OL','DL'].includes(fbKind(p.role))?.56:.46,rq=['OL','DL'].includes(fbKind(q.role))?.56:.46,R=rp+rq;
     if(d>=R)continue;if(d<.001){dx=(q.prevX||q.x)-(p.prevX||p.x);dz=(q.prevZ||q.z)-(p.prevZ||p.z);d=Math.hypot(dx,dz);if(d<.001){dx=i%2?1:-1;dz=0;d=1;}}
-    const nx=dx/d,nz=dz/d,mp=p.down?.1:1/((p.rig.build||1)*(p.ur?p.ur.mk:1)*(p.side==='O'&&p.blockPlant?3.2:1)),mq=q.down?.1:1/((q.rig.build||1)*(q.ur?q.ur.mk:1)*(q.side==='O'&&q.blockPlant?3.2:1)),sum=mp+mq,depth=R-Math.hypot(q.x-p.x,q.z-p.z);p.x-=nx*depth*mp/sum;p.z-=nz*depth*mp/sum;q.x+=nx*depth*mq/sum;q.z+=nz*depth*mq/sum;
+    const nx=dx/d,nz=dz/d,mp=fp?0:1/((p.rig.build||1)*(p.ur?p.ur.mk:1)*(p.side==='O'&&p.blockPlant?3.2:1)),mq=fq?0:1/((q.rig.build||1)*(q.ur?q.ur.mk:1)*(q.side==='O'&&q.blockPlant?3.2:1)),sum=mp+mq,depth=R-Math.hypot(q.x-p.x,q.z-p.z);p.x-=nx*depth*mp/sum;p.z-=nz*depth*mp/sum;q.x+=nx*depth*mq/sum;q.z+=nz*depth*mq/sum;
     const closing=(p.vx-q.vx)*nx+(p.vz-q.vz)*nz;if(closing>0){p.vx-=nx*closing*mp/sum;p.vz-=nz*closing*mp/sum;q.vx+=nx*closing*mq/sum;q.vz+=nz*closing*mq/sum;}
   }
 }
+function fbSepFixed(p){ return !!(p.down || p.tackling || p.getUp || (p.offG && p.stun > 0) || (p.uo && p.uo.ntkRise && !p.uo.done)); }   // v154: on the ground or getting up: only his own fall / slide / clip moves him
 function fbStartJuke(p,side){if(!p||!p.carry||p.down||p.jukeCd>0||p.wrapBy||p.brkBy||p.possT>0)return false;const cut=FBS.juke(p,side),s0=FB.s,chain=p.jukePlay===s0.skillPlayId&&(s0.t-(p.jukeAt||0))<1.2;p.jukePlay=s0.skillPlayId;p.jukeAt=s0.t;p.juke=.2;p.jukeCd=chain?1.0:.6;p.jukeRecT=chain?1.1:.65;p.jukeK=chain?.3:.45;if(chain)fbMsg('TIRED LEGS - NO JUKE CHAINS','#ff6b6b',45);p.jx=cut.x;p.jz=cut.z;p.st='juke';fbSfx('juke');FB.s.tutJuke=true;return true;}
 function fbSkillInput(side,p){const s=FB.s;p=p||((s.defMode&&!s.turn)?s.dctl:s.ctl);if(!p)return;if(p.carry)fbStartJuke(p,side);else{p.wantSwim=side;p.wantMove=side<0?'swim':'rip';if(!p.eng){p.wantSwim=0;p.wantMove=null;p.swimCd=.45;p.recoveryT=.18;}}}   // v46 (16): Q = swim, E = rip for an engaged rusher (host dctl and guest gdc both arrive here)
 function fbDefLunge(d){
@@ -32377,7 +32657,7 @@ function fbTackleStep(dt){
   if(!s.turn&&car.x>=FB_GOAL){fbEnd({type:'td',x:FB_GOAL});return;}if(s.turn&&car.x<=10){fbEnd({type:'pick6',x:10});return;}if(Math.abs(car.z)>=FB_Z-.05){fbEnd({type:s.turn?'turnoob':'oob',x:car.x});return;}
   if(car.kneel||car.push||car.slid)return;   // giving himself up (slide), kneeling, or inside the push pile: nobody tackles him
   if(car.secureUntil>s.t&&car.side==='O'&&Math.hypot(car.vx||0,car.vz||0)>=0.5*fbTopSpeed(car,true))car.secureUntil=0;   // moving at half speed or better: the ball is secured, a hit is just a tackle
-  if(car.possT>0){fbPossStep(car,dt);return;}const opponents=car.side==='O'?fbDef():fbOff();if(!car.wrapBy&&!car.brkBy&&!car.untackle)fbDiveTkTrigger(car,opponents);if(car.untackle){fbUntackleStep(car,opponents);return;}if(fbPunchStep(car,opponents))return;if(car.wrapBy){fbWrapStep(car,opponents,dt);return;}if(car.brkBy&&fbShedStep(car,opponents,dt))return;
+  if(car.possT>0){fbPossStep(car,dt);return;}const opponents=car.side==='O'?fbDef():fbOff();if(fbPoOn(car)){fbPushOutStep(car,dt);return;}   /* v154: being driven out of bounds */ if(!car.wrapBy&&!car.brkBy&&!car.untackle)fbDiveTkTrigger(car,opponents);if(car.untackle){fbUntackleStep(car,opponents);return;}if(fbPunchStep(car,opponents))return;if(car.wrapBy){fbWrapStep(car,opponents,dt);return;}if(car.brkBy&&fbShedStep(car,opponents,dt))return;
   if(!car.wrapBy&&!car.brkBy&&car.carry&&!car.slid&&!(car.diveT>0)&&!(car.possT>0)&&!s.turn){const cs0=Math.hypot(car.vx||0,car.vz||0);if(cs0>6.5){const ux0=car.vx/cs0,uz0=car.vz/cs0;for(const d of opponents){if(d.grabbed===s.skillPlayId||d.down||d.tackling||d.stun>0||d.tkCd>0||d.dtk||(d.eng&&!d.free)||(fbUD(d)))continue;const dist=fbDist(d,car);if(dist<=1.16||dist>2.1)continue;if((d.x-car.x)*ux0+(d.z-car.z)*uz0>-0.2)continue;if(Math.hypot(d.vx||0,d.vz||0)<cs0*0.7)continue;if(Math.random()<0.04){fbGrab(car,d);break;}}}}
   const contact=opponents.filter(d=>!d.down&&!d.tackling&&d.stun<=0&&!d.eng&&fbDist(d,car)<=(car.secureUntil>s.t?1.45:d.wrapReqT>s.t?1.2:1.16)&&!fbPathBlocked(d,car)).sort((a,b)=>fbDist(a,car)-fbDist(b,car));   // v46 (17): a held wrap reaches 1.2 yd
   for(const d of contact){if(d.tkCd>0)continue;const request=d.tackleRequestT>s.t,controlled=fbUD(d)||(d===s.ctl&&s.turn&&(!s.defMode||fbnGuestOff()));if(controlled&&!request&&fbDist(d,car)>.96)continue;
@@ -32404,7 +32684,7 @@ function fbDR(p, name){            // a defender's rating, 0..1, straight from h
 }
 // how long after an observable cue he reacts (s), by position and cue
 function fbReadDelay(d, cue){
-  const k=fbKind(d.role), COV=fbDR(d,'Coverage'); const LK = 1 - 0.45*Math.min(1,(FB.lock||0));   // v153: the better the defense, the sooner he reads it
+  const k=fbKind(d.role), COV=fbDR(d,'Coverage'); const LK = 1 - 0.45*Math.min(1,(FB.lock||0));   // v154: the better the defense, the sooner he reads it
   return fbReadDelay0(d, cue, k, COV)*LK;
 }
 function fbReadDelay0(d, cue, k, COV){
@@ -32462,7 +32742,7 @@ function fbGrab(car, d){      // a trailing man gets a hand on a faster runner: 
   const k = 0.84 - 0.05*Math.min(3, car.dragN||0); car.vx *= k; car.vz *= k; car.mStunUntil = s.t + 0.4; car.mSteer = 0.72; car.mAcc = 0.55; fbSfx('swat'); fbDust(car.x, car.z, 3, 0.5);
 }
 function fbBreakGo(car,E,all,sev,bt,xf){                        // the runner broke it: speed loss, stun, steering/acceleration penalties, the tackler stumbles
-  const s=FB.s,AI=1.10-.35*E.rear,dn=fbDragN(car,1);fbFpMark(car);let SL=clamp((.24+.50*sev-.10*bt/99)*AI+0.12*(dn-1),.18,.9);if(xf)SL=Math.max(.14,SL*.85);   // v153: a broken tackle always costs real speed (was as little as 4%)   // each man who has already hit him takes more off his speed   // an X-Factor softens it, it never removes it
+  const s=FB.s,AI=1.10-.35*E.rear,dn=fbDragN(car,1);fbFpMark(car);let SL=clamp((.24+.50*sev-.10*bt/99)*AI+0.12*(dn-1),.18,.9);if(xf)SL=Math.max(.14,SL*.85);   // v154: a broken tackle always costs real speed (was as little as 4%)   // each man who has already hit him takes more off his speed   // an X-Factor softens it, it never removes it
   let stun=clamp(.20+.34*sev-.12*bt/99,.14,.65);if(xf)stun=Math.max(.12,stun*.7);
   const steer=clamp(.40+.45*bt/99+(xf?.1:0),.40,xf?.95:.85);
   const fx=Math.cos(car.face),fz=-Math.sin(car.face);
@@ -32488,9 +32768,9 @@ function fbMomentumTackle(car,d,auth){
   const imp=auth&&auth.imp!==undefined?auth.imp:FBS.hitPower(d,car),sackSpot=car.role==='QB'&&car.x<s.los&&!s.turn,maxSp=Math.max(1,fbTopSpeed(car,true)),xf=!!(car.xfOn&&car.xfl&&car.xfl.length);
   const userD=fbUD(d)||(d===s.ctl&&s.turn&&(!s.defMode||fbnGuestOff())),wantWrap=d.wrapReqT>s.t;
   const near=opp.filter(o=>o===d||(!o.down&&!o.tackling&&!(o.eng&&!o.free)&&o.stun<=0&&fbDist(o,car)<=1.3)),crowd=near.length;
-  const evals=near.map(o=>fbTkEval(car,o,ux,uz,o===d&&(d.tackleRequestT>s.t||wantWrap))),E=evals.find(e=>e.d===d),combined=Math.pow(evals.reduce((a,e)=>a+Math.pow(e.eff,1.5),0),1/1.5);   // only men really in contact count
+  const conv=fbTkConverge(car,opp,near),evals=near.concat(conv.map(c=>c.o)).map(o=>{const e=fbTkEval(car,o,ux,uz,o===d&&(d.tackleRequestT>s.t||wantWrap)),c=conv.find(c=>c.o===o);e.w=c?c.w:1;e.conv=!!c;e.eff*=e.w;return e;}),E=evals.find(e=>e.d===d),combined=Math.pow(evals.reduce((a,e)=>a+Math.pow(e.eff,1.5),0),1/1.5),crowdW=evals.reduce((a,e)=>a+e.w,0),inC=evals.filter(e=>!e.conv);   // v154: men closing in (<= 2.1 yd, there within ~0.25 s) count in the same attempt, weighted by how close they are
   let bull=1;if(xfHas(car,'bulldozer')&&car.side==='O'&&!car.bullUsed&&!s.thrown&&fbIsRun(s.play)&&!s.turn){car.bullUsed=true;bull=1.25;fbMsg('BULLDOZER!','#ff9a3a',70);}   // X-FACTOR: +25% runner power on the first eligible tackle
-  const RP=fbRunnerPower(car)*bull*Math.pow(0.82,fbDragN(car,0)),RR=RP*(.90+.20*clamp(impV/maxSp,0,1.2)),ratio=RR/Math.max(.01,combined),bt=fbRate(car,'brk',.01);
+  const RP=fbRunnerPower(car)*bull*Math.pow(0.82,fbDragN(car,0))*(s.t<(car.mStunUntil||0)+0.5?0.8:1),RR=RP*(.90+.20*clamp(impV/maxSp,0,1.2)),ratio=RR/Math.max(.01,combined),bt=fbRate(car,'brk',.01);   // v154: still off balance from the last broken tackle / grab (stun window + 0.5 s): -20% power on top of the per-play drag
   if(car.truckT>0&&!car.wrapBy&&!sackSpot&&csp0>=3&&crowd<=2){   // TRUCK (F): runner mass/strength/speed against the defender's power; a braced defender gets a 25% edge
     car.truckT=0;const braced=fbBraced(d,car),tr=RR/Math.max(.01,combined*(braced?1.25:0.85));
     if(braced&&tr<.95){car.stiffT=0;s.shake=3;fbSfx('hit');fbMsg('RAN INTO A WALL','#ff6b6b',60);let uw=false;try{uw=uoTruck(car,d,'wall',ux,uz);}catch(e){}fbTackle(d,car,crowd,Math.max(imp,6));if(uw)try{uoAfterTackle(car);}catch(e){}return;}
@@ -32503,12 +32783,40 @@ function fbMomentumTackle(car,d,auth){
   if(!wantWrap&&!car.wrapBy&&fbHitStick(d,car,userD)){fbHitStickGo(d,car,crowd,userD);return;}   // HIT STICK: same activation and the same fumble roll as before
   if(sackSpot){fbTackle(d,car,crowd,imp);return;}
   const cat=E.ang>=2.094?'rear':E.ang>=1.047?'side':'front',fac=cat==='rear'?1:cat==='side'?.75:.55;
-  let broke=false;if(!wantWrap){const bc=clamp(1/(1+Math.exp(-5*(ratio-1.2))),.02,.75)*Math.pow(.65,Math.max(0,crowd-1));broke=Math.random()<bc;}   /* v153: every extra man in contact makes it much harder to shake them */   // ONE roll per attempt (a held wrap is the safe option: it never breaks)
-  if(broke){fbBreakGo(car,E,evals,clamp(combined/Math.max(.01,RR),0,2),bt,xf);return;}
+  let broke=false;if(!wantWrap){const bc=fbTkBreakP(ratio,crowdW);broke=Math.random()<bc;}   /* v154: every extra man in contact makes it much harder to shake them */   // ONE roll per attempt (a held wrap is the safe option: it never breaks)
+  if(broke){fbBreakGo(car,E,inC,clamp(combined/Math.max(.01,RR),0,2),bt,xf);return;}if(!wantWrap&&!car.wrapBy&&fbPushOutTry(car,E,RR,combined))return;   // v154: PUSH OUT near the sideline (fbPushOutTry).  v154: only the men in contact get the post-break cooldown; the ones still arriving can hit him right away
   const sf=clamp(impV/maxSp,0,1);let FT=(.18+.30*sf)*(1+.45*E.rear)*clamp(RR/Math.max(.01,combined),.70,1.30);if(wantWrap)FT*=1.3;FT=clamp(FT,.12,.85);
   evals.forEach(e=>{e.d.tkCd=Math.max(e.d.tkCd||0,.45);});
-  fbTackleBegin(car,d,{impV,ux,uz,FT,cat,fac,imp,nx:E.nx,nz:E.nz,others:evals.filter(e=>e.d!==d).map(e=>e.d)});
+  fbTackleBegin(car,d,{impV,ux,uz,FT,cat,fac,imp,nx:E.nx,nz:E.nz,others:inC.filter(e=>e.d!==d).map(e=>e.d)});
 }
+// v154 PUSH OUT: within ~3 yd of the sideline a man who meets the runner from the inside at a good angle (within ~60 deg of straight out) can drive him out of bounds instead of wrapping him up.
+// Only after the break roll failed (it never makes a broken tackle less likely); the chance grows with the angle, the closeness to the line and his power against the runner's. The play ends 'oob' where he crosses.
+function fbPoOn(c){ const s=FB.s; return !!(c && c.poBy && s && c.poPlay===s.skillPlayId); }
+function fbPushOutTry(car,E,RR,comb){
+  const s=FB.s,d=E.d; if(s.turn||car.side!=='O'||(car.role==='QB'&&car.x<s.los)||car.slid||car.diveT>0||car.possT>0) return false;
+  const sg=Math.sign(car.z)||1,sd=FB_Z-Math.abs(car.z),out=-E.nz*sg; if(sd>3.2||out<0.5) return false;   // E.nz: runner -> defender, so -nz*sg > 0 = he hits from the inside, driving outward
+  const [dvx,dvz]=fbPreV(d); if(dvz*sg<-0.5) return false;                                        // he is not drifting back inside
+  const P=clamp(0.75*clamp((out-0.5)/0.4,0,1)*clamp((3.2-sd)/2.0,0,1)*clamp(comb/Math.max(.01,RR),0.5,1.6),0,0.8);
+  if(!(Math.random()<P)) return false;
+  fbFpMark(car); car.poBy=d; car.poPlay=s.skillPlayId; car.poSg=sg; car.poT=0; car.poVx=Math.max(0,(car.vx||0)*(s.turn?-1:1)); car.st='carry';
+  d.wrapping=true; d.st='block'; d.tkCd=.5; d.tkType='side'; fbSfx('hit'); s.shake=Math.max(s.shake||0,2); fbDust(car.x,car.z,4,0.6); fbMsg('DRIVEN TO THE SIDELINE!','#ffd24a',45);
+  return true;
+}
+function fbPushOutStep(car,dt){
+  const s=FB.s,d=car.poBy; car.poT+=dt;
+  if(!d||d.down||d.tackling||d.stun>0||car.poT>1.3){ car.poBy=null; if(d){ d.wrapping=false; if(!d.down&&!d.tackling&&!(d.stun>0)){ fbTackle(d,car,1); try{uoAfterTackle(car);}catch(e){} } } return; }   // he could not finish it: down at the spot
+  const sg=car.poSg,fwd=car.poVx*Math.max(0,1-car.poT/0.6),lat=sg*Math.min(5.5,2.5+car.poT*6);   // his forward momentum dies over 0.6 s, he is driven sideways (building to 5.5 yd/s)
+  fbVel(car,fwd,lat,dt,60); car.st='carry';
+  fbMove(d,car.x-0.15,car.z-sg*0.85,Math.max(4,Math.hypot(car.vx||0,car.vz||0)+2),dt,40); fbFace(d,car.x,car.z); d.st='block'; d.wrapping=true;
+}
+function fbTkConverge(car,opp,near){   // v154 CONVERGING TACKLERS: everyone closing on the runner within 2.1 yd who gets there within ~0.25 s joins this attempt (weight 1 if there now .. 0.5 if 0.25 s away); a short tkCd does not exclude him
+  const out=[],cvx=car.vx||0,cvz=car.vz||0;
+  opp.forEach(o=>{ if(near.includes(o)||o.down||o.tackling||o.wrapping||(o.eng&&!o.free)||o.stun>0||o.dtk) return; const L=fbDist(o,car); if(L>2.1) return;
+    const nx=(car.x-o.x)/(L||1),nz=(car.z-o.z)/(L||1),cl=((o.vx||0)-cvx)*nx+((o.vz||0)-cvz)*nz; if(cl<1||L-1.3>cl*0.25) return;
+    out.push({o,w:clamp(1-Math.max(0,L-1.3)/cl/0.3,0.5,1)}); });   // weight from his arrival time: there now = 1 .. 0.25 s away = 0.5
+  return out;
+}
+function fbTkBreakP(ratio,crowdW){ return clamp(1/(1+Math.exp(-5*(ratio-1.2))),.02,.75)*Math.pow(.45,Math.max(0,crowdW-1)); }   // v154: the break chance of ONE roll; each extra (weighted) man multiplies it by 0.45 (was 0.65 per man in contact only)
 // v46 (18) HIT STICK: defender squared up (within 30 deg of the runner), closing faster than 6, runner not braced (moving and not turned to meet him), nothing special going on. Both humans and the CPU get it on positioning alone.
 function fbHitStick(d,car,userD){
   const s=FB.s;if(car.slid||car.kneel||car.push||car.diveT>0||car.possT>0||car.secureUntil>s.t||car.wrapBy||car.brkBy)return false;
@@ -32525,9 +32833,9 @@ function fbHitStickGo(d,car,crowd,userD){
 function fbWrapStep(car,tacklers,dt){      // MASS 2.0: the successful tackle - speed = impact x (1-u)^2 over FallTime, defender attached, a joiner cuts the remaining time by 35%
   const d=car.wrapBy;if(!d||d.down){fbWrapEnd(car);return false;}
   car.tkJoin=car.tkJoin||{};
-  tacklers.forEach(o=>{if(o===d||car.tkJoin[o.role]||o.down||o.tackling||(o.eng&&!o.free)||o.stun>0||fbDist(o,car)>1.3)return;car.tkJoin[o.role]=1;const rem=Math.max(0,car.tkFT-car.tkT);car.tkFT=car.tkT+rem*.45;});   // v153: each joiner cuts the rest of the fall by 55%
+  tacklers.forEach(o=>{if(o===d||car.tkJoin[o.role]||o.down||o.tackling||(o.eng&&!o.free)||o.stun>0||fbDist(o,car)>1.3)return;car.tkJoin[o.role]=1;const rem=Math.max(0,car.tkFT-car.tkT);car.tkFT=car.tkT+rem*.45;});   // v154: each joiner cuts the rest of the fall by 55%
   if(!car.tkK){const cap=car.tkCat==='front'?0.45:car.tkCat==='side'?1.1:2.2,full=car.tkImp*car.tkFac*Math.max(.05,car.tkFT)/3;car.tkK=Math.min(1,cap/Math.max(.01,full));}   // how far he slides after contact follows the picture: a head-on hit stops him (he falls BACK), from behind he falls forward
-  car.tkT+=dt;const u=clamp(car.tkT/Math.max(.05,car.tkFT),0,1),nj=Object.keys(car.tkJoin).length,sp=car.tkImp*car.tkFac*car.tkK*(1-u)*(1-u)*clamp(1-.3*nj,.3,1)*clamp(.55+.45*u*3,0,1);   // v153: bodies pile on = the runner loses speed at once; the first moments after contact are already a hard brake
+  car.tkT+=dt;const u=clamp(car.tkT/Math.max(.05,car.tkFT),0,1),nj=Object.keys(car.tkJoin).length,sp=car.tkImp*car.tkFac*car.tkK*(1-u)*(1-u)*clamp(1-.3*nj,.3,1)*clamp(.55+.45*u*3,0,1);   // v154: bodies pile on = the runner loses speed at once; the first moments after contact are already a hard brake
   let dx=car.tkUx-car.tkNx*.10*u,dz=car.tkUz-car.tkNz*.10*u;const L=Math.hypot(dx,dz)||1;dx/=L;dz/=L;   // momentum direction kept, a small push from the defender
   fbVel(car,dx*sp,dz*sp,dt,60);car.st='carry';
   if(!(d.uo&&d.uo.anchor===car)){fbMove(d,car.x+car.tkNx*.9,car.z+car.tkNz*.9,Math.max(1,sp+2.5),dt,28);fbFace(d,car.x,car.z);}d.st='tackle';   // he stays on the runner, no teleporting (a library clip glues him to his offset instead)
@@ -32535,9 +32843,16 @@ function fbWrapStep(car,tacklers,dt){      // MASS 2.0: the successful tackle - 
   return true;
 }
 
-/* ===== v153 BALL CARRY: the ball is TUCKED - high and tight under the arm against the ribs, long axis pointing forward, fingertips over the nose - instead of floating inside the forearm ===== */
+/* ===== v154 BALL CARRY: the ball is TUCKED - high and tight under the arm against the ribs, long axis pointing forward, fingertips over the nose - instead of floating inside the forearm ===== */
 const CARRY_LOOK = { elbowDown:0.86, elbowIn:0.10, elbowBack:0.12, ballFwd:0.42, ballUp:0.10, ballIn:0.22, handFwd:0.46, handUp:0.20, blend:9, tilt:0.16 };   // all in upper-arm lengths
 const _tk = { a:new THREE.Vector3(), b:new THREE.Vector3(), f:new THREE.Vector3(), r:new THREE.Vector3(), E:new THREE.Vector3(), H:new THREE.Vector3(), T:new THREE.Vector3(), up:new THREE.Vector3(0,1,0), q:new THREE.Quaternion(), q2:new THREE.Quaternion(), pq:new THREE.Quaternion() };
+const _ta = { a:new THREE.Vector3(), c:new THREE.Vector3(), to:new THREE.Vector3(), rot:new THREE.Quaternion(), w:new THREE.Quaternion(), pq:new THREE.Quaternion() };
+function fbAimBone(rg, bone, child, tx, ty, tz){          // the local rotation that points `bone` (towards `child`) at the target: no allocations (the result is a shared scratch quaternion, use it at once)
+  rg.root.updateMatrixWorld(true);
+  const T = _ta, a = bone.getWorldPosition(T.a), c = child.getWorldPosition(T.c).sub(a).normalize(), to = T.to.set(tx, ty, tz).sub(a).normalize();
+  T.rot.setFromUnitVectors(c, to); bone.getWorldQuaternion(T.w).premultiply(T.rot); bone.parent.getWorldQuaternion(T.pq).invert();
+  return T.pq.multiply(T.w);
+}
 function fbCarryTuck(p, dt){
   p.tuckOn = false; const s = FB.s, rg = p.rig, B = rg && rg.fbBones; if (!s || !B || !rg.fbModel) return;
   const on = p.carry && s.ball && s.ball.mode === 'held' && s.ball.h === p && !(p.catchT > 0) && p.st !== 'throw' && !p.diving && !p.down && !p.tackling && !(p.uoK && performance.now()/1000 < (p.uoUntil || 0)) && !((p.qbPh || 0) > 0) && (!p.hoK || /CARRY/.test(p.hoK)) && FB.scr !== 'lobby';
@@ -32550,9 +32865,9 @@ function fbCarryTuck(p, dt){
   const E = _tk.E.copy(sh).addScaledVector(_tk.up, -K.elbowDown*ua).addScaledVector(r, -K.elbowIn*ua).addScaledVector(f, -K.elbowBack*ua);
   const T = _tk.T.copy(E).addScaledVector(f, K.ballFwd*ua).addScaledVector(_tk.up, K.ballUp*ua).addScaledVector(r, -K.ballIn*ua);
   const H = _tk.H.copy(T).addScaledVector(f, K.handFwd*ua).addScaledVector(_tk.up, K.handUp*ua);
-  const aim = (bone, child, target) => { rg.root.updateMatrixWorld(true); const a = bone.getWorldPosition(new THREE.Vector3()), c = child.getWorldPosition(new THREE.Vector3()), from = c.sub(a).normalize(), to = target.clone().sub(a).normalize(), rot = new THREE.Quaternion().setFromUnitVectors(from, to), world = bone.getWorldQuaternion(new THREE.Quaternion()).premultiply(rot), parent = bone.parent.getWorldQuaternion(new THREE.Quaternion()).invert(); return parent.multiply(world); };
+  const aim = fbAimBone;
   const w = p.tuckW*p.tuckW*(3 - 2*p.tuckW);
-  if (!clipArm) { arm.quaternion.slerp(aim(arm, fore, E), w); fore.quaternion.slerp(aim(fore, hand, H), w); rg.root.updateMatrixWorld(true); }
+  if (!clipArm) { arm.quaternion.slerp(aim(rg, arm, fore, E.x, E.y, E.z), w); fore.quaternion.slerp(aim(rg, fore, hand, H.x, H.y, H.z), w); rg.root.updateMatrixWorld(true); }
   p.tuckOn = on; if (!on) return;
   if (!p.tuckPos) { p.tuckPos = new THREE.Vector3(); p.tuckQ = new THREE.Quaternion(); }
   if (clipArm) {                                                // ball between the forearm and the ribs: the middle of the forearm pushed in toward the chest
@@ -32572,7 +32887,7 @@ function fbApplyCatchHands(p){
   else if(b&&b.mode==='fly'&&fbDist(p,b)<=2&&p.reachT)ball=b;                           // ball incoming: reach for it
   if(!ball)return;const targets=FBS.hands(p,ball),bones=rg.fbBones;
   if(!fx){const lat=Math.abs((ball.x-p.x)*Math.sin(p.face||0)+(ball.z-p.z)*Math.cos(p.face||0));if(lat>=.82||targets.back)one=Math.hypot(targets.left.x-ball.x,targets.left.z-ball.z)<=Math.hypot(targets.right.x-ball.x,targets.right.z-ball.z)?'Left':'Right';}   // too wide for two hands: only the near hand goes
-  const aim=(bone,child,target)=>{if(!bone||!child)return;rg.root.updateMatrixWorld(true);const start=bone.getWorldPosition(new THREE.Vector3()),end=child.getWorldPosition(new THREE.Vector3()),from=end.sub(start).normalize(),to=new THREE.Vector3(target.x,target.y,target.z).sub(start).normalize(),rot=new THREE.Quaternion().setFromUnitVectors(from,to),world=bone.getWorldQuaternion(new THREE.Quaternion()).premultiply(rot),parent=bone.parent.getWorldQuaternion(new THREE.Quaternion()).invert();bone.quaternion.copy(parent.multiply(world));};
+  const aim=(bone,child,target)=>{if(!bone||!child)return;bone.quaternion.copy(fbAimBone(rg,bone,child,target.x,target.y,target.z));};
   for(const side of ['Left','Right']){if(one&&side!==one)continue;const target=side==='Left'?targets.left:targets.right,upper=bones['mixamorig'+side+'Arm'],fore=bones['mixamorig'+side+'ForeArm'],hand=bones['mixamorig'+side+'Hand'];for(let i=0;i<2;i++){aim(fore,hand,target);aim(upper,hand,target);}}
 }
 function fbSkillTimers(dt){
