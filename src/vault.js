@@ -244,12 +244,19 @@ export class Vault extends DurableObject {
     const on = !!b.on, was = this.metaGet('inf') === '1';
     if (on && !was) {
       this.metaSet('inf_prev', String(this.acct().coins)); this.metaSet('inf_earn', '0'); this.metaSet('inf_since', String(Date.now())); this.metaSet('inf', '1');
+      this.metaSet('inf_lines', JSON.stringify(this.sql.exec('SELECT slot, level FROM lines').toArray()));
       this.sql.exec('UPDATE acct SET coins=? WHERE id=1', 999999999); this.ledger(0, 'INFINITE COINS + PACKS (from ' + String(b.from || 'a dev') + ')');
     } else if (!on && was) {
       const prev = parseInt(this.metaGet('inf_prev'), 10) || 0, earn = parseInt(this.metaGet('inf_earn'), 10) || 0, since = parseInt(this.metaGet('inf_since'), 10) || 0;
       this.metaSet('inf', '0'); this.sql.exec('UPDATE acct SET coins=? WHERE id=1', prev + earn);
-      if (since) this.sql.exec('DELETE FROM packs WHERE got>=?', since);                // unopened packs made while it was on go away too
-      this.ledger(0, 'infinite taken away: back to ' + (prev + earn));
+      let wiped = 0;
+      if (since) {
+        this.sql.exec('DELETE FROM packs WHERE got>=?', since);                          // unopened packs made while it was on go away too
+        const gone = this.sql.exec("SELECT uid FROM cards WHERE got>=? AND src LIKE 'pack:%'", since).toArray().map(r => r.uid);          // every card opened from a pack while it was on (quick-sold ones are already gone)
+        gone.forEach(u => { this.sql.exec('DELETE FROM lineup WHERE uid=?', u); this.sql.exec('DELETE FROM xfactor WHERE uid=?', u); this.sql.exec('DELETE FROM cards WHERE uid=?', u); }); wiped = gone.length;
+      }
+      try { const ln = JSON.parse(this.metaGet('inf_lines') || 'null'); if (Array.isArray(ln)) { this.sql.exec('DELETE FROM lines'); ln.forEach(r => this.sql.exec('INSERT INTO lines (slot, level) VALUES (?,?)', r.slot, r.level)); } } catch (e) {}   // line upgrades bought for free go back too
+      this.ledger(0, 'infinite taken away: back to ' + (prev + earn) + ', ' + wiped + ' pack cards removed');
     }
     return j({ ok: true, on: this.metaGet('inf') === '1' });
   }
@@ -516,7 +523,8 @@ export class Vault extends DurableObject {
   add(delta, why) {
     if (this.metaGet('inf') === '1') {                                   // INFINITE (dev troll): spending is free, earnings are kept aside and paid back when the dev takes it away
       if (delta < 0) { this.ledger(0, String(why || '') + ' (free)'); return; }
-      this.metaSet('inf_earn', String((parseInt(this.metaGet('inf_earn'), 10) || 0) + delta)); this.ledger(0, String(why || '') + ' (kept for later)'); return;
+      if (!/^sold /.test(String(why || ''))) this.metaSet('inf_earn', String((parseInt(this.metaGet('inf_earn'), 10) || 0) + delta));   // quick-sell money made while it was on is NOT paid back
+      this.ledger(0, String(why || '') + ' (while infinite)'); return;
     }
     this.sql.exec('UPDATE acct SET coins=coins+? WHERE id=1', delta); this.ledger(delta, why);
   }
