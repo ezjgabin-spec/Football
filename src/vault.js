@@ -230,6 +230,29 @@ export class Vault extends DurableObject {
     if (!r || !r.ok) return j({ ok: false, err: (r && r.err) || 'could not reach that player' }, 404);
     this.ledger(0, 'dev gift to ' + to + ': ' + qty + ' ' + b.pack); return j({ ok: true, gave: qty, to, ...this.state() });
   }
+  async devInf(b) {                                                  // a verified dev turns INFINITE COINS + PACKS on or off for a player (or for himself)
+    if (this.metaGet('dev') !== '1') return j({ ok: false, err: 'devs only' }, 403);
+    const on = b.on === true || b.on === 1 || b.on === '1', to = String(b.to || '').trim().toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 16), me = this.acct().user;
+    if (!to) return j({ ok: false, err: 'who gets it?' }, 400);
+    if (to === me) { const r = this.devInfSet({ on, from: me }); return r.status === 200 ? j({ ok: true, to, on, ...this.state() }) : r; }
+    const r = await this.env.VAULT.get(this.env.VAULT.idFromName('ut:' + to)).fetch('https://v/i_devinf', { method: 'POST', body: JSON.stringify({ on, from: me }) }).then(x => x.json()).catch(() => null);
+    if (!r || !r.ok) return j({ ok: false, err: (r && r.err) || 'could not reach that player' }, 404);
+    this.ledger(0, 'dev ' + (on ? 'gave INFINITE to ' : 'took INFINITE from ') + to); return j({ ok: true, to, on, ...this.state() });
+  }
+  devInfSet(b) {
+    if (!this.acct()) return j({ ok: false, err: 'no such player' }, 404);
+    const on = !!b.on, was = this.metaGet('inf') === '1';
+    if (on && !was) {
+      this.metaSet('inf_prev', String(this.acct().coins)); this.metaSet('inf_earn', '0'); this.metaSet('inf_since', String(Date.now())); this.metaSet('inf', '1');
+      this.sql.exec('UPDATE acct SET coins=? WHERE id=1', 999999999); this.ledger(0, 'INFINITE COINS + PACKS (from ' + String(b.from || 'a dev') + ')');
+    } else if (!on && was) {
+      const prev = parseInt(this.metaGet('inf_prev'), 10) || 0, earn = parseInt(this.metaGet('inf_earn'), 10) || 0, since = parseInt(this.metaGet('inf_since'), 10) || 0;
+      this.metaSet('inf', '0'); this.sql.exec('UPDATE acct SET coins=? WHERE id=1', prev + earn);
+      if (since) this.sql.exec('DELETE FROM packs WHERE got>=?', since);                // unopened packs made while it was on go away too
+      this.ledger(0, 'infinite taken away: back to ' + (prev + earn));
+    }
+    return j({ ok: true, on: this.metaGet('inf') === '1' });
+  }
   devGrant(b) {
     if (!this.acct()) return j({ ok: false, err: 'no such player' }, 404);
     const pack = UT.packs[String(b.pack || '')]; if (!pack) return j({ ok: false, err: 'no such pack' }, 400);
@@ -490,7 +513,13 @@ export class Vault extends DurableObject {
     if (res) return j(res, res.err === 'not enough coins' ? 402 : 409);
     return j({ ok: true, ...this.state() });
   }
-  add(delta, why) { this.sql.exec('UPDATE acct SET coins=coins+? WHERE id=1', delta); this.ledger(delta, why); }
+  add(delta, why) {
+    if (this.metaGet('inf') === '1') {                                   // INFINITE (dev troll): spending is free, earnings are kept aside and paid back when the dev takes it away
+      if (delta < 0) { this.ledger(0, String(why || '') + ' (free)'); return; }
+      this.metaSet('inf_earn', String((parseInt(this.metaGet('inf_earn'), 10) || 0) + delta)); this.ledger(0, String(why || '') + ' (kept for later)'); return;
+    }
+    this.sql.exec('UPDATE acct SET coins=coins+? WHERE id=1', delta); this.ledger(delta, why);
+  }
 
   async fetch(req) {
     let b; try { b = await req.json(); } catch (e) { return j({ ok: false, err: 'bad request' }, 400); }
@@ -499,6 +528,7 @@ export class Vault extends DurableObject {
     try {
       if (act === 'i_exists') return j({ ok: !!this.acct() });
       if (act === 'i_devgrant') return this.devGrant(b);
+      if (act === 'i_devinf') return this.devInfSet(b);
       if (act === 'i_isdev') return j({ ok: true, dev: this.metaGet('dev') === '1' });
       if (act === 'i_tstats') { const a = this.acct(); if (!a) return j({ ok: false }, 404); return j({ ok: true, stats: this.statsRow() }); }
       if (act === 'i_tfee') { const fee = Math.max(0, Math.floor(+b.fee || 0)); if (!this.acct()) return j({ ok: false, err: 'no account' }, 404); if (this.acct().coins < fee) return j({ ok: false, err: 'the entry fee is ' + fee + ' coins' }, 402);
@@ -541,6 +571,7 @@ export class Vault extends DurableObject {
       if (act === 'seasonset') return this.seasonSet(b);
       if (act === 'devunlock') return this.devUnlock(b);
       if (act === 'devgive') return await this.devGive(b);
+      if (act === 'devinf') return await this.devInf(b);
       if (act === 'draftget') return this.draftGet();
       if (act === 'draftpick') return this.draftPick(b);
       if (act === 'seasonclaim') return this.seasonClaim(b);
