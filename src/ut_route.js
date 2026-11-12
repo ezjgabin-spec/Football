@@ -52,6 +52,11 @@ export async function utRoute(req, env) {
   if (/^trade(open|get|set|accept|cancel)$/.test(act)) {                                // trading: prove who they are, then hand over to the Trade object
     const who = await stub.fetch('https://vault/ping', { method: 'POST', body: JSON.stringify({ user, token: b.token }) });
     if (!who.ok) return new Response(who.body, { status: who.status, headers: Object.assign({ 'content-type': 'application/json' }, CORS) });
+    if (act !== 'tradeget' && act !== 'tradecancel') {                                  // while a dev has INFINITE switched on for someone, they can not trade (so taking it away can put the whole team back without duplicating cards)
+      const inf = async u => (await env.VAULT.get(env.VAULT.idFromName('ut:' + u)).fetch('https://vault/i_isinf', { method: 'POST', body: '{}' }).then(x => x.json()).catch(() => ({}))).inf;
+      const to2 = String(b.to || '').toLowerCase();
+      if ((await inf(user)) || (/^[a-z0-9_]{3,16}$/.test(to2) && (await inf(to2)))) return new Response('{"ok":false,"err":"trading is locked for this player right now"}', { status: 409, headers: CORS });
+    }
     let tid = String(b.id || ''), body = { user, uids: b.uids, ver: b.ver, pass: b.pass };
     if (act === 'tradeopen') {
       const to = String(b.to || '').toLowerCase();

@@ -242,21 +242,26 @@ export class Vault extends DurableObject {
   devInfSet(b) {
     if (!this.acct()) return j({ ok: false, err: 'no such player' }, 404);
     const on = !!b.on, was = this.metaGet('inf') === '1';
-    if (on && !was) {
-      this.metaSet('inf_prev', String(this.acct().coins)); this.metaSet('inf_earn', '0'); this.metaSet('inf_since', String(Date.now())); this.metaSet('inf', '1');
-      this.metaSet('inf_lines', JSON.stringify(this.sql.exec('SELECT slot, level FROM lines').toArray()));
+    if (on && !was) {                                                  // snapshot the WHOLE team first, so taking it away can put everything back exactly
+      const snap = { coins: this.acct().coins, cards: this.sql.exec('SELECT uid,pid,rarity,got,src FROM cards').toArray(), lineup: this.sql.exec('SELECT slot,uid FROM lineup').toArray(),
+        lines: this.sql.exec('SELECT slot,level FROM lines').toArray(), xf: this.sql.exec('SELECT uid FROM xfactor').toArray(), packs: this.sql.exec('SELECT kind,got FROM packs').toArray(),
+        jersey: this.metaGet('jersey'), tlu: this.metaGet('tlu') };
+      this.metaSet('inf_snap', JSON.stringify(snap)); this.metaSet('inf_earn', '0'); this.metaSet('inf_since', String(Date.now())); this.metaSet('inf', '1');
       this.sql.exec('UPDATE acct SET coins=? WHERE id=1', 999999999); this.ledger(0, 'INFINITE COINS + PACKS (from ' + String(b.from || 'a dev') + ')');
     } else if (!on && was) {
-      const prev = parseInt(this.metaGet('inf_prev'), 10) || 0, earn = parseInt(this.metaGet('inf_earn'), 10) || 0, since = parseInt(this.metaGet('inf_since'), 10) || 0;
-      this.metaSet('inf', '0'); this.sql.exec('UPDATE acct SET coins=? WHERE id=1', prev + earn);
-      let wiped = 0;
-      if (since) {
-        this.sql.exec('DELETE FROM packs WHERE got>=?', since);                          // unopened packs made while it was on go away too
-        const gone = this.sql.exec("SELECT uid FROM cards WHERE got>=? AND src LIKE 'pack:%'", since).toArray().map(r => r.uid);          // every card opened from a pack while it was on (quick-sold ones are already gone)
-        gone.forEach(u => { this.sql.exec('DELETE FROM lineup WHERE uid=?', u); this.sql.exec('DELETE FROM xfactor WHERE uid=?', u); this.sql.exec('DELETE FROM cards WHERE uid=?', u); }); wiped = gone.length;
-      }
-      try { const ln = JSON.parse(this.metaGet('inf_lines') || 'null'); if (Array.isArray(ln)) { this.sql.exec('DELETE FROM lines'); ln.forEach(r => this.sql.exec('INSERT INTO lines (slot, level) VALUES (?,?)', r.slot, r.level)); } } catch (e) {}   // line upgrades bought for free go back too
-      this.ledger(0, 'infinite taken away: back to ' + (prev + earn) + ', ' + wiped + ' pack cards removed');
+      let snap = null; try { snap = JSON.parse(this.metaGet('inf_snap') || 'null'); } catch (e) {}
+      const earn = parseInt(this.metaGet('inf_earn'), 10) || 0;
+      this.metaSet('inf', '0');
+      if (snap) this.ctx.storage.transactionSync(() => {               // put the team back exactly as it was: cards (rarity upgrades, sold or opened ones), lineup, line levels, X-factors, packs, jersey
+        this.sql.exec('DELETE FROM cards'); snap.cards.forEach(r => this.sql.exec('INSERT INTO cards (uid,pid,rarity,got,src) VALUES (?,?,?,?,?)', r.uid, r.pid, r.rarity, r.got, r.src));
+        this.sql.exec('DELETE FROM lineup'); snap.lineup.forEach(r => this.sql.exec('INSERT INTO lineup (slot,uid) VALUES (?,?)', r.slot, r.uid));
+        this.sql.exec('DELETE FROM lines'); snap.lines.forEach(r => this.sql.exec('INSERT INTO lines (slot,level) VALUES (?,?)', r.slot, r.level));
+        this.sql.exec('DELETE FROM xfactor'); snap.xf.forEach(r => this.sql.exec('INSERT INTO xfactor (uid) VALUES (?)', r.uid));
+        this.sql.exec('DELETE FROM packs'); snap.packs.forEach(r => this.sql.exec('INSERT INTO packs (kind,got) VALUES (?,?)', r.kind, r.got));
+        this.metaSet('jersey', snap.jersey || ''); this.metaSet('tlu', snap.tlu || '');
+        this.sql.exec('UPDATE acct SET coins=? WHERE id=1', (snap.coins | 0) + earn);
+      });
+      this.metaSet('inf_snap', ''); this.ledger(0, 'infinite taken away: whole team put back');
     }
     return j({ ok: true, on: this.metaGet('inf') === '1' });
   }
@@ -537,6 +542,7 @@ export class Vault extends DurableObject {
       if (act === 'i_exists') return j({ ok: !!this.acct() });
       if (act === 'i_devgrant') return this.devGrant(b);
       if (act === 'i_devinf') return this.devInfSet(b);
+      if (act === 'i_isinf') return j({ ok: true, inf: this.metaGet('inf') === '1' });
       if (act === 'i_isdev') return j({ ok: true, dev: this.metaGet('dev') === '1' });
       if (act === 'i_tstats') { const a = this.acct(); if (!a) return j({ ok: false }, 404); return j({ ok: true, stats: this.statsRow() }); }
       if (act === 'i_tfee') { const fee = Math.max(0, Math.floor(+b.fee || 0)); if (!this.acct()) return j({ ok: false, err: 'no account' }, 404); if (this.acct().coins < fee) return j({ ok: false, err: 'the entry fee is ' + fee + ' coins' }, 402);
