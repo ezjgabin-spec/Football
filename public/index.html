@@ -17390,7 +17390,7 @@ const FBD = [
   { n:'PRO',     def:0.95, rush:2.9, cov:0.75, int:0.55, tk:0.75, cpu:1.00, delay:0.30, acc:15 },
   { n:'ALL-PRO', def:1.00, rush:2.3, cov:1.00, int:0.85, tk:0.90, cpu:1.18, delay:0.15, acc:19 }
 ];
-/* v162: DEFENSE LOCK. The higher the tier of the CPU defense (season division 5 -> 1, plus the difficulty), the closer it plays to a lock: faster, tighter in coverage, a pass rush that
+/* v163: DEFENSE LOCK. The higher the tier of the CPU defense (season division 5 -> 1, plus the difficulty), the closer it plays to a lock: faster, tighter in coverage, a pass rush that
    beats the line sooner, more picks, more tackles. Never when YOU are the defense, never in an online 1v1. FB.lock: 0 = how it always was, 1 = a Division 1 lockdown. */
 const FBD_BASE = FBD.map(o => Object.assign({}, o));
 function fbLockSync(){
@@ -18536,18 +18536,18 @@ function fbChoosePlayerAnimation(p,P){
   if(p.eng&&!p.free&&fbHasBlockingContact(p))return FB_MODEL.clips&&FB_MODEL.clips.push?'push':'offenseIdle';
   if(FB.scr==='dead'){if(s&&s.tdcLive){if(p.getUp)return 'offenseIdle';if(p.down||p.tackling)return 'fallen';return speed>=5.5?'fastRun':speed>0.8?'run':'offenseIdle';}if((p.fbPointUntil||0)>now)return 'point';if(p.down||p.tackling)return 'fallen';return 'offenseIdle';}
   if(p.down||p.tackling)return 'fallen';
-  if(p.getUp||p.st==='rise')return 'offenseIdle';   // v162: no hurt / limping clip any more
+  if(p.getUp||p.st==='rise')return 'offenseIdle';   // v163: no hurt / limping clip any more
   if((p.fbPointUntil||0)>now)return 'point';
   if(s&&s.thrown&&s.ball&&s.ball.mode==='fly'&&p.side==='O'&&p===s.targetMan&&p.reachT>0&&fbCatchAnimationMoment(p))return 'catch';
   if(p.diveT>0||p.slid)return p.slid?'slide':'dive';
   if(p.diving)return 'dive';
   if(p.jumpT>0)return 'catch';
-  if(p.role==='QB'&&(p.qbPh||0)>0&&!p.carry)return qbtAnimKey(p);       // v162: cock / whip / follow-through of the QB throw library (or the qbPass throw)
-  if(p.hoK){const hk=hoAnimKey(p);if(hk)return hk;}                        // v162: handoff / toss / play-action pair (or the back's solo carry)
-  if(p.st==='throw'&&!p.carry&&((p.throwAnim||0)>0||(p.qbPh||0)>0||p.role!=='QB'))return 'qbPass';   // v162: a QB who tucked it and ran (or whose throw was cancelled) is not stuck in the throw pose
+  if(p.role==='QB'&&(p.qbPh||0)>0&&!p.carry)return qbtAnimKey(p);       // v163: cock / whip / follow-through of the QB throw library (or the qbPass throw)
+  if(p.hoK){const hk=hoAnimKey(p);if(hk)return hk;}                        // v163: handoff / toss / play-action pair (or the back's solo carry)
+  if(p.st==='throw'&&!p.carry&&((p.throwAnim||0)>0||(p.qbPh||0)>0||p.role!=='QB'))return 'qbPass';   // v163: a QB who tucked it and ran (or whose throw was cancelled) is not stuck in the throw pose
   if(p.st==='point')return 'point';
   if(p.st==='block'&&fbHasBlockingContact(p))return FB_MODEL.clips&&FB_MODEL.clips.push?'push':'offenseIdle';
-  { const tk=fbTurnAnim(p,speed,now); if(tk) return tk; }   // v162: sharp turns / turning on the spot
+  { const tk=fbTurnAnim(p,speed,now); if(tk) return tk; }   // v163: sharp turns / turning on the spot
   if(p.carry||p.st==='carry')return speed>=5.5&&FB_MODEL.clips&&FB_MODEL.clips.fastRun?'fastRun':speed>0.8?'run':'offenseIdle';
   if(FB.scr==='live'){ const dk=dmChoose(p,now); if(dk) return dk; }
   if(speed>0.8||P.run){
@@ -18573,7 +18573,7 @@ function fbCatchAnimationMoment(p){
   const closing=d>0.001?-(rx*rvx+rz*rvz)/d:0;
   return d<3.8&&closing>0.5&&d/closing<0.28;
 }
-function fbTurnAnim(p,speed,now){   // v162: any player cutting hard at speed plays the run-turn clip (it was only used once per play by edge rushers); turning on the spot steps instead of rotating in the idle pose
+function fbTurnAnim(p,speed,now){   // v163: any player cutting hard at speed plays the run-turn clip (it was only used once per play by edge rushers); turning on the spot steps instead of rotating in the idle pose
   if(FB.scr!=='live'||p.down||p.tackling||(p.eng&&!p.free)||p.st==='block'||p.diving||p.juke>0) return null;
   if(p.side==='D'&&DM.state==='ready'&&DM_IDS[fbKind(p.role)]) return null;   // the defensive library (DEF_BREAK_*) has its own breaks
   const C=FB_MODEL.clips; if(!C) return null; const yr=p.yawRate||0;
@@ -18583,14 +18583,14 @@ function fbTurnAnim(p,speed,now){   // v162: any player cutting hard at speed pl
   if(now<(p.turnStepUntil||0)&&speed<=0.8&&C.run) return 'run';
   return null;
 }
-function fbRunTs(p,key){ const sp=Math.hypot(p.vx||0,p.vz||0); if(sp<=0.8) return 0.6; return key==='fastRun' ? clamp(sp/8.5,0.75,1.2) : key==='runBack' ? clamp(sp/4,0.6,1.2) : clamp(sp/4.5,0.55,1.15); }   // v162: 1.0 at the speed each loop was made for (stepping on the spot: 0.6)
+function fbRunTs(p,key){ const sp=Math.hypot(p.vx||0,p.vz||0); if(sp<=0.8) return 0.6; return key==='fastRun' ? clamp(sp/8.5,0.75,1.2) : key==='runBack' ? clamp(sp/4,0.6,1.2) : clamp(sp/4.5,0.55,1.15); }   // v163: 1.0 at the speed each loop was made for (stepping on the spot: 0.6)
 function fbTickPlayerAnimation(p,dt){
   const rg=p&&p.rig;if(!rg||!rg.fbMixer)return;
   const silent=['lobby','call','dcall','defask','hold','wait','dwait','drive','dead','over'].includes(FB.scr)&&!(FB.scr==='lobby'&&p===FB.lobbyAv)&&!(FB.av&&p.avOn)&&!(FB.scr==='dead'&&((p.fbPointUntil||0)>performance.now()/1000||(FB.s&&FB.s.hurtBy===p.role&&FB.s.deadClock>=2&&FB.s.deadClock<4)||(FB.s&&FB.s.tdcLive)))||FB_MODEL.loading||FB_MODEL.animLoading;
   const nowS=performance.now()/1000, uoLive=!!(p.uoK&&(nowS<(p.uoUntil||0)||(p.uoHold&&(p.down||p.tackling)))&&uoHas(p.uoK))||n2On(p);   // NTK2
   if(silent&&!(uoLive&&!FB_MODEL.loading&&!FB_MODEL.animLoading)){if(rg.fbCurrent){Object.values(rg.fbActions||{}).forEach(a=>a.stop());if(rg.fbUoActs)Object.values(rg.fbUoActs).forEach(a=>a.stop());rg.fbCurrent=null;}return;}
   if(!FB_MODEL.clips)return;
-  { let yd=fbAd(p.face||0, p.aYaw===undefined ? (p.face||0) : p.aYaw); if (Math.abs(yd) > 1.2) yd = 0; p.aYaw=p.face||0; p.yawRate=dt>0 ? (p.yawRate||0)*0.7 + 0.3*yd/dt : 0; }   // v162: how fast his body is really turning (view only), for the turn clips
+  { let yd=fbAd(p.face||0, p.aYaw===undefined ? (p.face||0) : p.aYaw); if (Math.abs(yd) > 1.2) yd = 0; p.aYaw=p.face||0; p.yawRate=dt>0 ? (p.yawRate||0)*0.7 + 0.3*yd/dt : 0; }   // v163: how fast his body is really turning (view only), for the turn clips
   const key=fbChoosePlayerAnimation(p,fbPoseOf(p));let action=key&&rg.fbActions[key];
   if(!action&&key&&(key.slice(0,3)==='uo:'||key.slice(0,3)==='dm:'||key.slice(0,3)==='n2:'/*NTK2*/)){const uc=uoClipFor(rg,key.slice(3));if(uc){rg.fbUoActs=rg.fbUoActs||{};action=rg.fbUoActs[key]||(rg.fbUoActs[key]=rg.fbMixer.clipAction(uc));}}
   if(!action){if(rg.fbCurrent){Object.values(rg.fbActions).forEach(a=>a.stop());if(rg.fbUoActs)Object.values(rg.fbUoActs).forEach(a=>a.stop());rg.fbCurrent=null;}rg.fbMixer.update(HFX.stop>0?0:dt);return;}
@@ -18604,9 +18604,9 @@ function fbTickPlayerAnimation(p,dt){
     rg.fbCurrent=key;
   }
   if(key.slice(0,3)==='dm:')action.setEffectiveTimeScale(p.dmTs||1);
-  else if(key==='run'||key==='fastRun'||key==='runBack')action.setEffectiveTimeScale(fbRunTs(p,key));   // v162: the run cycle follows his real speed (no skating feet, no frozen sprint while he turns slowly)
+  else if(key==='run'||key==='fastRun'||key==='runBack')action.setEffectiveTimeScale(fbRunTs(p,key));   // v163: the run cycle follows his real speed (no skating feet, no frozen sprint while he turns slowly)
   if(p.role==='QB'&&(p.qbPh||0)>0&&(key===QB_THROW.legacy.key||(p.qbClip&&key==='dm:'+p.qbClip.path))){action.setEffectiveTimeScale(0);action.time=qbtClipTime(p,action.getClip().duration);}   // the clip follows the throw phase frame by frame
-  if(p.hoK&&key.slice(0,3)==='dm:'&&HO.ids[p.hoK]&&key==='dm:'+HO.ids[p.hoK].path){action.setEffectiveTimeScale(0);action.time=clamp(p.hoT||0,0,action.getClip().duration-0.001);}   // v162: the pair's clock is the game's exchange
+  if(p.hoK&&key.slice(0,3)==='dm:'&&HO.ids[p.hoK]&&key==='dm:'+HO.ids[p.hoK].path){action.setEffectiveTimeScale(0);action.time=clamp(p.hoT||0,0,action.getClip().duration-0.001);}   // v163: the pair's clock is the game's exchange
   if(key.slice(0,3)==='n2:'){action.setEffectiveTimeScale(0);action.time=n2ClipTime(p,action.getClip().duration);}   // NTK2: the move's own clock
   if(FB.av&&p.avOn&&key===p.avK){action.setEffectiveTimeScale(0);action.time=clamp(p.avT||0,0,action.getClip().duration-.001);}   // AV: the viewer's clock
   try{dmAdditive(p,rg,nowS);}catch(e){}
@@ -19546,8 +19546,9 @@ function crowdFanMat(){
   const U = crowdU(), m = new THREE.MeshBasicMaterial({ color:'#ffffff' });
   m.onBeforeCompile = sh => {
     ['uT','uH','uA','uW','uWOn','uCrLight','uC1h','uC2h','uC1a','uC2a','uShare','uAtlas','uCut','uSize','uTier','uSway'].forEach(k => { sh.uniforms[k] = U[k]; });
+    sh.uniforms.uCam = sdlU().uCam;   // SG: three.js only fills cameraPosition for lit materials; for this MeshBasicMaterial it read zero and the fans faced the world origin instead of the camera
     sh.vertexShader = `attribute vec4 aRnd; attribute vec4 aInf;
-      uniform float uT, uW, uWOn, uSway; uniform vec4 uH, uA, uShare; uniform vec3 uCrLight, uC1h, uC2h, uC1a, uC2a, uSize, uTier;
+      uniform float uT, uW, uWOn, uSway; uniform vec4 uH, uA, uShare; uniform vec3 uCrLight, uC1h, uC2h, uC1a, uC2a, uSize, uTier, uCam; // SG
       varying vec2 vCuv; varying vec3 vShirt; varying vec3 vSkin; varying vec3 vHair; varying vec3 vOther; varying vec3 vLit;
       vec3 crPick(float r, vec3 a, vec3 b, vec3 c, vec3 d, vec3 e, vec3 f){ float i = floor(r*6.0); return i < 1.0 ? a : i < 2.0 ? b : i < 3.0 ? c : i < 4.0 ? d : i < 5.0 ? e : f; }
       ` + sh.vertexShader.replace('#include <project_vertex>', `
@@ -19566,7 +19567,7 @@ function crowdFanMat(){
       float row = floor(aInf.x), flip = aInf.x - row < 0.5 ? 1.0 : -1.0, sz = 0.94 + 0.12*aRnd.y;
       float jump = ch * S.z * jp * uSize.z * (0.6 + 0.6*aRnd.x);
       float sway = sin(uT*(0.5 + 0.9*aRnd.w) + aRnd.x*40.0) * uSway * (1.0 + 1.5*up) * position.y;
-      vec3 tc = cameraPosition - ip; vec2 rt = normalize(vec2(tc.z, -tc.x) + 1e-5);
+      vec3 tc = uCam - ip; vec2 rt = normalize(vec2(tc.z, -tc.x) + 1e-5);   // SG: uCam, not cameraPosition
       vec3 wp = ip + vec3(rt.x, 0.0, rt.y) * (position.x*uSize.x*sz + sway) + vec3(0.0, position.y*uSize.y*sz + jump, 0.0);
       vec4 mvPosition = viewMatrix * vec4(wp, 1.0);
       gl_Position = projectionMatrix * mvPosition;
@@ -19737,6 +19738,478 @@ function crowdTick(c, wall, s){
 }
 FBH.game.push(function crowdNewGame(){ const c = fbCrowd3; if (c) { c.init = 0; c.tdT = 0; if (c.H) { c.H.pw = c.A.pw = 0; c.H.gr = c.A.gr = 0; } } });
 /* ----- LANE:CROWD end ----- */
+/* ----- LANE:SIDELINE begin (people on the sidelines, benches, wall, boards, tunnel, video board content) ----- */
+/* SIDELINE: the people who stand along the field and the dressing around it.
+   People: one camera-facing card each (the crowd's impostor method) cut out of ONE painted sheet of 10 jobs x 8 poses: players (helmet on / off, lineman / back), head coach, assistant, trainer,
+   photographer, chain gang + ball crew, cheerleader. The sheet holds no team colours (red = light and shade, green = shirt, blue = skin, both = helmet / hair / cap, neither = trousers / dark clothes);
+   the shader dresses every card from the BRAND colours of its team. They react to the crowd's celebration numbers (read only). Benches, wall panels, LED boards, tunnel, roof-edge strip and the video board
+   are painted from BRAND too and repaint only when BRAND.rev changes. Nothing here casts a shadow, draws from Math.random or runs per fan. */
+const SDL_LOOK = {
+  on: true,                     // false = the old pegs / cards, the old benches, tunnel and boards
+  lift: 1.18,                   // brightness of the people: they stand in the field light
+  cardW: 1.2, cardH: 2.4,       // size of one card in yards (the painted person is about 2.0 yd tall inside it)
+  jump: 0.34,                   // yards of a celebration hop
+  density: [0.62, 0.85, 1, 1],  // share of the (shuffled) people drawn on LOW, MEDIUM, HIGH, ULTRA; cheerleaders and the ball crew always stay
+  atlasPx: [512, 768, 1024, 1024],   // width of the sheet per preset (its height is 2.5 x that)
+  blobs: [0, 1, 1, 1], blobA: 0.40,  // soft contact shadow under every person: off on LOW, strength
+  wall: [2048, 3072, 4096, 4096],    // width in pixels of the sideline wall panels per preset
+  wallEvery: 25,                // yards between two emblems on the sideline wall
+  frame: '#1a1f2a',             // bench frames, portal header, coolers
+  benches: [42, 82], benchZ: 31.6,   // centre x of the two benches per side, and their z (home sideline is z < 0)
+  groups: [28, 56, 68, 98],     // the team along the line: x of the clusters of players
+  lineZ: 29.7,                  // z of the players' line (the away side steps 1.5 further back: the chain gang works on that side)
+  coaches: [47, 54, 62, 71, 90],   // x of the assistants (every third one is a head-coach polo)
+  staff: [38, 51, 78, 88],      // x of trainers and equipment staff
+  cheer: 12, cheerX0: 51, cheerDx: 2.5, cheerZ: 34.2   // cheerleaders per side, first x, spacing, z of the front row
+};
+/* SDL painter begin */
+const SDL_ROLES = [
+  { id:'lineman', k:1.10, sw:0.395, tw:0.31, aw:0.145, hs:1.04, kind:'player', helmet:1, num:'72' },
+  { id:'skill',   k:1.13, sw:0.335, tw:0.225, aw:0.118, hs:1.0, kind:'player', helmet:1, num:'11' },
+  { id:'bare',    k:1.12, sw:0.34, tw:0.235, aw:0.118, hs:1.02, kind:'player', helmet:0, hair:'short', num:'24' },
+  { id:'bare2',   k:1.14, sw:0.35, tw:0.24, aw:0.12, hs:1.02, kind:'player', helmet:0, hair:'cap', num:'9' },
+  { id:'coach',   k:1.06, sw:0.275, tw:0.245, aw:0.112, hs:1.08, kind:'coach' },
+  { id:'jacket',  k:1.07, sw:0.28, tw:0.255, aw:0.116, hs:1.08, kind:'jacket' },
+  { id:'staff',   k:1.04, sw:0.265, tw:0.225, aw:0.108, hs:1.06, kind:'staff' },
+  { id:'photo',   k:1.04, sw:0.275, tw:0.235, aw:0.11, hs:1.06, kind:'photo' },
+  { id:'crew',    k:1.05, sw:0.275, tw:0.24, aw:0.112, hs:1.06, kind:'vest' },
+  { id:'cheer',   k:1.02, sw:0.205, tw:0.15, aw:0.078, hs:1.1, kind:'cheer' } ];
+/* poses (columns): 0 relaxed, 1 hands on hips, 2 arms folded, 3 one fist up, 4 both arms up, 5 seated, 6 seated, arms up, 7 hands on the head.
+   arms: [x in shoulder widths (negative = across the body), y from the shoulder in yards, reach, elbow flare (1 out, -1 in)] left, right */
+const SDL_POSES = [
+  [[1.02,-0.60,0.97,1],[1.02,-0.60,0.97,1]],
+  [[0.80,-0.52,0.96,1],[0.80,-0.52,0.96,1]],
+  [[-0.50,-0.30,0.97,1],[-0.50,-0.30,0.97,1]],
+  [[1.02,-0.60,0.97,1],[1.00,0.40,1,1]],
+  [[1.50,0.38,1,1],[1.50,0.38,1,1]],
+  [[0.62,-0.47,0.95,1],[0.62,-0.47,0.95,1]],
+  [[1.45,0.36,1,1],[1.45,0.36,1,1]],
+  [[0.62,0.34,0.95,1],[0.62,0.34,0.95,1]] ];
+function sdlAtlasPaint(W){
+  const R = SDL_ROLES.length, CW = W/8, CH = CW*2, S = CH/2.4;
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = CH*R;
+  const g = cv.getContext('2d', { willReadFrequently:true });
+  const C = (sh, m) => 'rgb(' + Math.round(Math.max(0, Math.min(1, sh))*255) + ',' + ((m & 1) ? 255 : 0) + ',' + ((m & 2) ? 255 : 0) + ')';   // m: 0 other (trousers, dark things), 1 shirt, 2 skin, 3 hair / helmet
+  const limb = (x0,y0,x1,y1,w,m,sh) => { g.lineCap = 'round'; g.strokeStyle = C(sh*0.78, m); g.lineWidth = w; g.beginPath(); g.moveTo(x0,y0); g.lineTo(x1,y1); g.stroke();
+    g.strokeStyle = C(sh, m); g.lineWidth = w*0.52; g.beginPath(); g.moveTo(x0 - w*0.1, y0 + w*0.06); g.lineTo(x1 - w*0.1, y1 + w*0.06); g.stroke(); };
+  const tube = (x0,y0,x1,y1,w0,w1,m,sh) => { const dx = x1 - x0, dy = y1 - y0, l = Math.hypot(dx, dy) || 1, nx = -dy/l, ny = dx/l;
+    g.fillStyle = C(sh*0.8, m); g.beginPath(); g.moveTo(x0 + nx*w0/2, y0 + ny*w0/2); g.lineTo(x1 + nx*w1/2, y1 + ny*w1/2); g.lineTo(x1 - nx*w1/2, y1 - ny*w1/2); g.lineTo(x0 - nx*w0/2, y0 - ny*w0/2); g.closePath(); g.fill();
+    g.beginPath(); g.arc(x1, y1, w1/2, 0, 6.2832); g.fill();
+    g.fillStyle = C(sh, m); g.beginPath(); g.moveTo(x0 + nx*w0*0.48, y0 + ny*w0*0.48); g.lineTo(x1 + nx*w1*0.48, y1 + ny*w1*0.48); g.lineTo(x1 - nx*w1*0.08, y1 - ny*w1*0.08); g.lineTo(x0 - nx*w0*0.08, y0 - ny*w0*0.08); g.closePath(); g.fill(); };
+  const ell = (x,y,rx,ry,m,sh,rot) => { g.fillStyle = C(sh, m); g.beginPath(); g.ellipse(x,y,rx,ry,rot||0,0,6.2832); g.fill(); };
+  const rect = (x0,y0,x1,y1,m,sh) => { g.fillStyle = C(sh, m); g.fillRect(x0, y0, x1 - x0, y1 - y0); };
+  const poly = (pts,m,sh) => { g.fillStyle = C(sh, m); g.beginPath(); g.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) g.lineTo(pts[i][0], pts[i][1]); g.closePath(); g.fill(); };
+  const shade = (x0,y0,x1,y1,stops) => { const gr = g.createLinearGradient(x0,y0,x1,y1); stops.forEach(q => gr.addColorStop(q[0], 'rgb(' + Math.round(q[1]*255) + ',255,255)'));
+    g.globalCompositeOperation = 'multiply'; g.fillStyle = gr; g.fillRect(-0.9,-0.1,1.8,2.7); g.globalCompositeOperation = 'source-over'; };
+  const txt = (s, x, y, size, m, sh) => { g.save(); g.translate(x, y); g.scale(1, -1); g.font = '900 ' + size + 'px Arial, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = C(sh, m); g.fillText(s, 0, 0); g.restore(); };
+  for (let row = 0; row < R; row++) for (let pose = 0; pose < 8; pose++) {
+    const V = SDL_ROLES[row], kind = V.kind, k = V.k, seated = pose === 5 || pose === 6, cheerUp = pose === 4 || pose === 6;
+    const player = kind === 'player', photo = kind === 'photo', cheer = kind === 'cheer', crouch = photo && seated;
+    g.setTransform(1,0,0,1,0,0); g.save(); g.beginPath(); g.rect(pose*CW + 1, row*CH + 1, CW - 2, CH - 2); g.clip();
+    g.setTransform(S*k, 0, 0, -S*k, pose*CW + CW/2, row*CH + CH - 2);
+    const sw = V.sw, tw = V.tw, aw = V.aw, hH = (player && V.helmet ? 0.235 : 0.25)*V.hs, hW = (player && V.helmet ? 0.17 : 0.19)*V.hs;
+    const hipY = crouch ? 0.56/k : seated ? 0.46/k : (player ? 1.0 : cheer ? 0.92 : 0.97), shY = hipY + (player ? 0.58 : cheer ? 0.5 : 0.55), hy = shY + 0.08 + hH/2;
+    const legW = player ? 0.2 : cheer ? 0.1 : 0.17;
+    /* ---- legs and feet ---- */
+    const legCol = cheer ? 2 : 0, legSh = cheer ? 0.9 : 0.9, w0 = player ? (V.id === 'lineman' ? 0.34 : 0.29) : cheer ? 0.12 : 0.25, w1 = player ? w0*0.72 : cheer ? 0.095 : 0.18, w2 = player ? 0.17 : cheer ? 0.08 : 0.155;
+    if (crouch) { [-1,1].forEach(q => { tube(q*tw*0.5, hipY, q*0.27, 0.30, w0, w1, 0, legSh); tube(q*0.27, 0.30, q*0.2, 0.06, w1, w2, 0, legSh*0.9); ell(q*0.21, 0.035, 0.09, 0.042, 0, 0.14); }); }
+    else if (seated) { [-1,1].forEach(q => { tube(q*0.13, hipY - 0.03, q*0.145, 0.075, w0*0.82, w2, legCol, legSh*0.84); ell(q*0.15, 0.045, 0.09, 0.046, 0, cheer ? 0.85 : 0.14); }); }
+    else { const st = V.id === 'lineman' ? 0.16 : 0.11;
+      [-1,1].forEach(q => { tube(q*tw*0.5, hipY, q*(st + 0.02), 0.50, w0, w1, legCol, legSh); tube(q*(st + 0.02), 0.50, q*st, 0.09, w1*0.98, w2, player ? 1 : legCol, player ? 0.9 : legSh*0.92); ell(q*(st + 0.014), 0.048, 0.098, 0.05, 0, cheer ? 0.85 : 0.14); });
+      if (player) { ell(0, hipY - 0.03, tw*1.04, 0.17, 0, 0.7); } }
+    /* ---- body ---- */
+    const torso = () => { g.beginPath(); g.moveTo(-0.055, shY + 0.055); g.quadraticCurveTo(-sw*0.75, shY + 0.045, -sw, shY - 0.035); g.quadraticCurveTo(-sw - 0.014, shY - 0.17, -sw + 0.025, shY - 0.22);
+      g.lineTo(-tw, hipY - 0.02); g.quadraticCurveTo(0, hipY - 0.07, tw, hipY - 0.02); g.lineTo(sw - 0.025, shY - 0.22); g.quadraticCurveTo(sw + 0.014, shY - 0.17, sw, shY - 0.035); g.quadraticCurveTo(sw*0.75, shY + 0.045, 0.055, shY + 0.055); g.closePath(); };
+    if (kind === 'cheer') {                                               // crop top, bare midriff, pleated skirt
+      g.save(); torso(); g.fillStyle = C(0.9, 2); g.fill(); g.clip();
+      shade(-sw, 0, sw, 0, [[0,0.7],[0.3,1],[0.6,1],[1,0.75]]);
+      rect(-sw - 0.02, shY - 0.2, sw + 0.02, shY + 0.1, 1, 0.9); shade(-sw, 0, sw, 0, [[0,0.66],[0.3,0.98],[0.55,1],[1,0.72]]);
+      g.restore();
+      poly([[-tw*0.95, hipY + 0.06], [tw*0.95, hipY + 0.06], [tw*1.6, hipY - 0.30], [-tw*1.6, hipY - 0.30]], 0, 0.92);
+      g.save(); g.beginPath(); g.rect(-0.5, hipY - 0.32, 1, 0.4); g.clip(); g.strokeStyle = C(0.62, 0); g.lineWidth = 0.012; for (let i = -3; i <= 3; i++) { g.beginPath(); g.moveTo(i*tw*0.3, hipY + 0.05); g.lineTo(i*tw*0.52, hipY - 0.3); g.stroke(); } g.restore();
+      rect(-tw*0.97, hipY + 0.04, tw*0.97, hipY + 0.085, 1, 0.8);
+    } else {
+      g.save(); torso();
+      g.fillStyle = C(player ? 0.9 : 0.86, (photo || kind === 'vest') ? 0 : 1); g.fill(); g.clip();
+      shade(-sw, 0, sw, 0, [[0,0.62],[0.3,0.98],[0.55,1],[1,0.7]]); shade(0, shY + 0.06, 0, hipY - 0.06, [[0,1],[0.55,0.92],[1,0.74]]);
+      if (player) { rect(-sw, hipY - 0.04, sw, hipY + 0.06, 0, 0.85);                      // belt / pants line under the jersey
+        g.fillStyle = C(1, 0); g.fillRect(-sw, shY - 0.4, 0, 0); txt(V.num, 0, shY - 0.3, 0.3, 0, 1);
+        rect(-sw, shY - 0.05, -sw + 0.03, shY - 0.2, 0, 1); rect(sw - 0.03, shY - 0.05, sw, shY - 0.2, 0, 1); }                // sleeve stripes drawn on the pad side
+      if (kind === 'coach' || kind === 'staff') { g.fillStyle = C(0.55, 1); g.fillRect(-0.012, shY + 0.02, 0.024, -0.14); rect(-0.07, shY + 0.055, 0.07, shY - 0.0, 1, 0.78); }   // polo placket + collar
+      if (kind === 'jacket') { rect(-0.01, shY + 0.05, 0.01, hipY, 0, 0.3); rect(-sw, hipY - 0.02, sw, hipY + 0.045, 1, 0.7); ell(-0.16, shY - 0.17, 0.045, 0.03, 0, 0.95); }   // zip, ribbed hem, chest logo patch
+      if (photo || kind === 'vest') {                                                 // hi-vis vest over dark clothes
+        const vw = sw*0.93; g.fillStyle = C(0.92, 1); g.beginPath(); g.moveTo(-vw, shY - 0.02); g.lineTo(-0.075, shY + 0.045); g.lineTo(-0.02, shY - 0.15); g.lineTo(0.02, shY - 0.15); g.lineTo(0.075, shY + 0.045); g.lineTo(vw, shY - 0.02); g.lineTo(vw*0.9, hipY - 0.02); g.lineTo(-vw*0.9, hipY - 0.02); g.closePath(); g.fill();
+        g.globalCompositeOperation = 'source-atop'; rect(-vw, shY - 0.32, vw, shY - 0.29, 0, 0.9); rect(-vw, hipY + 0.12, vw, hipY + 0.15, 0, 0.9); g.globalCompositeOperation = 'source-over'; }
+      g.restore();
+      if (player) { ell(-sw*0.9, shY - 0.025, 0.115, 0.095, 1, 0.92); ell(sw*0.9, shY - 0.025, 0.115, 0.095, 1, 0.92); }     // shoulder pads
+    }
+    /* ---- neck, head ---- */
+    limb(0, shY + 0.01, 0, shY + 0.08, 0.1, 2, 0.74);
+    if (cheer) { ell(-hW*0.5 - 0.02, hy - 0.1, 0.055, 0.13, 3, 0.55); ell(hW*0.5 + 0.02, hy - 0.1, 0.055, 0.13, 3, 0.55); ell(hW*0.55, hy - 0.2, 0.05, 0.1, 3, 0.6, 0.3); }
+    g.save(); g.beginPath(); g.ellipse(0, hy, hW/2, hH/2, 0, 0, 6.2832); g.fillStyle = C(0.96, 2); g.fill(); g.clip();
+    shade(-hW/2, 0, hW/2, 0, [[0,0.72],[0.35,1],[0.7,1],[1,0.78]]); shade(0, hy + hH/2, 0, hy - hH/2, [[0,1],[0.6,0.95],[1,0.7]]);
+    if (!(player && V.helmet)) {
+      ell(-hW*0.2, hy + hH*0.06, 0.016, 0.011, 2, 0.22); ell(hW*0.2, hy + hH*0.06, 0.016, 0.011, 2, 0.22);
+      g.fillStyle = C(0.55, 2); g.fillRect(-hW*0.3, hy + hH*0.13, hW*0.22, 0.008); g.fillRect(hW*0.08, hy + hH*0.13, hW*0.22, 0.008);
+      ell(0, hy - hH*0.08, 0.012, 0.02, 2, 0.7);
+      if (cheer || cheerUp || pose === 4 || pose === 3) ell(0, hy - hH*0.26, 0.03, 0.026, 2, 0.12); else if (pose === 7) ell(0, hy - hH*0.27, 0.018, 0.02, 2, 0.15); else { g.fillStyle = C(0.4, 2); g.fillRect(-0.022, hy - hH*0.27, 0.044, 0.008); }
+    }
+    g.restore();
+    ell(-hW/2, hy - 0.01, 0.02, 0.035, 2, 0.8); ell(hW/2, hy - 0.01, 0.02, 0.035, 2, 0.8);
+    /* ---- hair, caps, helmets, headsets ---- */
+    const top = (m, sh, low, grow) => { g.save(); g.beginPath(); g.rect(-0.4, hy + hH*low, 0.8, 0.5); g.clip(); ell(0, hy + 0.004, hW/2 + grow, hH/2 + grow, m, sh); g.restore(); };
+    if (player && V.helmet) {
+      const cx = 0, cy = hy + 0.025, rx = hW/2 + 0.062, ry = hH/2 + 0.07;
+      ell(cx, cy, rx, ry, 3, 0.86);                                                                   // the shell
+      g.save(); g.beginPath(); g.ellipse(cx, cy, rx, ry, 0, 0, 6.2832); g.clip(); shade(-rx, 0, rx, 0, [[0,0.62],[0.28,1],[0.5,1.0],[1,0.66]]); shade(0, cy + ry, 0, cy - ry, [[0,1],[0.6,0.92],[1,0.78]]);
+      ell(-rx*0.38, cy + ry*0.42, rx*0.2, ry*0.16, 3, 1, -0.5);                                       // highlight
+      rect(-0.016, cy - ry*0.1, 0.016, cy + ry + 0.02, 0, 0.95);                                      // centre stripe
+      g.restore();
+      const fy = hy - hH*0.1;                                                                       // face opening + cage
+      g.save(); g.beginPath(); g.ellipse(0, hy + 0.0, hW*0.5 + 0.03, hH*0.5 + 0.03, 0, 0, 6.2832); g.clip(); g.fillStyle = C(0.5, 2); g.fillRect(-0.12, hy - hH*0.5 - 0.05, 0.24, hH*0.62 + 0.05); g.restore();
+      ell(-hW*0.18, fy + hH*0.12, 0.015, 0.01, 2, 0.15); ell(hW*0.18, fy + hH*0.12, 0.015, 0.01, 2, 0.15);
+      limb(-hW*0.48, hy + hH*0.04, hW*0.48, hy + hH*0.04, 0.02, 0, 0.12); limb(-hW*0.5, hy - hH*0.2, hW*0.5, hy - hH*0.2, 0.02, 0, 0.12); limb(-hW*0.42, hy - hH*0.43, hW*0.42, hy - hH*0.43, 0.022, 0, 0.12);
+      limb(0, hy + hH*0.06, 0, hy - hH*0.43, 0.014, 0, 0.12);
+      limb(-rx + 0.012, cy - ry*0.2, -hW*0.4, hy - hH*0.46, 0.02, 0, 0.2); limb(rx - 0.012, cy - ry*0.2, hW*0.4, hy - hH*0.46, 0.02, 0, 0.2);
+    } else if (V.hair === 'short') { top(0, 0.18, 0.2, 0.012); }
+    else if (V.hair === 'cap') { top(0, 0.2, 0.2, 0.012); }
+    if (kind === 'coach' || kind === 'jacket' || kind === 'staff' || photo || kind === 'vest') {
+      const cap = kind !== 'staff' || row % 2 === 0;
+      if (cap) { top(3, 0.86, 0.1, 0.018); ell(0, hy + hH*0.12, hW*0.66, 0.03, 3, 0.5); ell(0, hy + hH*0.5 + 0.01, 0.016, 0.014, 3, 1); }   // ball cap, brim to the front
+      else { top(0, 0.2, 0.18, 0.012); }
+      if (kind === 'coach' || kind === 'jacket') {                                                     // headset: band over the top, ear cups, boom mic
+        g.strokeStyle = C(0.1, 0); g.lineWidth = 0.02; g.beginPath(); g.ellipse(0, hy + 0.01, hW/2 + 0.035, hH/2 + 0.035, 0, 3.5, 5.9); g.stroke();
+        ell(-hW/2 - 0.02, hy - 0.005, 0.034, 0.05, 0, 0.12); ell(hW/2 + 0.02, hy - 0.005, 0.034, 0.05, 0, 0.12); limb(-hW/2 - 0.03, hy - 0.04, -0.04, hy - hH*0.3, 0.012, 0, 0.1); ell(-0.035, hy - hH*0.3, 0.018, 0.012, 0, 0.1); }
+    }
+    if (cheer) { top(3, 0.7, 0.14, 0.022); ell(hW*0.5, hy + hH*0.4, 0.04, 0.03, 1, 0.95); }        // hair + a bow in the team colour
+    /* ---- arms ---- */
+    const A = SDL_POSES[pose];
+    const arm = q => { const ar = A[q < 0 ? 0 : 1];
+      let X = ar[0], Y = ar[1], reach = ar[2], flare = ar[3];
+      if (kind === 'coach') { if (pose === 1 && q > 0) { X = 0.50; Y = 0.30; } if (pose === 1 && q < 0) { X = 0.55; Y = -0.34; } if (pose === 2 && q < 0) { X = -0.2; Y = -0.30; } if (pose === 2 && q > 0) { X = 1.55; Y = -0.05; flare = 1; } }
+      if (photo) { if (pose === 0) { X = 0.28; Y = 0.30; } if (pose === 1) { X = 0.55; Y = -0.38; } if (pose === 2) { X = 0.4; Y = -0.24; } if (pose === 3) { X = 0.35; Y = 0.42; } if (pose === 5) { X = 0.3; Y = 0.2; } if (pose === 6) { X = 0.35; Y = 0.42; } }
+      if (kind === 'vest') { if (pose === 0 || pose === 1) { X = 0.25; Y = -0.25; reach = 0.97; } if (pose === 2) { X = q < 0 ? 0.3 : 0.9; Y = q < 0 ? -0.25 : -0.7; } }
+      if (cheer) { if (pose === 0) { X = 1.6; Y = -0.28; } if (pose === 1) { X = 0.85; Y = -0.42; } if (pose === 2) { X = 1.7; Y = 0.1; } if (pose === 3) { X = q < 0 ? 1.0 : 1.2; Y = q < 0 ? 0.1 : 0.5; } if (pose === 4 || pose === 6) { X = 1.4; Y = 0.5; } if (pose === 5) { X = 1.5; Y = 0.0; } }
+      if (player && pose === 7) { X = 0.55; Y = 0.38; }
+      const sx = q*(sw - 0.04), sy = shY - 0.05, tx = q*(X > 1.15 ? sw + (X - 1.0)*0.3 : X*sw), ty = shY + Y;
+      const L1 = (player ? 0.33 : 0.31)*reach, L2 = (player ? 0.31 : 0.29)*reach; let dx = tx - sx, dy = ty - sy, d = Math.hypot(dx, dy) || 0.001; const dm = Math.min(d, L1 + L2 - 0.004), a = (L1*L1 - L2*L2 + dm*dm)/(2*dm), h = Math.sqrt(Math.max(0, L1*L1 - a*a));
+      dx /= d; dy /= d; const bend = q*(dy >= 0 ? 1 : -1)*flare; let ex = sx + dx*a + dy*h*bend, ey = sy + dy*a - dx*h*bend; const hx = sx + dx*dm, hy2 = sy + dy*dm;
+      const fullSleeve = kind === 'jacket' || photo || kind === 'vest', sleeveM = (photo || kind === 'vest') ? 0 : 1, cut = fullSleeve ? 1 : player ? 0.78 : cheer ? 0 : 0.62;
+      const mx = sx + (ex - sx)*cut, my = sy + (ey - sy)*cut;
+      if (!fullSleeve) limb(mx, my, ex, ey, aw*0.88, 2, 0.9);
+      if (cut > 0) limb(sx, sy, mx, my, aw, sleeveM, 0.86);
+      if (fullSleeve) limb(ex, ey, hx, hy2, aw*0.84, sleeveM, 0.84); else limb(ex, ey, hx, hy2, aw*0.82, 2, 0.9);
+      ell(hx + dx*0.03, hy2 + dy*0.03, 0.05, 0.052, 2, 0.95);
+      return [hx, hy2, ex, ey]; };
+    /* props behind the hands */
+    const aL = arm(-1), aR = arm(1);
+    if (kind === 'coach' && pose === 2) { poly([[aL[0] - 0.1, aL[1] - 0.12], [aL[0] + 0.14, aL[1] - 0.12], [aL[0] + 0.14, aL[1] + 0.16], [aL[0] - 0.1, aL[1] + 0.16]], 0, 0.22); poly([[aL[0] - 0.08, aL[1] - 0.1], [aL[0] + 0.12, aL[1] - 0.1], [aL[0] + 0.12, aL[1] + 0.12], [aL[0] - 0.08, aL[1] + 0.12]], 0, 0.95); ell(aL[0] - 0.01, aL[1] + 0.02, 0.05, 0.052, 2, 0.95); }
+    if (kind === 'staff' && pose !== 4 && pose !== 6) { poly([[-tw*0.5, hipY + 0.26], [-tw*0.5 + 0.14, hipY + 0.26], [-tw*0.5 + 0.14, hipY - 0.12], [-tw*0.5, hipY - 0.12]], 0, 0.95); }            // towel on the belt
+    if (player && !V.helmet) { const hx = aR[0] + 0.01, hy3 = aR[1] + 0.08; if (pose !== 7 && pose !== 2 && pose !== 1) { ell(hx, hy3, 0.115, 0.1, 3, 0.9); limb(hx - 0.07, hy3 - 0.04, hx + 0.07, hy3 - 0.04, 0.02, 0, 0.14); ell(hx, hy3 - 0.01, 0.05, 0.035, 2, 0.3); ell(hx, hy3, 0.05, 0.052, 2, 0.95, 0); } }
+    if (photo) {                                                                                     // the camera: a body and a long lens pointing at us
+      const cx = pose === 3 || pose === 6 ? aR[0] : 0.02, cy = pose === 0 || pose === 5 ? hy - 0.02 : pose === 3 || pose === 6 ? aR[1] + 0.02 : shY - 0.14;
+      rect(cx - 0.12, cy - 0.065, cx + 0.12, cy + 0.075, 0, 0.16); ell(cx, cy, 0.075, 0.07, 0, 0.28); ell(cx, cy, 0.052, 0.05, 0, 0.1); ell(cx - 0.02, cy + 0.02, 0.014, 0.012, 0, 0.9);
+      ell(aL[0] + (pose === 0 || pose === 5 ? 0.03 : 0), aL[1], 0.045, 0.05, 2, 0.95); ell(aR[0], aR[1], 0.045, 0.05, 2, 0.95); }
+    if (cheer) {                                                                                     // pom-poms: fluffy bunches in the team colour
+      [aL, aR].forEach((p, i) => { const q = i ? 1 : -1, px = p[0] + q*0.01, py = p[1] + 0.07; ell(px, py, 0.14, 0.12, 1, 0.8); for (let j = 0; j < 9; j++) { const a = j*0.7 + i; ell(px + Math.cos(a)*0.1, py + Math.sin(a)*0.085, 0.055, 0.05, 1, 0.95 - (j % 3)*0.12); } });
+    }
+    g.restore();
+  }
+  g.setTransform(1,0,0,1,0,0);
+  return cv;
+}
+/* SDL painter end */
+/* ---- the card material: unlit, camera-facing, the same colour-by-class decoding as the crowd, but with its own sheet and palettes per job (player / coach / photographer ...).
+        Reads the crowd's per-side celebration numbers (CROWD.U.uH home, uA away: x standing, y arms up, z jump, w groan) - read only. aInf: x = row + flip, y = team (0 home, 1 away, 2 neutral), z = seated, w = size ---- */
+const SDL = { U:null, mesh:null, crew:null, blobs:null, mark:null, atlas:null, atlasW:0, n:0, nAll:0, brev:-1, built:false, level:2, T:{}, cv:{}, bench:[], err:0 };
+function sdlU(){
+  if (SDL.U) return SDL.U;
+  const CU = crowdU(), L = SDL_LOOK, c = h => ({ value:new THREE.Color(h) });
+  SDL.U = { uT:CU.uT, uH:CU.uH, uA:CU.uA, uCrLight:CU.uCrLight, uAtlas:{value:null}, uC1h:c('#1f5fd6'), uC2h:c('#ffd24a'), uC1a:c('#d23a2c'), uC2a:c('#ffffff'),
+    uK:{ value:new THREE.Vector4(L.cardW, L.cardH, L.jump, L.lift) }, uRows:{ value:SDL_ROLES.length }, uCam:{ value:new THREE.Vector3(0, 10, -20) }, uMood:{ value:new THREE.Vector4(0,0,0,0) } };   // uCam: where the camera is (three.js only fills cameraPosition for lit materials, a MeshBasicMaterial would read zero)
+  return SDL.U;
+}
+function sdlMat(){
+  const U = sdlU(), m = new THREE.MeshBasicMaterial({ color:'#ffffff' });
+  m.onBeforeCompile = sh => {
+    ['uT','uH','uA','uCrLight','uAtlas','uC1h','uC2h','uC1a','uC2a','uK','uRows','uCam','uMood'].forEach(k => { sh.uniforms[k] = U[k]; });
+    sh.vertexShader = `attribute vec4 aRnd; attribute vec4 aInf;
+      uniform float uT, uRows; uniform vec4 uH, uA, uK, uMood; uniform vec3 uCrLight, uC1h, uC2h, uC1a, uC2a, uCam;
+      varying vec2 vCuv; varying vec3 vShirt; varying vec3 vSkin; varying vec3 vHair; varying vec3 vOther; varying vec3 vLit;
+      vec3 sdPick(float r, vec3 a, vec3 b, vec3 c, vec3 d, vec3 e, vec3 f){ float i = floor(r*6.0); return i < 1.0 ? a : i < 2.0 ? b : i < 3.0 ? c : i < 4.0 ? d : i < 5.0 ? e : f; }
+      ` + sh.vertexShader.replace('#include <project_vertex>', `
+      vec3 ip = instanceMatrix[3].xyz;
+      float row = floor(aInf.x), flip = (fract(aInf.x) < 0.5 || row < 3.5) ? 1.0 : -1.0, team = aInf.y, sit = aInf.z, sz = aInf.w*(0.97 + 0.06*aRnd.y);
+      vec4 S = team < 0.5 ? uH : (team < 1.5 ? uA : max(uH, uA));            // x standing share, y arms-up share, z jump, w groan share of this side
+      float dance = step(8.5, row), still = step(6.5, row)*(1.0 - dance);       // cheerleaders keep moving, photographers and the crew hardly jump
+      float mc = team < 0.5 ? uMood.x : (team < 1.5 ? uMood.y : 0.0), ms = team < 0.5 ? uMood.z : (team < 1.5 ? uMood.w : 0.0);       // the bench's own mood (fbBenchMood: touchdown, big play / sack, slump), 0..1
+      float cheer = max(step(aRnd.y*0.8 + 0.1, S.y), step(aRnd.y*0.85 + 0.1, mc))*(1.0 - 0.0*dance), lite = step(aRnd.y*0.85 + 0.06, S.x)*(1.0 - cheer), gr = max(step(aRnd.z*0.9 + 0.02, S.w), step(aRnd.z*0.9 + 0.05, ms))*(1.0 - cheer);
+      float beat = uT*(2.0 + 1.2*aRnd.w) + aRnd.x*23.0, fl = step(0.5, fract(beat*0.9)), jp = abs(sin(beat*2.6));
+      float slow = floor(uT*0.06 + aRnd.x*9.0), idle = mod(floor(aRnd.w*3.0) + slow, 3.0);
+      float fr = idle;
+      if (sit > 0.5) { fr = 5.0; if (still > 0.5) fr = 5.0 + step(0.5, fract(uT*0.07 + aRnd.x*3.0)); if (lite > 0.5) fr = 5.0 + fl; if (cheer > 0.5) fr = 3.0 + fl; }
+      else { if (lite > 0.5) fr = fl > 0.5 ? 3.0 : idle; if (cheer > 0.5) fr = 3.0 + fl; }
+      if (dance > 0.5) { fr = cheer > 0.5 ? 4.0 : mod(floor(beat*0.55), 4.0); fr = fr < 1.5 ? (fr < 0.5 ? 0.0 : 3.0) : (fr < 2.5 ? 4.0 : 1.0); }
+      if (gr > 0.5) fr = 7.0;
+      float jump = cheer*max(S.z, mc*0.8)*jp*uK.z*(0.55 + 0.6*aRnd.x)*(1.0 - 0.75*still)*(1.0 - 0.5*sit) + lite*0.05*jp + dance*0.07*abs(sin(beat*3.0));
+      float sway = sin(uT*(0.5 + 0.9*aRnd.w) + aRnd.x*40.0)*0.03*(1.0 + 1.5*cheer)*position.y;
+      vec3 tc = uCam - ip; vec2 rt = normalize(vec2(tc.z, -tc.x) + 1e-5);
+      vec3 wp = ip + vec3(rt.x, 0.0, rt.y)*(position.x*uK.x*sz + sway) + vec3(0.0, position.y*uK.y*sz + jump, 0.0);
+      vec4 mvPosition = viewMatrix*vec4(wp, 1.0);
+      gl_Position = projectionMatrix*mvPosition;
+      vCuv = vec2((fr + 0.5 + (uv.x - 0.5)*flip*0.98)/8.0, 1.0 - (row + 1.0 - uv.y*0.995)/uRows);
+      vec3 c1 = team < 1.5 ? (team < 0.5 ? uC1h : uC1a) : uC1h, c2 = team < 1.5 ? (team < 0.5 ? uC2h : uC2a) : uC2h;
+      vec3 skin = sdPick(fract(aRnd.z*5.3 + aRnd.x), vec3(0.93,0.76,0.62), vec3(0.80,0.58,0.42), vec3(0.62,0.42,0.28), vec3(0.42,0.27,0.18), vec3(0.88,0.69,0.53), vec3(0.50,0.33,0.22))*(0.95 + 0.1*aRnd.y);
+      vec3 hair = sdPick(fract(aRnd.w*3.7 + aRnd.y*1.3), vec3(0.09,0.07,0.06), vec3(0.20,0.13,0.08), vec3(0.34,0.22,0.12), vec3(0.62,0.50,0.30), vec3(0.50,0.50,0.52), vec3(0.13,0.10,0.09));
+      vec3 sh, ot, ha;
+      if (row < 3.5) { sh = c1*(0.92 + 0.12*aRnd.w); ot = vec3(0.90,0.92,0.95); ha = c1*0.96; }                                           // players: jersey + socks, pants, helmet
+      else if (row < 4.5) { sh = c1; ot = aRnd.z < 0.5 ? vec3(0.50,0.45,0.34) : vec3(0.11,0.12,0.15); ha = aRnd.y < 0.5 ? c2 : c1*0.9; }     // head coach: polo, trousers, cap
+      else if (row < 5.5) { sh = c1*0.5; ot = vec3(0.10,0.11,0.13); ha = c1*0.85; }                                                        // assistant: team jacket
+      else if (row < 6.5) { sh = aRnd.y < 0.5 ? c1 : vec3(0.82,0.84,0.88); ot = aRnd.z < 0.5 ? vec3(0.45,0.42,0.34) : vec3(0.12,0.13,0.16); ha = hair; }   // trainers, equipment staff
+      else if (row < 7.5) { sh = aRnd.y < 0.55 ? vec3(0.85,0.90,0.16) : vec3(1.0,0.52,0.08); ot = vec3(0.13,0.14,0.17); ha = hair*0.8; }      // photographers: hi-vis vest
+      else if (row < 8.5) { sh = aRnd.y < 0.5 ? vec3(1.0,0.50,0.08) : vec3(0.85,0.90,0.16); ot = vec3(0.13,0.14,0.17); ha = vec3(0.17,0.18,0.21); }   // ball crew + chain gang
+      else { sh = c1; ot = c2; ha = hair; }                                                                                                  // cheerleaders: top + poms, skirt
+      vShirt = sh; vSkin = skin; vHair = ha; vOther = ot;
+      vLit = uCrLight*uK.w*(0.92 + 0.16*aRnd.x);`);
+    sh.fragmentShader = `uniform sampler2D uAtlas;
+      varying vec2 vCuv; varying vec3 vShirt; varying vec3 vSkin; varying vec3 vHair; varying vec3 vOther; varying vec3 vLit;
+      ` + sh.fragmentShader.replace('#include <map_fragment>', `
+      vec4 sT = texture2D(uAtlas, vCuv);
+      if (sT.a < 0.42) discard;
+      float sH = max(0.0, sT.g + sT.b - 1.0), sS = sT.g - sH, sK = sT.b - sH, sO = max(0.0, 1.0 - sS - sK - sH);
+      diffuseColor.rgb = pow(vShirt*sS + vSkin*sK + vHair*sH + vOther*sO, vec3(2.2))*sT.r*vLit;`);
+  };
+  m.customProgramCacheKey = () => 'sdl-card-1';
+  return m;
+}
+function sdlAtlasFor(level){
+  const W = SDL_LOOK.atlasPx[level] || 1024; if (SDL.atlas && SDL.atlasW === W) return SDL.atlas;
+  const old = SDL.atlas, t = new THREE.CanvasTexture(sdlAtlasPaint(W));
+  t.generateMipmaps = true; t.minFilter = THREE.LinearMipmapLinearFilter; t.magFilter = THREE.LinearFilter; t.anisotropy = level >= 2 ? 4 : 1; t.needsUpdate = true;
+  SDL.atlas = t; SDL.atlasW = W; sdlU().uAtlas.value = t; if (old) old.dispose();
+  return t;
+}
+/* a small generator of its own: nothing here ever draws from Math.random (the stream belongs to the simulation) */
+function sdlRng(seed){ let a = seed >>> 0; return () => { a = (Math.imul(a, 1664525) + 1013904223) >>> 0; return a / 4294967296; }; }
+/* ---- who stands where. [x, z, team (0 home, 1 away, 2 neutral), row of the sheet, seated]. Home sideline is z < 0 (the coach's), away z > 0. ---- */
+function sdlPeople(){
+  const rnd = sdlRng(4242), P = [], L = SDL_LOOK, J = (a) => (rnd() - 0.5)*a;
+  const pick = a => a[(rnd()*a.length)|0];
+  [-1, 1].forEach(sd => { const tm = sd < 0 ? 0 : 1;
+    L.benches.forEach(bx => {                                                                      // the benches: players with helmets on / off, a trainer
+      for (let i = 0; i < 7; i++) P.push([bx - 4.95 + i*1.65 + J(0.3), sd*(L.benchZ - 0.62) + J(0.12), tm, i === 3 ? 6 : pick([0,1,1,2,3,0,2]), 1]); });
+    L.groups.forEach(gx => { const n = 4 + ((rnd()*2)|0);                                         // the team along the sideline: clusters of players watching the play
+      for (let i = 0; i < n; i++) P.push([gx + (i - (n - 1)/2)*1.35 + J(0.7), sd*(L.lineZ + (sd > 0 ? 1.5 : 0) + (i % 2)*0.9) + J(0.3), tm, pick([0,0,1,1,1,2,3,2]), 0]); });
+    L.coaches.forEach((cx, i) => P.push([cx + J(1), sd*(L.lineZ + 0.4 + (sd > 0 ? 1.6 : 0)) + J(0.3), tm, i % 3 === 0 ? 4 : 5, 0]));
+    L.staff.forEach(sx => P.push([sx + J(1.5), sd*(L.lineZ + 1.3 + (sd > 0 ? 1.5 : 0)), tm, 6, 0]));
+    for (let i = 0; i < L.cheer; i++) P.push([L.cheerX0 + (i >> 1)*L.cheerDx + (i & 1)*L.cheerDx*0.5, sd*(L.cheerZ + (i & 1)*1.45), tm, 9, 0]);
+    for (let i = 0; i < 7; i++) P.push([pick([16,19,22,25,28,92,95,98,101,104]) + J(2), sd*(37.2 + rnd()*1.6), 2, 7, rnd() < 0.55 ? 1 : 0]);   // photographers at the wall, some kneeling
+    for (let i = 0; i < 2; i++) P.push([58 + i*4 + J(1), sd*(L.lineZ + 0.2 + (sd > 0 ? 1.6 : 0)), 2, 8, 0]);     // ball crew
+  });
+  [-6.6, 126.6].forEach(ex => { for (let i = 0; i < 5; i++) P.push([ex + J(1.2), -15 + i*7.2 + J(1.5), 2, 7, rnd() < 0.55 ? 1 : 0]); });         // photographers behind the end zones
+  return P;
+}
+function sdlBuildPeople(){
+  const list = sdlPeople(), rnd = sdlRng(77), n = list.length, M = new THREE.Matrix4();
+  const fixed = list.filter(p => p[3] === 9 || p[3] === 8), rest = list.filter(p => !(p[3] === 9 || p[3] === 8));
+  for (let i = rest.length - 1; i > 0; i--) { const j = (rnd()*(i + 1))|0, t = rest[i]; rest[i] = rest[j]; rest[j] = t; }         // shuffled: drawing fewer people thins every group evenly
+  const all = fixed.concat(rest);
+  const geo = new THREE.PlaneGeometry(1, 1); geo.translate(0, 0.5, 0);
+  const aR = new Float32Array(n*4), aI = new Float32Array(n*4), mesh = new THREE.InstancedMesh(geo, sdlMat(), n);
+  all.forEach((p, i) => { M.makeTranslation(p[0], 0, p[1]); mesh.setMatrixAt(i, M);
+    aR[i*4] = rnd(); aR[i*4+1] = rnd(); aR[i*4+2] = rnd(); aR[i*4+3] = rnd();
+    aI[i*4] = p[3] + (rnd() < 0.5 ? 0.25 : 0.75); aI[i*4+1] = p[2]; aI[i*4+2] = p[4]; aI[i*4+3] = 1.0; });
+  geo.setAttribute('aRnd', new THREE.InstancedBufferAttribute(aR, 4)); geo.setAttribute('aInf', new THREE.InstancedBufferAttribute(aI, 4));
+  mesh.frustumCulled = false; mesh.matrixAutoUpdate = false; mesh.renderOrder = 2; fbScene.add(mesh);
+  SDL.mesh = mesh; SDL.list = all; SDL.nAll = n;
+  /* the chain gang: two stick holders and the down marker follow the chain every frame (3 instances of their own) */
+  const g2 = new THREE.PlaneGeometry(1, 1), a2 = new Float32Array(12), b2 = new Float32Array(12); g2.translate(0, 0.5, 0);
+  for (let i = 0; i < 3; i++) { a2[i*4] = rnd(); a2[i*4+1] = rnd(); a2[i*4+2] = rnd(); a2[i*4+3] = rnd(); b2[i*4] = 8 + (i === 1 ? 0.25 : 0.75); b2[i*4+1] = 2; b2[i*4+2] = 0; b2[i*4+3] = 1.0; }
+  g2.setAttribute('aRnd', new THREE.InstancedBufferAttribute(a2, 4)); g2.setAttribute('aInf', new THREE.InstancedBufferAttribute(b2, 4));
+  const cm = new THREE.InstancedMesh(g2, SDL.mesh.material, 3); cm.frustumCulled = false; cm.matrixAutoUpdate = false; cm.renderOrder = 2; cm.visible = false; fbScene.add(cm); SDL.crew = cm;
+  /* soft contact shadows under everybody (not a shadow map: one flat textured quad each) */
+  const bt = canvasTex(64, 64, (g) => { const gr = g.createRadialGradient(32,32,2,32,32,31); gr.addColorStop(0,'rgba(0,0,0,0.85)'); gr.addColorStop(0.55,'rgba(0,0,0,0.38)'); gr.addColorStop(1,'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(0,0,64,64); });
+  const bg = new THREE.PlaneGeometry(1, 1); bg.rotateX(-Math.PI/2);
+  const bm = new THREE.InstancedMesh(bg, new THREE.MeshBasicMaterial({ map:bt, transparent:true, opacity:SDL_LOOK.blobA, depthWrite:false, polygonOffset:true, polygonOffsetFactor:-2, polygonOffsetUnits:-2, fog:false }), n + 3);
+  const sc = new THREE.Vector3(), q = new THREE.Quaternion(), pp = new THREE.Vector3();
+  for (let i = 0; i < 3; i++) { pp.set(0, -9, 0); sc.set(1.2, 1, 0.8); M.compose(pp, q, sc); bm.setMatrixAt(i, M); }              // 0..2: the chain gang (moved every frame)
+  all.forEach((p, i) => { const w = p[4] ? 1.5 : 1.25; pp.set(p[0], 0.012, p[1]); sc.set(w, 1, w*0.62); M.compose(pp, q, sc); bm.setMatrixAt(3 + i, M); });
+  bm.frustumCulled = false; bm.matrixAutoUpdate = false; bm.renderOrder = 1; fbScene.add(bm); SDL.blobs = bm;
+}
+/* ---------------------------------------------------------------- team-coloured dressing: painted canvases (repainted when BRAND.rev changes, never per frame) */
+function sdlCv(key, w, h){ let c = SDL.cv[key]; if (!c) { c = SDL.cv[key] = document.createElement('canvas'); c.width = w; c.height = h; } else if (c.width !== w || c.height !== h) { c.width = w; c.height = h; if (SDL.T[key]) SDL.T[key].dispose(); } return c; }
+function sdlTex(key, w, h, aniso){ const c = sdlCv(key, w, h); if (!SDL.T[key]) { const t = new THREE.CanvasTexture(c); t.anisotropy = aniso || 8; fbvSrgb(t); SDL.T[key] = t; } return SDL.T[key]; }
+function sdlShadeRows(g, w, h, a, step){ g.fillStyle = 'rgba(0,0,0,' + a + ')'; for (let y = 0; y < h; y += step) g.fillRect(0, y, w, 1); }
+/* the padded wall: team-colour panels with seams, a trim stripe, the emblem + nickname every so often. len = yards the canvas covers */
+function sdlWallPaint(cv, tm, len, kind){
+  const g = cv.getContext('2d'), w = cv.width, h = cv.height, px = w/len, L = SDL_LOOK; g.setTransform(1,0,0,1,0,0); g.clearRect(0,0,w,h);
+  const gr = g.createLinearGradient(0,0,0,h); gr.addColorStop(0, brandMix(tm.c1, '#ffffff', 0.10)); gr.addColorStop(0.55, tm.c1); gr.addColorStop(1, brandMix(tm.c1, '#000000', 0.55)); g.fillStyle = gr; g.fillRect(0,0,w,h);
+  const seam = kind === 'end' ? 4.4 : 4;                                                                                        // padding panels
+  for (let x = 0; x <= len + 0.01; x += seam) { g.fillStyle = 'rgba(0,0,0,0.38)'; g.fillRect(x*px - 1.5, 0, 3, h); g.fillStyle = 'rgba(255,255,255,0.10)'; g.fillRect(x*px + 1.5, 0, 2, h); }
+  g.fillStyle = tm.c2; g.fillRect(0, h*0.045, w, h*0.075); g.fillStyle = 'rgba(0,0,0,0.30)'; g.fillRect(0, h*0.12, w, h*0.025);                  // trim stripe along the top
+  g.fillStyle = 'rgba(0,0,0,0.5)'; g.fillRect(0, h*0.93, w, h*0.07);                                                                    // the kick strip at the bottom
+  const cy = h*0.54, eh = h*0.40;
+  if (kind === 'end') {                                                                                                          // the end-zone wall: the home wordmark, big, between two emblems
+    brandWordmark(g, tm, len*px/2, cy, 21*px, h*0.62, { fill:tm.on1, stroke:tm.c2, strokeW:0.06, track:0.04 });
+    [-15, 15].forEach(o => brandEmblem(g, tm, len*px/2 + o*px, cy, eh*0.52, { flat:true }));
+  } else {
+    for (let x = L.wallEvery/2; x < len; x += L.wallEvery) { brandEmblem(g, tm, (x - 5.2)*px, cy, eh*0.5, { flat:true }); brandWordmark(g, tm, (x + 1.8)*px, cy, 9.5*px, h*0.46, { fill:tm.on1, stroke:null, track:0.03 }); }
+  }
+}
+/* LED boards (field level, 2048 x 96 texture shared by the clones) and ribbons: ULTIMATE ONLINE, both nicknames, PRO FOOTBALL. sx = how much the texture is stretched sideways on its board (painted squashed to cancel it) */
+function sdlLedPaint(cv, sx, B){
+  const g = cv.getContext('2d'), w = cv.width, h = cv.height, W = w/sx, sw = W/4, H = B.home, A = B.away; g.setTransform(1,0,0,1,0,0); g.clearRect(0,0,w,h); g.save(); g.scale(sx, 1);
+  const bg = (x0, c) => { g.fillStyle = '#060a14'; g.fillRect(x0, 0, sw, h); g.fillStyle = brandRgba(c, 0.20); g.fillRect(x0, 0, sw, h); };
+  const team = (x0, T) => { bg(x0, T.c1); g.fillStyle = T.c1; g.fillRect(x0, 0, sw*0.30, h); g.fillStyle = 'rgba(255,255,255,0.14)'; g.fillRect(x0, 0, sw*0.30, h*0.14);
+    brandEmblem(g, T, x0 + sw*0.15, h/2, h*0.40, { flat:true }); brandWordmark(g, T, x0 + sw*0.65, h/2, sw*0.60, h*0.58, { fill:'#ffffff', stroke:null, track:0.04 }); g.fillStyle = T.c2; g.fillRect(x0 + sw*0.33, h*0.86, sw*0.64, h*0.05); };
+  const game = x0 => { bg(x0, H.c1); g.fillStyle = brandRgba(A.c1, 0.28); g.fillRect(x0 + sw*0.5, 0, sw*0.5, h);
+    g.save(); g.fillStyle = H.ui; g.transform(1,0,-0.3,1,0,0); g.fillRect(x0 + sw*0.06 + h*0.09, h*0.18, h*0.1, h*0.64); g.fillRect(x0 + sw*0.06 + h*0.3, h*0.18, h*0.1, h*0.64); g.restore();
+    brandWordmark(g, H, x0 + sw*0.56, h/2, sw*0.74, h*0.52, { text:'ULTIMATE ONLINE', fill:'#ffffff', stroke:null, track:0.03 }); };
+  const pro = x0 => { bg(x0, '#2a3552'); brandWordmark(g, H, x0 + sw*0.30, h/2, sw*0.42, h*0.5, { text:'PRO', fill:H.ui, stroke:null }); brandWordmark(g, A, x0 + sw*0.70, h/2, sw*0.50, h*0.5, { text:'FOOTBALL', fill:'#ffffff', stroke:null, track:0.03 }); };
+  game(0); team(sw, H); pro(sw*2); team(sw*3, A);
+  g.restore(); sdlShadeRows(g, w, h, 0.30, 3);
+}
+/* the wordmark panel on the back of a bench / above the tunnel */
+function sdlPlatePaint(cv, tm, wide){
+  const g = cv.getContext('2d'), w = cv.width, h = cv.height; g.setTransform(1,0,0,1,0,0);
+  const gr = g.createLinearGradient(0,0,0,h); gr.addColorStop(0, brandMix(tm.deep, '#ffffff', 0.06)); gr.addColorStop(1, brandMix(tm.deep, '#000000', 0.35)); g.fillStyle = gr; g.fillRect(0,0,w,h);
+  g.fillStyle = tm.c2; g.fillRect(0, 0, w, h*0.08); g.fillRect(0, h*0.92, w, h*0.08);
+  brandWordmark(g, tm, w*0.5, h*0.5, w*(wide ? 0.34 : 0.55), h*0.52, { fill:tm.on1 === '#ffffff' ? '#ffffff' : tm.c2, stroke:null, track:0.05 });
+  [0.10, 0.90].forEach(f => brandEmblem(g, tm, w*f, h*0.5, h*0.34, { flat:true }));
+}
+/* the hallway behind the portal: light strips in perspective, a bright far end, a few dark figures */
+function sdlHallPaint(cv, tm){
+  const g = cv.getContext('2d'), w = cv.width, h = cv.height; g.setTransform(1,0,0,1,0,0); g.fillStyle = '#04060b'; g.fillRect(0,0,w,h);
+  const fx = w*0.5, fy = h*0.52, fw = w*0.16, fh = h*0.20;
+  const gr = g.createRadialGradient(fx, fy, 2, fx, fy, w*0.55); gr.addColorStop(0, 'rgba(255,244,214,0.95)'); gr.addColorStop(0.18, brandRgba(tm.c1, 0.35)); gr.addColorStop(1, 'rgba(4,6,11,0)'); g.fillStyle = gr; g.fillRect(0,0,w,h);
+  g.fillStyle = '#fff4d6'; g.fillRect(fx - fw/2, fy - fh/2, fw, fh);
+  g.strokeStyle = 'rgba(120,130,160,0.5)'; g.lineWidth = 2; [[0,0],[w,0],[0,h],[w,h]].forEach(([x,y]) => { g.beginPath(); g.moveTo(x, y); g.lineTo(fx + (x ? fw/2 : -fw/2), fy + (y ? fh/2 : -fh/2)); g.stroke(); });
+  for (let i = 1; i < 7; i++) { const t = i/7, k = t*t, x0 = fx - fw/2 - (fx - fw/2)*(1 - k), x1 = fx + fw/2 + (w - fx - fw/2)*(1 - k); const y = fy - fh/2 - (fy - fh/2)*(1 - k)*0.93; g.fillStyle = 'rgba(255,238,200,' + (0.25 + 0.5*t) + ')'; g.fillRect(x0 + (x1 - x0)*0.35, y, (x1 - x0)*0.3, 3 + 6*(1 - k)); }
+  g.fillStyle = '#05070c'; for (let i = 0; i < 5; i++) { const x = fx + (i - 2)*fw*0.2, s = 0.7 + (i % 2)*0.2; g.fillRect(x - 4*s, fy - fh*0.1, 8*s, fh*0.6); g.beginPath(); g.arc(x, fy - fh*0.16, 6*s, 0, 6.3); g.fill(); }
+}
+/* the carpet runner from the tunnel onto the field */
+function sdlRunPaint(cv, tm){
+  const g = cv.getContext('2d'), w = cv.width, h = cv.height; g.setTransform(1,0,0,1,0,0); g.fillStyle = tm.c1; g.fillRect(0,0,w,h);
+  g.fillStyle = tm.c2; g.fillRect(0, 0, w*0.07, h); g.fillRect(w*0.93, 0, w*0.07, h); g.fillStyle = 'rgba(0,0,0,0.16)'; for (let y = 0; y < h; y += 6) g.fillRect(0, y, w, 2);
+  g.save(); g.translate(w/2, h*0.5); g.rotate(-Math.PI/2); brandEmblem(g, tm, 0, 0, w*0.30, { flat:true }); g.restore();
+}
+/* the video board: both emblems, both nicknames, the score and the clock. Same redraw rule as before (fbJbDraw decides when); returns true when it drew */
+function sdlJbDraw(J, s, g, w, h, big, now){
+  if (!SDL_LOOK.on || !SDL.built) return false;
+  const B = brandMatch(), H = B.home, A = B.away, ph = (now/4000)%1, c = fbCrowd3, side = c && c.tdSide ? A : H;
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  if (big) {
+    const T = side, fl = (now/250|0)%2; g.fillStyle = fl ? T.c1 : brandMix(T.c1, '#000000', 0.55); g.fillRect(0,0,w,h);
+    for (let k = -3; k < 14; k++) { g.save(); g.translate((k + ph)*(w/9), 0); g.transform(1,0,-0.6,1,0,0); g.fillStyle = k % 2 ? brandRgba(T.c2, 0.28) : 'rgba(255,255,255,0.08)'; g.fillRect(0, 0, w/24, h); g.restore(); }
+    brandEmblem(g, T, w*0.105, h*0.36, h*0.15, { flat:true }); brandEmblem(g, T, w*0.895, h*0.36, h*0.15, { flat:true });
+    g.fillStyle = '#ffffff'; g.font = fbvFont(FB.scr === 'replay' ? 120 : 92, true); g.fillText(FB.scr === 'replay' ? 'REPLAY' : 'TOUCHDOWN', w/2, h*0.34);
+    brandWordmark(g, T, w/2, h*0.58, w*0.5, h*0.12, { fill:T.c2, stroke:null, track:0.05 });
+    g.fillStyle = '#ffffff'; g.font = fbvFont(70); g.fillText((s.you|0) + '  -  ' + (s.cpu|0), w/2, h*0.82);
+  } else {
+    const bgG = g.createLinearGradient(0, 0, w, 0); bgG.addColorStop(0, brandMix(H.c1, '#05070d', 0.35)); bgG.addColorStop(0.5, '#070a14'); bgG.addColorStop(1, brandMix(A.c1, '#05070d', 0.35)); g.fillStyle = bgG; g.fillRect(0, 0, w, h);
+    for (let k = -3; k < 14; k++) { g.save(); g.translate((k + ph)*(w/9), 0); g.transform(1,0,-0.6,1,0,0); g.fillStyle = k % 2 ? brandRgba(k < 5 ? H.c2 : A.c2, 0.13) : 'rgba(255,255,255,0.04)'; g.fillRect(0, 0, w/24, h); g.restore(); }
+    brandEmblem(g, H, w*0.14, h*0.30, h*0.175, { flat:true }); brandEmblem(g, A, w*0.86, h*0.30, h*0.175, { flat:true });
+    brandWordmark(g, H, w*0.14, h*0.55, w*0.22, h*0.07, { fill:'#ffffff', stroke:null, track:0.04 }); brandWordmark(g, A, w*0.86, h*0.55, w*0.22, h*0.07, { fill:'#ffffff', stroke:null, track:0.04 });
+    g.fillStyle = '#f6f8ff'; g.font = fbvFont(66, true); g.fillText('ULTIMATE', w/2, h*0.16); g.fillText('ONLINE', w/2, h*0.31); g.fillStyle = H.ui; g.font = fbvFont(38); g.fillText('VS', w/2, h*0.48);
+    g.fillStyle = 'rgba(2,4,10,0.82)'; g.fillRect(0, h*0.66, w, h*0.34);
+    g.fillStyle = H.c1; g.fillRect(34, h*0.70, 300, h*0.25); g.fillStyle = A.c1; g.fillRect(w - 334, h*0.70, 300, h*0.25);
+    g.fillStyle = H.on1; g.font = fbvFont(34); g.fillText(String(H.nick).slice(0,10), 130, h*0.77); g.fillStyle = A.on1; g.fillText(String(A.nick).slice(0,10), w - 234, h*0.77);
+    g.font = fbvFont(74); g.fillStyle = H.on1; g.fillText(String(s.you|0), 130, h*0.88); g.fillStyle = A.on1; g.fillText(String(s.cpu|0), w - 234, h*0.88);
+    const cl = Math.max(0, s.clock||0), mm = s.train ? '--' : Math.floor(cl/60), ss = s.train ? '--' : String(Math.floor(cl%60)).padStart(2,'0');
+    g.fillStyle = '#ffd24a'; g.font = fbvFont(54); g.fillText(s.ot ? 'OVERTIME' : 'Q' + (s.q||1) + '   ' + mm + ':' + ss, w/2, h*0.79);
+    const dn = ['1ST','2ND','3RD','4TH'][Math.min(3, Math.max(0, (s.down||1) - 1))];
+    g.fillStyle = '#e8ecf8'; g.font = fbvFont(38); g.fillText(dn + ' & ' + (s.toGo >= 10 && s.first >= 110 ? 'GOAL' : Math.max(1, Math.round(s.toGo||10))), w/2, h*0.91);
+  }
+  return true;
+}
+/* ---------------------------------------------------------------- the benches, wall, tunnel, trims: built once (FBH.build), recoloured when the teams change */
+function sdlBoxes(arr, mat){                       // arr: [x, y, z, sx, sy, sz] -> one InstancedMesh of unit boxes
+  const m = new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1), mat, arr.length), M = new THREE.Matrix4(), q = new THREE.Quaternion(), p = new THREE.Vector3(), s = new THREE.Vector3();
+  arr.forEach((a, i) => { p.set(a[0], a[1], a[2]); s.set(a[3], a[4], a[5]); M.compose(p, q, s); m.setMatrixAt(i, M); });
+  m.frustumCulled = false; m.matrixAutoUpdate = false; fbScene.add(m); return m;
+}
+function sdlBuildDress(){
+  const L = SDL_LOOK, lam = c => new THREE.MeshLambertMaterial({ color:c });
+  /* hide what these replace */
+  fbScene.children.forEach(o => { if (o.isGroup && ((o.children.length === 15 && Math.abs(Math.abs(o.position.z) - 31.5) < 0.01) || (o.children.length === 3 && Math.abs(o.position.x - 12.2) < 0.01))) o.visible = false; });
+  CROWD.side.forEach(m => { m.visible = false; });
+  if (FB.bench) FB.bench.forEach(b => { b.body.visible = b.head.visible = false; });
+  /* benches: a padded seat in the team colour on a dark frame, a back panel with the wordmark, a cooler */
+  [-1, 1].forEach(sd => { const tm = sd < 0 ? 0 : 1, pads = [], dark = [], lids = [];
+    L.benches.forEach(bx => {
+      pads.push([bx, 0.50, sd*L.benchZ, 12.4, 0.13, 1.1]); dark.push([bx, 0.24, sd*(L.benchZ + 0.12), 12.0, 0.40, 0.6]); dark.push([bx, 0.93, sd*(L.benchZ + 0.82), 12.4, 0.86, 0.12]);
+      pads.push([bx, 1.39, sd*(L.benchZ + 0.82), 12.6, 0.1, 0.30]);
+      dark.push([bx + 7.3, 0.46, sd*L.benchZ, 1.5, 0.92, 0.95]); lids.push([bx + 7.3, 0.96, sd*L.benchZ, 1.6, 0.12, 1.05]);
+      dark.push([bx - 7.2, 0.40, sd*L.benchZ, 1.2, 0.8, 0.9]); lids.push([bx - 7.2, 0.84, sd*L.benchZ, 1.3, 0.1, 1.0]);
+    });
+    const pm = lam('#1f5fd6'), mP = sdlBoxes(pads.concat(lids), pm); SDL.bench.push({ tm, mat:pm }); sdlBoxes(dark, lam(L.frame));
+    const tex = sdlTex('plate' + tm, 1024, 128, 4), pl = new THREE.InstancedMesh(new THREE.PlaneGeometry(12.0, 0.62), new THREE.MeshBasicMaterial({ map:tex }), L.benches.length), M = new THREE.Matrix4(), q = new THREE.Quaternion();
+    if (sd > 0) q.setFromAxisAngle(new THREE.Vector3(0,1,0), Math.PI);
+    L.benches.forEach((bx, i) => { M.compose(new THREE.Vector3(bx, 0.93, sd*(L.benchZ + 0.82 - 0.08)), q, new THREE.Vector3(1,1,1)); pl.setMatrixAt(i, M); });
+    pl.frustumCulled = false; pl.matrixAutoUpdate = false; fbScene.add(pl); });
+  /* the padded wall: decals in front of the navy slab (sidelines: each team's own colours, ends: the home wordmark) */
+  const wm = tex => new THREE.MeshLambertMaterial({ map:tex });
+  [-1, 1].forEach(sd => { const m = new THREE.Mesh(new THREE.PlaneGeometry(99.8, 1.2), wm(sdlTex('wall' + (sd < 0 ? 0 : 1), 2048, 64, 8))); m.position.set(60, 0.63, sd*41.43); if (sd > 0) m.rotation.y = Math.PI; fbScene.add(m); });
+  const endTex = sdlTex('wallEnd', 2048, 64, 8);
+  [[-9.43, Math.PI/2], [129.43, -Math.PI/2]].forEach(([x, r]) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(43.6, 1.2), wm(endTex)); m.position.set(x, 0.63, 0); m.rotation.y = r; fbScene.add(m); });
+  /* board frames (a dark bezel top and bottom) and the roof-edge light strip in the team colour */
+  const bez = []; [-1, 1].forEach(sd => { bez.push([60, 2.54, sd*41.4, 104.4, 0.08, 0.36]); bez.push([60, 1.26, sd*41.4, 104.4, 0.08, 0.36]); });
+  [-1, 1].forEach(sd => { bez.push([60 + sd*69.4, 2.54, 0, 0.36, 0.08, 44.4]); bez.push([60 + sd*69.4, 1.26, 0, 0.36, 0.08, 44.4]); });
+  sdlBoxes(bez, lam('#10141c'));
+  [-1, 1].forEach(sd => { const m = new THREE.Mesh(new THREE.BoxGeometry(123.4, 0.26, 0.26), new THREE.MeshBasicMaterial({ color:'#1f5fd6' })); m.position.set(60, 45.95, sd*70.3); fbScene.add(m); SDL.bench.push({ tm:sd < 0 ? 0 : 1, mat:m.material, trim:1 }); });
+  /* the tunnel: a framed portal in the west end wall with a hallway behind it, a header with the wordmark, a carpet runner out onto the field */
+  const tg = new THREE.Group(); tg.position.set(-9.4, 0, 0); fbScene.add(tg);
+  const hall = new THREE.Mesh(new THREE.PlaneGeometry(11.2, 8.6), new THREE.MeshBasicMaterial({ map:sdlTex('hall', 512, 512, 4) })); hall.position.set(0.02, 4.5, 0); hall.rotation.y = Math.PI/2; tg.add(hall);
+  const frameM = lam(L.frame), cm = lam('#1f5fd6'); SDL.bench.push({ tm:0, mat:cm });
+  [-6.2, 6.2].forEach(z => { const p = new THREE.Mesh(new THREE.BoxGeometry(1.0, 9.3, 1.4), cm); p.position.set(0.3, 4.65, z); tg.add(p); });
+  const hd = new THREE.Mesh(new THREE.BoxGeometry(1.2, 2.0, 14.6), frameM); hd.position.set(0.32, 9.9, 0); tg.add(hd);
+  const hp = new THREE.Mesh(new THREE.PlaneGeometry(13.6, 1.5), new THREE.MeshBasicMaterial({ map:sdlTex('head', 1024, 128, 4) })); hp.position.set(0.95, 9.9, 0); hp.rotation.y = Math.PI/2; tg.add(hp);
+  const tr = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.14, 14.7), new THREE.MeshBasicMaterial({ color:'#ffd24a' })); tr.position.set(0.34, 8.85, 0); tg.add(tr); SDL.bench.push({ tm:0, mat:tr.material, c2:1 });
+  const run = new THREE.Mesh(new THREE.PlaneGeometry(11.4, 6.5), new THREE.MeshLambertMaterial({ map:sdlTex('runner', 256, 256, 4) })); run.rotation.x = -Math.PI/2; run.rotation.z = Math.PI/2; run.position.set(3.4, 0.02, 0); tg.add(run);
+  /* the down marker + chain: a sign on a stick at the line of scrimmage (shows the down) */
+  const stick = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 2.1, 6), lam('#d8dce4')), plate = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.62), new THREE.MeshBasicMaterial({ map:FB.downTex || null, side:THREE.DoubleSide, color:'#ffffff' }));
+  const mk = new THREE.Group(); stick.position.y = 1.05; plate.position.y = 2.3; plate.rotation.y = Math.PI; mk.add(stick); mk.add(plate); mk.visible = false; fbScene.add(mk); SDL.mark = mk;
+}
+function sdlBrand(B, force){
+  if (!SDL.built) return; if (!force && B.rev === SDL.brev) return; SDL.brev = B.rev;
+  const U = sdlU(), H = B.home, A = B.away;
+  U.uC1h.value.set(H.c1); U.uC2h.value.set(H.c2); U.uC1a.value.set(A.c1); U.uC2a.value.set(A.c2);
+  SDL.bench.forEach(b => { const T = b.tm ? A : H; b.mat.color.set(b.c2 ? T.c2 : T.c1); });
+  const wl = SDL_LOOK.wall[SDL.level] || 2048;
+  [0, 1].forEach(i => { const c = sdlCv('wall' + i, wl, 64); sdlWallPaint(c, i ? A : H, 99.8, 'side'); SDL.T['wall' + i].needsUpdate = true; });
+  sdlWallPaint(sdlCv('wallEnd', wl >> 1, 64), H, 43.6, 'end'); SDL.T.wallEnd.needsUpdate = true;
+  [0, 1].forEach(i => { sdlPlatePaint(sdlCv('plate' + i, 1024, 128), i ? A : H, false); SDL.T['plate' + i].needsUpdate = true; });
+  sdlPlatePaint(sdlCv('head', 1024, 128), H, true); SDL.T.head.needsUpdate = true; sdlHallPaint(sdlCv('hall', 512, 512), H); SDL.T.hall.needsUpdate = true; sdlRunPaint(sdlCv('runner', 256, 256), H); SDL.T.runner.needsUpdate = true;
+  const ad = FB.adTexs && FB.adTexs[0] && FB.adTexs[0].image; if (ad) { sdlLedPaint(ad, 0.74, B); FB.adTexs.forEach(t => { t.needsUpdate = true; }); }
+  const rb = FB.ribbonMats && FB.ribbonMats[0] && FB.ribbonMats[0].map.image; if (rb) { sdlLedPaint(rb, 0.88, B); FB.ribbonMats.forEach(m => { m.map.needsUpdate = true; }); }
+}
+function sdlQuality(level){
+  SDL.level = Math.max(0, Math.min(3, level|0)); if (!SDL.built) return;
+  const L = SDL_LOOK, n = Math.max(40, Math.round(SDL.nAll*(L.density[SDL.level] || 1)));
+  SDL.mesh.count = Math.min(SDL.nAll, n); SDL.blobs.count = SDL.mesh.count + 3; SDL.blobs.visible = !!L.blobs[SDL.level];
+  sdlAtlasFor(SDL.level); SDL.brev = -1; try { sdlBrand(brandMatch(), true); } catch(e){ console.error('sideline brand', e); }
+}
+fbqOn(sdlQuality);
+FBH.build.push(function sdlBuildHook(){
+  if (!SDL_LOOK.on) return;
+  try { sdlBuildPeople(); sdlBuildDress(); const ad = FB.adTexs; if (ad && ad.length > 2) { ad[2].repeat.x = 1.27; ad[3].repeat.x = 1.27; } SDL.built = true; sdlQuality(FBQ.level); }
+  catch(e){ SDL.built = false; console.error('sideline build', e); try { [SDL.mesh, SDL.crew, SDL.blobs].forEach(o => { if (o) o.visible = false; }); if (CROWD.side) CROWD.side.forEach(m => { m.visible = true; }); } catch(e2){} }
+});
+const _sdM = new THREE.Matrix4(), _sdP = new THREE.Vector3(), _sdQ = new THREE.Quaternion(), _sdS = new THREE.Vector3(1,1,1), _sdK = new Float32Array(6);
+FBH.frame.push(function sdlFrame(){
+  if (SDL.U) SDL.U.uCam.value.copy(fbCam.position);
+  if (!SDL.built) return;
+  const B = brandMatch(); if (B.rev !== SDL.brev) sdlBrand(B, false);
+  { const m = SDL.U.uMood.value, b = FB.bench; m.set(0, 0, 0, 0); if (b) for (let i = 0; i < b.length; i++) { const k = b[i].mood, v = Math.min(1, Math.max(0, b[i].moodT/2.6)), t = b[i].team === 'away' ? 1 : 0; if (k === 'cheer') { if (t) m.y = v; else m.x = v; } else if (k === 'slump') { if (t) m.w = v; else m.z = v; } } }
+  const c = FB.chain, s = FB.s, cm = SDL.crew; if (!cm || !c || !s) return;
+  const on = !!c.a.visible; cm.visible = on; SDL.mark.visible = on; if (!on) return;
+  const z = c.a.position.z + 0.9, xs = _sdK; xs[0] = c.a.position.x; xs[1] = c.b.position.x; xs[2] = c.box.position.x; xs[3] = z; xs[4] = FB.chain.n;
+  if (SDL.cx0 === xs[0] && SDL.cx1 === xs[1] && SDL.cx2 === xs[2]) return; SDL.cx0 = xs[0]; SDL.cx1 = xs[1]; SDL.cx2 = xs[2];
+  for (let i = 0; i < 3; i++) { _sdP.set(xs[i] + (i === 2 ? 0.0 : 0.0), 0, z + (i === 2 ? 0.3 : 0)); _sdM.compose(_sdP, _sdQ, _sdS); cm.setMatrixAt(i, _sdM);
+    _sdP.set(xs[i], 0.012, z); _sdS.set(1.2, 1, 0.75); _sdM.compose(_sdP, _sdQ, _sdS); SDL.blobs.setMatrixAt(i, _sdM); _sdS.set(1, 1, 1); }
+  cm.instanceMatrix.needsUpdate = true; SDL.blobs.instanceMatrix.needsUpdate = true; SDL.mark.position.set(xs[2], 0, c.a.position.z + 0.15);
+});
+/* ----- LANE:SIDELINE end ----- */
 /*
  *
  */
@@ -19914,7 +20387,7 @@ const CAM_LOOK = {
   on: true,                                  // false: every style behaves like CLASSIC (kill switch)
   rigs: [                                    // relative to the camera focus (the QB before the snap, the ball carrier / the ball in flight after it)
     { name:'BROADCAST', back:16.5, h:12.5, ahead:8.0, lookY:0.9, fov:44, zPos:0.76, zLook:0.76, ahead0:8.0 },   // pitch about 25 degrees down; zPos = zLook: the camera never yaws, the yard lines stay level
-    { name:'CLASSIC',   back:12.6, h:9.3,  ahead:17,  lookY:0.9, fov:58, zPos:0.92, zLook:0.90, ahead0:13 }     // the v162 camera, untouched numbers
+    { name:'CLASSIC',   back:12.6, h:9.3,  ahead:17,  lookY:0.9, fov:58, zPos:0.92, zLook:0.90, ahead0:13 }     // the v163 camera, untouched numbers
   ],
   kick: { back:12.6, h:6, ahead:17, zPos:0.92, zLook:0.90, dx:-1, dy:1, lookDx:6, lookY:0.5, fov:62 },          // field goal / extra point (both styles)
   ovFov: 50,                                 // lens of the override shots (lobby, coach cut-scene)
@@ -21292,7 +21765,7 @@ function fbSetup(play){
   if (!s.keepD) s.disg = (!s.defMode && !FBN.on && !s.tutMode && !play.kneel && !play.spike && (FB.forceDisg || (!FB.noDisg && Math.random() < 0.35))) ? 1 : 0;
   if (s.disg) { if (s.shell2) { DP.S1 = [8,-7]; DP.S2 = [15,0]; } else { DP.S1 = [14,-8]; DP.S2 = [14,8]; } }
   if (s.adjShift|0) ['CB1','CB2','S1','S2'].forEach(r => { DP[r] = [DP[r][0], clamp(DP[r][1] + (s.adjShift|0)*3, -FB_Z+2, FB_Z-2)]; });   // V46 (11): the secondary shift (7/8) survives audibles
-  fbDef().forEach(p => { fbPlace(p, Math.min(los+DP[p.role][0], 118.5), DP[p.role][1], Math.PI,   /* v162: inside the field (a deep safety near the goal line was placed at x 122 and the bounds clamp yanked him 3-4 yd on the first live tick) */ (fbKind(p.role)==='DL' && DP[p.role][0] < 2.5) ? 'stance' : 'ready'); });
+  fbDef().forEach(p => { fbPlace(p, Math.min(los+DP[p.role][0], 118.5), DP[p.role][1], Math.PI,   /* v163: inside the field (a deep safety near the goal line was placed at x 122 and the bounds clamp yanked him 3-4 yd on the first live tick) */ (fbKind(p.role)==='DL' && DP[p.role][0] < 2.5) ? 'stance' : 'ready'); });
   fbDef().forEach(p => { p.base = DP[p.role]; p.adjTo = null; p.disgT = 0; }); { const a = fbBy('S1'), b = fbBy('S2'); if (a) a.realBase = realS.S1; if (b) b.realBase = realS.S2; }   // V46: where the safeties REALLY belong (the disguise toggle walks them back)
   fbMotionSetup(play);
   s.ball = { mode:'ground', x:los, z:0, ry:0 };
@@ -21426,14 +21899,14 @@ function fbPathHit(p){                                              // ANYTIME: 
 }
 
 /* ------------------------------------------------------------------ movement */
-function fbOffCeil(){          // the fastest an offensive skill player can run right now: no defender may out-run it (v162: defenders win with reads and angles, never with speed)
+function fbOffCeil(){          // the fastest an offensive skill player can run right now: no defender may out-run it (v163: defenders win with reads and angles, never with speed)
   const s = FB.s; if (!s) return 99; if (fbOffCeil.t === s.t && fbOffCeil.v) return fbOffCeil.v;
   let m = 0; fbRigs.forEach(q => { if (q.side === 'O' && /^(W|TE|RB)/.test(q.role)) { const v = FB_SP[fbKind(q.role)] * (q.ur ? q.ur.spd : 1) * fbRm(q); if (v > m) m = v; } });
   fbOffCeil.t = s.t; return fbOffCeil.v = (m || 9.8);
 }
 function fbMove(p, tx, tz, maxSp, dt, acc){
   if (p.ur) maxSp *= p.ur.spd;                                                  // Ultimate Team: the equipped card's speed
-  if (p.side === 'D' && !p.carry && !(FB.s && FB.s.turn)) maxSp = Math.min(maxSp, fbOffCeil());   // v162 speed limit: never faster than the offense
+  if (p.side === 'D' && !p.carry && !(FB.s && FB.s.turn)) maxSp = Math.min(maxSp, fbOffCeil());   // v163 speed limit: never faster than the offense
   const dx = tx-p.x, dz = tz-p.z, d = Math.hypot(dx,dz);
   let want = Math.min(maxSp, d*5.5); if (d < 0.05) want = 0;
   let wx = d>0.001 ? dx/d*want : 0, wz = d>0.001 ? dz/d*want : 0;
@@ -21516,7 +21989,7 @@ function fbLive(dt){
     const top = c.carry ? (c.role==='RB' ? 9.8 : c.role==='QB' ? 8.2 : 9.8) : 8.0;
     const bk = (c.carry && c.role==='RB' && s.play && fbIsRun(s.play) && c.x < s.los+0.4) ? 1.3 : 1;        // V80: the back gets a burst while he is still behind the line
     const sp = ((spr || c.hsT > 0) ? top : base) * fbRm(c) * bk;   // V46: the juke cost (p.jukeK) is applied in fbVel so the CPU carrier and defenders pay the same
-    if (c.diveT > 0 || c.wrapBy || c.brkBy || c.possT > 0 || fbPoOn(c))   /* v162: + driven out of bounds */ { /* diving / sliding, or wrapped up and fighting forward: moved elsewhere */ }
+    if (c.diveT > 0 || c.wrapBy || c.brkBy || c.possT > 0 || fbPoOn(c))   /* v163: + driven out of bounds */ { /* diving / sliding, or wrapped up and fighting forward: moved elsewhere */ }
     else if (c.juke > 0) { c.juke -= dt; c.st = 'juke'; fbVel(c, c.jx, c.jz, dt, 90); }
     else if (c.auto && c.route) { const o = c.spd; if (bk > 1 && o) c.spd = o*bk; fbRouteStep(c, dt); c.spd = o; }
     else {
@@ -21580,22 +22053,22 @@ function fbLive(dt){
   try { uoStep(dt); } catch(e){}
   try { fbFpStep(); } catch(e){}
   fbFalls();
-  try { fbSpeedClamp(dt); } catch(e){ console.error('speed clamp', e); }   // v162 safety net: nobody but the ball carrier can move faster than his legs this tick
+  try { fbSpeedClamp(dt); } catch(e){ console.error('speed clamp', e); }   // v163 safety net: nobody but the ball carrier can move faster than his legs this tick
   fbCamFocus();
 }
-const fbClampStat = { n:0, max:0, who:'' };   // v162: how often (and by how much) the per-tick speed limit had to step in - read by the test harness
-function fbSpeedCap(p){                         // v162: his real top speed (sim yd/s): position speed x card speed x role, a burst, the user's sprint; a CPU defender also never beats the offense's fastest man
+const fbClampStat = { n:0, max:0, who:'' };   // v163: how often (and by how much) the per-tick speed limit had to step in - read by the test harness
+function fbSpeedCap(p){                         // v163: his real top speed (sim yd/s): position speed x card speed x role, a burst, the user's sprint; a CPU defender also never beats the offense's fastest man
   const s = FB.s, k = fbKind(p.role), us = (p.ur && p.ur.spd) || 1; let c = (FB_SP[k.charAt(0)==='W' ? 'W' : k] || 9.3)*us*fbRm(p);
   if (p.side === 'O') c = Math.max(c, fbTopSpeed(p, false)*us);
   if (p.burstT > 0) c *= 1.12;
   if (fbUD(p) || p === s.ctl) c *= 1.15; else if (p.side === 'D' && !s.turn) c = Math.min(c, Math.max(fbOffCeil(), 8.2*us));
   return c;
 }
-function fbSpeedClamp(dt){                      // v162: |position change| per live tick <= top speed x dt x 1.1 for every non-carrier (fbSkillTimers stores prevX/prevZ at the start of the tick)
+function fbSpeedClamp(dt){                      // v163: |position change| per live tick <= top speed x dt x 1.1 for every non-carrier (fbSkillTimers stores prevX/prevZ at the start of the tick)
   const s = FB.s; if (!s || !(dt > 0)) return; const car = s.carrier || (s.ball && s.ball.mode==='held' ? s.ball.h : null);
   fbRigs.forEach(p => {
     if (p.prevX === undefined || p === car || p.carry || p.juke > 0) return;
-    const px0 = clamp(p.prevX, 1, 119), pz0 = clamp(p.prevZ, -FB_Z-3, FB_Z+3), dx = p.x - px0, dz = p.z - pz0, /* v162: measured from his in-bounds start so the field clamp itself is never undone */ d = Math.hypot(dx, dz), cap = fbSpeedCap(p);
+    const px0 = clamp(p.prevX, 1, 119), pz0 = clamp(p.prevZ, -FB_Z-3, FB_Z+3), dx = p.x - px0, dz = p.z - pz0, /* v163: measured from his in-bounds start so the field clamp itself is never undone */ d = Math.hypot(dx, dz), cap = fbSpeedCap(p);
     const an = (p.uo && p.uo.anchor) || (car && (car.brkBy === p || car.wrapBy === p || car.poBy === p) ? car : null);   // glued to a runner (tackle / catch pair, shed, push-out): he may also move with him
     let lim = cap*dt*(p.dtk && !p.dtk.landed ? 2.3 : p.diving ? 1.4 : 1.1) + 0.004; if (an && an.prevX !== undefined) lim += Math.hypot(an.x - an.prevX, an.z - an.prevZ);
     if (d > lim) { const k = lim/d; p.x = px0 + dx*k; p.z = pz0 + dz*k; fbClampStat.n++; if (d - lim > fbClampStat.max) { fbClampStat.max = d - lim; fbClampStat.who = p.side + p.role + ':' + (p.st || '') + (p.down ? ':down' : ''); } }
@@ -21704,7 +22177,7 @@ function fbDefStep(dt){
     if (car && (car.slid || car.kneel) && !(d.eng && !d.free)) { fbVel(d,0,0,dt,22); d.st = 'ready'; return; }   // he gave himself up: pull up
     const k = fbKind(d.role), msp = FB_SP[k] * D.def * (s.tutMode && s.defMode ? 0.45 : 1);   // top speed is Speed (in fbMove) and difficulty only
     let sl = d.slow!==undefined ? d.slow : 1; d.slow = 1; if (d.disgT > 0) { d.disgT -= dt; sl *= 1.35; }   // V46: rotating out of a disguise in the first 0.6 s
-    if (d.stun > 0) { d.st = d.lungeT > 0 ? 'lunge' : 'stumble'; fbVel(d,0,0,dt,d.offG ? (d.fallT > 0.24 ? 45 : 6) : 30);   /* v162: knocked off his feet: once he is on the turf the ground stops him (was 6 yd/s2 the whole time = 2-3 yd glides on his back) */
+    if (d.stun > 0) { d.st = d.lungeT > 0 ? 'lunge' : 'stumble'; fbVel(d,0,0,dt,d.offG ? (d.fallT > 0.24 ? 45 : 6) : 30);   /* v163: knocked off his feet: once he is on the turf the ground stops him (was 6 yd/s2 the whole time = 2-3 yd glides on his back) */
       if (d.offG) { if (d.stun < 0.5) { d.fallTo = 0; d.fall *= 0.88; d.st = 'rise'; } if (d.stun <= dt+0.001) { d.offG = false; d.fall = 0; d.fallTo = 0; d.fallRoll = 0; } } return; }
     if (d.eng && !d.free) return;                                  // locked up with a blocker (handled in the line code)
     if (d.tackling) return;
@@ -21719,7 +22192,7 @@ function fbDefStep(dt){
       if (run && tg.carry && Math.abs(tg.vz||0) > 2) { const dz = Math.sign(tg.vz), rel = (d.z - tg.z)*dz;                                   // leverage: keep the runner inside you so he can't bounce
         if (rel < 1.5) pz += dz*(0.15 + 1.9*IQ)*clamp(fbDist(d,tg)/7, 0.25, 1); }
       if (d.contain && !fbVs() && s.t < 1.3 + 2.4*IQ && !(tg.x > d.x + 1.2)) { const m = 0.5 + 1.3*IQ; pz = d.contain > 0 ? Math.max(pz, tg.z + m) : Math.min(pz, tg.z - m); }   // contain: the edge man stays outside longer and wider at higher tiers
-      if (tg.carry && !s.turn) { const sg = Math.sign(tg.z) || 1, sd = FB_Z - Math.abs(tg.z), dd = fbDist(d,tg); if (sd < 5 && dd < 8 && d.z*sg < tg.z*sg + 0.5) { const ins = clamp((5 - sd)/3.5, 0, 1)*clamp(dd/2.5, 0.3, 1); pz = sg*Math.min(pz*sg, (ic.z - sg*0.9*ins)*sg); } }   // v162: near the sideline take the inside-out angle (the sideline is the 12th man): a hit from the inside can drive him out
+      if (tg.carry && !s.turn) { const sg = Math.sign(tg.z) || 1, sd = FB_Z - Math.abs(tg.z), dd = fbDist(d,tg); if (sd < 5 && dd < 8 && d.z*sg < tg.z*sg + 0.5) { const ins = clamp((5 - sd)/3.5, 0, 1)*clamp(dd/2.5, 0.3, 1); pz = sg*Math.min(pz*sg, (ic.z - sg*0.9*ins)*sg); } }   // v163: near the sideline take the inside-out angle (the sideline is the 12th man): a hit from the inside can drive him out
       fbMove(d, px, pz, v, dt, d.rusher && k==='LB' ? 14 : 36); };
     if (s.turn) { const ch = s.carrier; fbBlockDef(d,dt); return; }
     // someone has the ball and it's a live carry -> pursue
@@ -21785,7 +22258,7 @@ function fbDefStep(dt){
       if (behind) { tx = r.x + r.vx*0.25; tz = r.z + r.vz*0.25; }
       if ((s.rdL||0) > 0 && r!==s.ctl) { const pr = fbObsPred(r, s.t + 0.75); if (pr) { const w = 0.65*s.rdL; tx += (pr.x + 0.4 - tx)*w; tz += (pr.z - tz)*w; } }   // he saw where this guy went from this setup last time: jump it
       fbMove(d, tx, tz, msp*sl, dt, D.acc + (k==='CB'?4:0) + (d.disgT>0?60:0));   // full Speed; skill shows in where he goes and when he sees it
-      if (fbCpuDef(d) && (FB.lock||0) > 0 && s.t > 0.45 && !(d.biteT > 0) && !(d.eng && !d.free)) { const pk = clamp(2.2*FB.lock*dt, 0, 0.4); fbLockNudge(d, tx, tz, pk, msp*sl, dt); }   // v162: was d.x += (tx-d.x)*pk: an unlimited position lerp = 40-90 yd/s teleports onto his man right at t=0.45   // v162: a lockdown corner stays glued to his man   // a corner who is much worse than the receiver gets torn apart (slow to react, big cushion); a lockdown corner stays on him
+      if (fbCpuDef(d) && (FB.lock||0) > 0 && s.t > 0.45 && !(d.biteT > 0) && !(d.eng && !d.free)) { const pk = clamp(2.2*FB.lock*dt, 0, 0.4); fbLockNudge(d, tx, tz, pk, msp*sl, dt); }   // v163: was d.x += (tx-d.x)*pk: an unlimited position lerp = 40-90 yd/s teleports onto his man right at t=0.45   // v163: a lockdown corner stays glued to his man   // a corner who is much worse than the receiver gets torn apart (slow to react, big cushion); a lockdown corner stays on him
       fbFace(d, r.x, r.z);
     } else if (cv && cv.spot && s.fav) {
       // sitting on your favourite spot: shade over early, then drive on it as the QB sets up
@@ -21807,7 +22280,7 @@ function fbDefStep(dt){
       if (thr) { if (deep) { tx = Math.max(zx-3, thr.x + 3 + (1-fbCovEff(D,d,thr))*1.5); tz = thr.z*0.7 + zz*0.3; } else { tx = thr.x + 1.3; tz = thr.z + (thr.z > zz ? -0.3 : 0.3); } }
       else if (s.t > 1.2) tz = zz + (q.z-zz)*0.2;
       fbMove(d, tx, tz, msp*(deep ? 1.04 : 0.97)*sl, dt, D.acc+3+(d.disgT>0?60:0));
-      if (thr && fbCpuDef(d) && (FB.lock||0) > 0 && s.t > 0.6 && !(d.eng && !d.free)) { const pk = clamp(1.6*FB.lock*dt, 0, 0.3); fbLockNudge(d, tx, tz, pk, msp*sl, dt); }   // v162: speed-limited (was a raw position lerp)   // v162: the zone closes on the receiver
+      if (thr && fbCpuDef(d) && (FB.lock||0) > 0 && s.t > 0.6 && !(d.eng && !d.free)) { const pk = clamp(1.6*FB.lock*dt, 0, 0.3); fbLockNudge(d, tx, tz, pk, msp*sl, dt); }   // v163: speed-limited (was a raw position lerp)   // v163: the zone closes on the receiver
       fbFace(d, q.x, q.z);
     } else if (cv && cv.zone && k==='CB') {
       d.aiState = 'ZONE_COVERAGE'; const [zz] = cv.zone; let thr = null, best = -1;
@@ -21834,7 +22307,7 @@ function fbDefStep(dt){
     }
   });
 }
-function fbLockNudge(d, tx, tz, pk, msp, dt){   // v162: the lockdown glue may only spend the speed he has left this tick (top speed and the offense's ceiling still rule)
+function fbLockNudge(d, tx, tz, pk, msp, dt){   // v163: the lockdown glue may only spend the speed he has left this tick (top speed and the offense's ceiling still rule)
   const cap = Math.min(msp*((d.ur && d.ur.spd) || 1), fbOffCeil()), room = Math.max(0, cap - Math.hypot(d.vx||0, d.vz||0))*dt;
   const dx = (tx - d.x)*pk, dz = (tz - d.z)*pk, L = Math.hypot(dx, dz); if (L < 1e-6 || room <= 0) return; const k = Math.min(1, room/L); d.x += dx*k; d.z += dz*k;
 }
@@ -21856,7 +22329,7 @@ function fbAimBehind(aim){                              // aiming within 2 yd of
   return fbOff().some(o => ['W1','W2','W3','TE','RB'].includes(o.role) && !o.down && Math.hypot(o.vx||0,o.vz||0) > 6 && Math.hypot(o.x-aim.x, o.z-aim.z) < 2);
 }
 /* ====================================================================================================
-   QB THROWING (v162). One continuous power curve (how long you hold), the QB's arm (Throw Power) and body (planted, stepping in,
+   QB THROWING (v163). One continuous power curve (how long you hold), the QB's arm (Throw Power) and body (planted, stepping in,
    rolling, sprinting, backpedaling, jumping back, off balance, pressure) shape release SPEED and ACCURACY separately.
    The throw is a real motion: the arm cocks while you hold, whips forward when you let go, and the ball leaves the hand on the
    release frame. The flight itself is the same projectile as before (same arcs, same landing math, same catching).
@@ -21916,24 +22389,24 @@ function qbtBody(q, aim, pw){                                // what his body is
   else cat = P < 0.15 ? (L < 10 ? 'qb_quick_dish' : 'qb_short') : P < 0.4 ? 'qb_short' : P < 0.78 ? 'qb_medium' : 'qb_full_power';
   return { mv, ma, maC, cat, sp, step, back, side, sprint, across, off, press, air, dx:sp > 0.2 ? vx/sp : 0, dz:sp > 0.2 ? vz/sp : 0 };
 }
-function qbtRelTime(q, pw, B, cpu){ const C = QB_THROW.cfg; let t = (C.rel[0] + (C.rel[1] - C.rel[0])*pw)*(1 + C.relArm*(0.5 - qbtArmN(q)))*((q && q.ur && q.ur.rel) || 1);   /* v162: a quick-release QB gets the ball out sooner */ if (B.cat === 'qb_off_balance') t *= 0.85; return cpu ? t*C.cpuRel : t; }
+function qbtRelTime(q, pw, B, cpu){ const C = QB_THROW.cfg; let t = (C.rel[0] + (C.rel[1] - C.rel[0])*pw)*(1 + C.relArm*(0.5 - qbtArmN(q)))*((q && q.ur && q.ur.rel) || 1);   /* v163: a quick-release QB gets the ball out sooner */ if (B.cat === 'qb_off_balance') t *= 0.85; return cpu ? t*C.cpuRel : t; }
 function qbtFlightT(d, pw, thrPow){                          // the old touch arc at no power, the old bullet at full power, a real blend in between
   const tb = fbFlightT(d, 0, 'pass'), tl = Math.min(tb*1.35 + 0.5*clamp(d/25, 0.2, 1), 3.6), k = pw*pw*(3 - 2*pw);
-  return (tl + (tb - tl)*k)*QB_THROW.cfg.air/(thrPow || 1);   // v162: a little more air time everywhere
+  return (tl + (tb - tl)*k)*QB_THROW.cfg.air/(thrPow || 1);   // v163: a little more air time everywhere
 }
 function qbtV(d, t, y0){ const vh = d/t, vy = (0.45 - y0 + 0.5*FB_G*t*t)/t; return Math.hypot(vh, vy); }
 function qbtTMin(d, y0){ let a = 0.12, b = 6; for (let i = 0; i < 36; i++) { const m1 = a + (b - a)*0.382, m2 = a + (b - a)*0.618; if (qbtV(d, m1, y0) < qbtV(d, m2, y0)) b = m2; else a = m1; } return (a + b)/2; }   // the flight time that needs the least arm
 function qbtReach(y0, vCap){ let lo = 1.5, hi = 120; for (let i = 0; i < 26; i++) { const m = (lo + hi)/2; if (qbtV(m, qbtTMin(m, y0), y0) <= vCap) lo = m; else hi = m; } return lo; }     // the farthest he can get it at this speed
 function qbtSolve(sx, sz, y0, tx, tz, tDes, vCap){          // the ball ALWAYS lands on the spot. Keep the wanted flight time when the arm can make it; else more air (a higher arc); past his arm's reach: the highest, easiest arc that still gets there
   const d = Math.hypot(tx - sx, tz - sz), tm = qbtTMin(d, y0);
-  if (qbtV(d, tm, y0) > vCap) return { t:tm, tx, tz, short:false, far:true };      // v162: never short - he heaves it up and it comes down on the spot
+  if (qbtV(d, tm, y0) > vCap) return { t:tm, tx, tz, short:false, far:true };      // v163: never short - he heaves it up and it comes down on the spot
   if (qbtV(d, tDes, y0) <= vCap) return { t:tDes, tx, tz, short:false };
   let bad = tDes, good = tm; for (let i = 0; i < 28; i++) { const m = (bad + good)/2; if (qbtV(d, m, y0) <= vCap) good = m; else bad = m; } return { t:good, tx, tz, short:false };
 }
 function qbtCanReach(q, aim, pw){ if (!q || !aim) return true; const B = qbtBody(q, aim, pw), d = Math.hypot(aim.x - q.x, aim.z - q.z); return qbtReach(2.2, qbtVCap(q, qbtPowEff(pw, B.mv), 1)) >= d - 0.5; }
 function qbtStep(dt){                                        // every live frame: the cock while you hold, the forward whip to the release frame, the follow-through
   const s = FB.s, q = fbBy('QB'); if (!q) return; const C = QB_THROW.cfg, P = s.throwPend, A = q.qbt;
-  if (q.thFace != null) { if ((P || q.throwAnim > 0) && !q.down && !q.tackling) { let da = q.thFace - q.face; while (da > Math.PI) da -= 2*Math.PI; while (da < -Math.PI) da += 2*Math.PI; const rem = P ? Math.max(0.04, P.at - s.t) : 0.04, st = Math.max(10, Math.abs(da)/rem*1.3)*dt; q.face += Math.abs(da) <= st ? da : Math.sign(da)*st; } else q.thFace = null; }   // v162: shoulders square to the target by the release
+  if (q.thFace != null) { if ((P || q.throwAnim > 0) && !q.down && !q.tackling) { let da = q.thFace - q.face; while (da > Math.PI) da -= 2*Math.PI; while (da < -Math.PI) da += 2*Math.PI; const rem = P ? Math.max(0.04, P.at - s.t) : 0.04, st = Math.max(10, Math.abs(da)/rem*1.3)*dt; q.face += Math.abs(da) <= st ? da : Math.sign(da)*st; } else q.thFace = null; }   // v163: shoulders square to the target by the release
   if (s.charging && s.ctl === q && !P && !s.thrown && s.ball.mode === 'held') {
     const want = Math.hypot(q.vx || 0, q.vz || 0) < C.cockMaxSpd ? clamp((s.chargeF || 0)/60/(C.cockS*((q.ur && q.ur.rel) || 1)), 0, 1) : 0;
     q.qbCk = want; q.qbPh = want; q.qbCat = q.qbCat || 'qb_medium';
@@ -21985,15 +22458,15 @@ function qbtClipTime(p, dur){                                // phase 0..1 windu
 function fbThrowCircle(ax, az, pw){      // where the ball CAN land: radius grows with distance and shrinks with QB accuracy; it stretches the way a bad QB is moving
   const s = FB.s, q = s && s.ctl; if (!q || q.role!=='QB') return null;
   if (xfHas(q, 'unshakable')) return { r:0.1, a:0.1, c:0.1, ux:1, uz:0, ox:0, oz:0, ang:0 };      // UNSHAKABLE: no warp, no spread - the circle is a dot on the spot
-  const d = Math.hypot(ax-q.x, az-q.z), ovr = q.ur && q.ur.thrCirc!=null ? q.ur.thrCirc : q.ur && q.ur.ovr!=null ? q.ur.ovr : 80, acc = clamp((ovr-50)/40, 0, 1);   // v162: a card can set its own throwing accuracy for the circle ('Throw Accuracy'); everyone else: overall
+  const d = Math.hypot(ax-q.x, az-q.z), ovr = q.ur && q.ur.thrCirc!=null ? q.ur.thrCirc : q.ur && q.ur.ovr!=null ? q.ur.ovr : 80, acc = clamp((ovr-50)/40, 0, 1);   // v163: a card can set its own throwing accuracy for the circle ('Throw Accuracy'); everyone else: overall
   const press = fbDef().some(p => !p.down && !(p.eng && !p.free) && p.rusher && fbDist(p,q) < 3.3);
-  let r = (2.6 - 2.35*acc + (0.115 - 0.105*acc)*d) * (press ? 1.6 : 1) * ((q.ur && q.ur.circK) || 1);   // v162: a card can run a tighter (or looser) circle ('Circle Size')                 // 60 OVR: huge at any range, wider the deeper he goes. 99 OVR: tiny short and deep.
+  let r = (2.6 - 2.35*acc + (0.115 - 0.105*acc)*d) * (press ? 1.6 : 1) * ((q.ur && q.ur.circK) || 1);   // v163: a card can run a tighter (or looser) circle ('Circle Size')                 // 60 OVR: huge at any range, wider the deeper he goes. 99 OVR: tiny short and deep.
   const sp = Math.hypot(q.vx||0, q.vz||0), w = clamp(sp/7, 0, 1.3) * (1 - 0.7*acc) * 1.8;   // throwing on the run: bad QBs get a stretched, shifted circle
-  { const P0 = pw != null ? pw : (s.charging ? qbtPower((s.chargeF||0)/60) : 0.5), Bq = qbtBody(q, { x:ax, z:az }, P0); r *= Bq.maC*(1 + 0.12*P0*(1 - qbtAccN(q))); }   // v162: his body and how hard he lets it go
+  { const P0 = pw != null ? pw : (s.charging ? qbtPower((s.chargeF||0)/60) : 0.5), Bq = qbtBody(q, { x:ax, z:az }, P0); r *= Bq.maC*(1 + 0.12*P0*(1 - qbtAccN(q))); }   // v163: his body and how hard he lets it go
   const ux = sp > 0.3 ? q.vx/sp : 1, uz = sp > 0.3 ? q.vz/sp : 0;
   return { r, a:r*(1+w), c:r*(1+0.15*w), ux, uz, ox:ux*r*w*0.5, oz:uz*r*w*0.5, ang:Math.atan2(-uz, ux) };
 }
-function fbThrow(aim, power, cpu, kind, opt){              // v162: starts the throwing motion; qbtRelease() lets the ball go on the release frame
+function fbThrow(aim, power, cpu, kind, opt){              // v163: starts the throwing motion; qbtRelease() lets the ball go on the release frame
   if (FB.esc) return;
   const s = FB.s, q = s.ctl;
   if (!q || q.role!=='QB' || q.carry || q.down || s.thrown || s.throwPend || s.ball.mode!=='held') return;
@@ -22006,7 +22479,7 @@ function fbThrow(aim, power, cpu, kind, opt){              // v162: starts the t
     release_t:rel, release_norm:null, blend_s:legacy.blend_in_s, root:{ dx:(q.vx||0)*(rel + QB_THROW.cfg.fol), dz:(q.vz||0)*(rel + QB_THROW.cfg.fol) }, cock:ck, t0:s.t, cpu:!!cpu };
   q.qbt.release_norm = (rel + 1e-6)/(rel + QB_THROW.cfg.fol);
   s.throwPend = { aim:{ x:aim.x, z:aim.z }, pw, cpu:!!cpu, at:s.t + rel, rel };
-  q.st = 'throw'; q.throwAnim = rel + QB_THROW.cfg.fol; q.qbPh = Math.max(1, ck); q.thT = 0; q.thFace = Math.atan2(-(aim.z - q.z), aim.x - q.x);   // v162: he turns to face where he throws
+  q.st = 'throw'; q.throwAnim = rel + QB_THROW.cfg.fol; q.qbPh = Math.max(1, ck); q.thT = 0; q.thFace = Math.atan2(-(aim.z - q.z), aim.x - q.x);   // v163: he turns to face where he throws
   qbtEmit('start', q);
   if (now) qbtRelease();
 }
@@ -22045,7 +22518,7 @@ function fbCatchCheck(b){
   fbRigs.forEach(p => {
     if (p.down || p.eng && !p.free || p.role==='QB' && s.t - b.t0 < 0.6) return;
     const k = fbKind(p.role); if (p.side==='O' && (k==='OL' || p.role==='QB')) return;
-    const R = p.side==='O' ? (p.diving ? 2.8 : 1.8) * ({W2:1.2,TE:1.3,W3:0.95}[p.role]||1) * (p.reachT>0 && p===s.rctl ? 1.3 : 1) : (fbUD(p) && p.tkWin>0 ? 2.7 : k==='DL' ? 1.0 : 1.35*(1+0.35*(s.cbL||0))*(1+0.55*(FB.lock||0)*(k==='CB'||k==='S' ? 1 : 0.5)));   // v162: a locked-down secondary reaches farther for the ball
+    const R = p.side==='O' ? (p.diving ? 2.8 : 1.8) * ({W2:1.2,TE:1.3,W3:0.95}[p.role]||1) * (p.reachT>0 && p===s.rctl ? 1.3 : 1) : (fbUD(p) && p.tkWin>0 ? 2.7 : k==='DL' ? 1.0 : 1.35*(1+0.35*(s.cbL||0))*(1+0.55*(FB.lock||0)*(k==='CB'||k==='S' ? 1 : 0.5)));   // v163: a locked-down secondary reaches farther for the ball
     const dd = Math.hypot(b.x-p.x, b.z-p.z); if (dd < R) cands.push({p,dd});
   });
   if (!cands.length) return false;
@@ -22060,7 +22533,7 @@ function fbCatchCheck(b){
     if (closeQ && defs.length) { fbDrop(w, b, 'BATTED DOWN AT THE LINE', null, true); return true; }
     if (ud) { const rr = Math.random(); if (rr < 0.52) { fbIntercept(ud.p, b); return true; } if (rr < 0.82) { fbDrop(w, b, 'PASS BROKEN UP', null, true); return true; } }
     if (defs.length && Math.random() < 0.28*D.int + (s.defMode ? 0.04 : 0.07) + 0.22*(s.cbL||0) + 0.3*(FB.lock||0)) { fbIntercept(defs[0].p, b); return true; }
-    if (defs.length && (FB.lock||0) > 0 && Math.random() < 0.55*(FB.lock||0)) { fbDrop(w, b, 'PASS BROKEN UP', null, true); return true; }   // v162: the ball is there, so is the defender: he knocks it away
+    if (defs.length && (FB.lock||0) > 0 && Math.random() < 0.55*(FB.lock||0)) { fbDrop(w, b, 'PASS BROKEN UP', null, true); return true; }   // v163: the ball is there, so is the defender: he knocks it away
     if (near.length) {
       const nd = near[0], cs = Math.hypot(nd.vx-w.vx, nd.vz-w.vz), strong = cs > 6.5 || nd.st==='lunge';
       if (Math.random() < Math.min(0.95, fbDropOdds(0, cs)*(1 + 0.3*(s.cbL||0) + 1.1*(FB.lock||0))*fbSizeK(w))) { fbDrop(w, b, 'HIT ON THE CATCH - DROP', nd); return true; }
@@ -22224,7 +22697,7 @@ function fbFalls(){
       if (p.fallT === undefined) p.fallT = 0;
       p.fallT += 1/60;
       if (p.fallT > 0) { const u = Math.min(1,p.fallT/0.24); p.fall = p.fallTo*(1-(1-u)*(1-u)); }
-      if (p.down || p.tackling) { const gk = p.fallT > 0.24 ? 0.8 : 0.93, sx = p.slideX || p.vx || 0, sz = p.slideZ || p.vz || 0; p.x += sx/60; p.z += sz/60; p.slideX = sx*gk || 1e-9; p.slideZ = sz*gk || 1e-9; p.vx = (p.vx||0)*gk; p.vz = (p.vz||0)*gk; p.anim += 0; }   // v162 GROUND FRICTION: once the body is on the turf (fall done) the slide dies in ~0.25 s; the old fallback to his running speed (slideX 0) never decayed = long glides
+      if (p.down || p.tackling) { const gk = p.fallT > 0.24 ? 0.8 : 0.93, sx = p.slideX || p.vx || 0, sz = p.slideZ || p.vz || 0; p.x += sx/60; p.z += sz/60; p.slideX = sx*gk || 1e-9; p.slideZ = sz*gk || 1e-9; p.vx = (p.vx||0)*gk; p.vz = (p.vz||0)*gk; p.anim += 0; }   // v163 GROUND FRICTION: once the body is on the turf (fall done) the slide dies in ~0.25 s; the old fallback to his running speed (slideX 0) never decayed = long glides
     }
   });
 }
@@ -22677,7 +23150,7 @@ const FB_LPADS = [      // a small lobby: three rows of three pads
   { id:'v1',     x:58, z:12,   col:'#6fd0ff', name:'1V1 VS A FRIEND' },
   { id:'ut',     x:22, z:-7,   col:'#ffd24a', name:'ULTIMATE TEAM' },      // one step to the left of where you spawn
   { id:'dev',    x:15.5, z:0,  col:'#1d9bf0', name:'DEV STATUS' },      // all the way back: type the code for the blue check + DEV tag
-  { id:'anim',   x:15.5, z:-8, col:'#c8ff4a', name:'ANIMATIONS' },      // v162: its own circle behind the spawn: every animation in the game
+  { id:'anim',   x:15.5, z:-8, col:'#c8ff4a', name:'ANIMATIONS' },      // v163: its own circle behind the spawn: every animation in the game
   { id:'tour',   x:68, z:0,    col:'#ff3a4a', name:'WEDNESDAY NIGHT FOOTBALL' }       // the far end: the giant trophy
 ];
 const TOUR_PAD = FB_LPADS[FB_LPADS.length-1];
@@ -23091,7 +23564,7 @@ function fbLobbyGo(d){
   else if (d.id==='tut') fbAct('tut');
   else if (d.id==='ut') fbUtOpen();
   else if (d.id==='dev') fbDevStatusOpen();
-  else if (d.id==='anim') { try { avOpen(); } catch(e){ console.error('anim viewer', e); } }   // v162
+  else if (d.id==='anim') { try { avOpen(); } catch(e){ console.error('anim viewer', e); } }   // v163
   else if (d.id==='tour') tourOpen();
 }
 /* ---- DEV STATUS: stand in the circle at the back of the lobby and type the code. All it does: a blue check by your name + a DEV tag above it. */
@@ -23133,7 +23606,7 @@ function fbDevStatusOpen(){
   const give = toMe => { const to = toMe ? (utSrv.user||'') : String($('fbDevTo').value || '').trim() || (utSrv.user||''), pack = $('fbDevPk').value, qty = Math.max(1, Math.min(10, parseInt($('fbDevQ').value, 10) || 1)); say('SENDING...', true);
     utApi('devgive', { to, pack, qty }).then(d => { if (d && d.ok) { utApply(d); say('GAVE '+d.gave+' x '+pack.toUpperCase()+' TO '+String(d.to).toUpperCase(), true); } else say((d && d.err) || 'failed', false); }); };
   const inf = on2 => { const to = String($('fbDevTo').value || '').trim(); if (!to) { say('TYPE THE TEAM NAME FIRST', false); return; } say('SENDING...', true);
-    utApi('devinf', { to, on:on2 }).then(d => { if (d && d.ok) { utApply(d); say((on2 ? 'INFINITE COINS + PACKS ON FOR ' : 'INFINITE TAKEN AWAY FROM ') + String(d.to).toUpperCase(), true); } else say((d && d.err) || 'failed', false); }); };   // v162
+    utApi('devinf', { to, on:on2 }).then(d => { if (d && d.ok) { utApply(d); say((on2 ? 'INFINITE COINS + PACKS ON FOR ' : 'INFINITE TAKEN AWAY FROM ') + String(d.to).toUpperCase(), true); } else say((d && d.err) || 'failed', false); }); };   // v163
   if ($('fbDevInfOn')) $('fbDevInfOn').onclick = () => inf(true); if ($('fbDevInfOff')) $('fbDevInfOff').onclick = () => inf(false);
   if ($('fbDevGive')) $('fbDevGive').onclick = () => give(false); if ($('fbDevMe')) $('fbDevMe').onclick = () => give(true);
   $('fbDevX').onclick = close;
@@ -23188,7 +23661,7 @@ function fbLobbyWalkDraw(g){
 
   if (PV2.state==='ready') T('MODELS: PLAYER BLAKEALLEN25 - HELMET EXODUSKS - CLEATS LISENHAO - TROPHY G_BORY32 (SKETCHFAB, CC BY 4.0)', 160, 176.6, '#5d6a8f', 2.1, 'center');
   try { onlPanelDraw(g); } catch(e){ console.error('onl', e); }
-  T('BUILD v162',314,174,'#8fa0cc',4,'right'); { const us = uoStatus(); if (us) T(us, 6, 174, UO.state==='off' ? '#ff8b7b' : '#6f7ea8', 3, 'left'); }
+  T('BUILD v163',314,174,'#8fa0cc',4,'right'); { const us = uoStatus(); if (us) T(us, 6, 174, UO.state==='off' ? '#ff8b7b' : '#6f7ea8', 3, 'left'); }
 }
 /* ===================== WHO'S ONLINE: a live list in the lobby (signed-in players + what they are doing), chat and party invites.
    Anything sent to you pops up as a small red note in the top corner, wherever you are in the game. ===================== */
@@ -23357,7 +23830,7 @@ const UT_DEMO_CFG = { maxBuyAtOnce:5, rarityWeights:UT_DEMO_RAR, packs:(() => { 
   Object.keys(pos).forEach(k => add(k, pos[k][0]+' PACK', 5, UT_DEMO_STD, null, { pos:pos[k][1] }));
   add('legend','SEASON LEGEND PACK',1,{ S:60, A:40 },{ Legendary:1 }); return P; })() };
 function utDemoWeighted(w){ const ks = Object.keys(w), tot = ks.reduce((a,k) => a+w[k], 0); let r = Math.random()*tot; for (const k of ks) { r -= w[k]; if (r < 0) return k; } return ks[ks.length-1]; }
-const utTierName = t => t === 'LG' ? 'LEGEND' : t;      // v162: LEGEND tier (code 'LG'): plays, rolls and sells like S tier, rated a touch higher
+const utTierName = t => t === 'LG' ? 'LEGEND' : t;      // v163: LEGEND tier (code 'LG'): plays, rolls and sells like S tier, rated a touch higher
 function utDemoPool(tier, pos){ const f = t => utDB().filter(p => p.tier === t && p.pos !== 'K' && (!pos || p.pos === pos)); if (tier === 'S' && Math.random() < 0.4) { const lg = f('LG'); if (lg.length) return lg; } return f(tier); }   // 4 in 10 S-tier pulls are LEGENDS
 function utDemoRoll(pack){
   const ORDER = ['S','A','B','C','D'], one = (tw, pos, rar) => { let t = utDemoWeighted(tw), pool = utDemoPool(t, pos); for (let i = ORDER.indexOf(t); !pool.length && i < 4;) pool = utDemoPool(ORDER[++i], pos); const p = pool[Math.floor(Math.random()*pool.length)]; return { pid:p.id, rarity:rar }; };
@@ -23462,7 +23935,7 @@ function utGameStart(){
   FB.utTeams = null; FB.utMid = ''; FB.cpuEdge = 0; FB.cpuEdgeP = 0; FB.cpuEdgeR = 0; FB.cpuStyle = fbStyleFor(''); try { fbFieldTheme(null); } catch(e){}
   FB.training = !!FB.trainNext; FB.trainNext = false;
   if (FB.training) { FB.utTeams = { me:(FB.trainTeams||{}).me || null, cpu:(FB.trainTeams||{}).cpu || null }; s.clock = 1e9; try { utApplyTeams(); } catch(e){} return; }
-  if (FB.mdGame && FBN.on && FBN.mode === 'vs') { try { FB.utTeams = { host:utBuildTeam(FB.mdGame.host), guest:utBuildTeam(FB.mdGame.guest) }; utApplyTeams(); } catch(e){ console.error('mega draft teams', e); } return; }   // v162: MEGA DRAFT - both drafted teams, no server match
+  if (FB.mdGame && FBN.on && FBN.mode === 'vs') { try { FB.utTeams = { host:utBuildTeam(FB.mdGame.host), guest:utBuildTeam(FB.mdGame.guest) }; utApplyTeams(); } catch(e){ console.error('mega draft teams', e); } return; }   // v163: MEGA DRAFT - both drafted teams, no server match
   if (utSrv.token) {
     const t = utBuildTeam(utLocalSnap());
     FB.utTeams = !FBN.on ? { me:t } : FBN.role === 'host' ? { host:t } : { guest:t };
@@ -24172,7 +24645,7 @@ function utCard(g,x,y,w,h,p,rar,dup){
   if (p && w >= 34 && p.skills && p.skills.length) utCardSkills(g, x, y, w, k, p, rar);
   const nm = p ? p.name.toUpperCase() : '?';
   T(nm.length > 12*(k<1?1:k) ? nm.slice(0, 11)+'.' : nm, x+w/2, y+22*k, R.ink, 2.7*k, 'center');
-  T(p ? (p.nickname ? '"'+String(p.nickname).toUpperCase().slice(0,18)+'"  '+(p.team || 'FA') : (p.team || 'FA')) : '', x+w/2, y+25.8*k, R.ink, 2.1*k, 'center');   // v162: legends show their nickname
+  T(p ? (p.nickname ? '"'+String(p.nickname).toUpperCase().slice(0,18)+'"  '+(p.team || 'FA') : (p.team || 'FA')) : '', x+w/2, y+25.8*k, R.ink, 2.1*k, 'center');   // v163: legends show their nickname
   if (p) { const sk = A.skin_hex || '#c68642', cx = x+w/2, by = y+h-9.5*k, hd = (()=>{ const n = parseInt(String(sk).slice(1),16); return '#'+[(n>>16)&255,(n>>8)&255,n&255].map(v=>Math.max(0,v-45).toString(16).padStart(2,'0')).join(''); })();
     g.save(); g.beginPath(); g.rect(x+2*k, y+31*k, w-4*k, by-(y+31*k)); g.clip();
     const wt = p.game_weight_lb || p.weight_lb || 200, fat = Math.max(0, Math.min(1, (wt-230)/260)), sw = 15*(1+0.4*fat), hx = 4.4*(1+0.95*fat), hy = 5.2*(1+0.22*fat);   // heavier players are drawn wider; the 490 lb kicker fills the card
@@ -24391,7 +24864,7 @@ function utSeasonGameOver(){
 }
 function utSeasonForfeit(){ const G = FB.seasonGame, s = FB.s; if (!G || !s || s.seasonRec) return; s.seasonRec = true; const S = utSeasonGet(); if (!S || S.div !== G.div || S.no !== G.no) { FB.seasonGame = null; return; }
   utSeasonApply(S, false, Math.min(s.you|0, 0), Math.max(21, s.cpu|0)); utSeasonSave(S); FB.seasonGame = null; }
-function utSeasonPlayedAll(S){ return !!S && S.champ === 'YOU' && !S.poSim && S.log.filter(l => l.wk === 'PO' && !l.sim).length >= 3; }   // v162: rewards need the Super Bowl AND every playoff game played by you (QF, SF, SB), none simulated
+function utSeasonPlayedAll(S){ return !!S && S.champ === 'YOU' && !S.poSim && S.log.filter(l => l.wk === 'PO' && !l.sim).length >= 3; }   // v163: rewards need the Super Bowl AND every playoff game played by you (QF, SF, SB), none simulated
 function utSeasonRewards(S){          // paid once the season is over: only the best thing you did counts (playoffs < Super Bowl < champion)
   if (!S || S.phase !== 'done') return; const U = FB.ut, claimed = utSrv.seasonClaimed || [];
   const kind = utSeasonPlayedAll(S) ? 'champ' : null; if (!kind || claimed.indexOf(kind) >= 0) return;      // only the Super Bowl pays, and only when you played every playoff game
@@ -24428,7 +24901,7 @@ function utLgSnap(id, div){      // a league team as a saved-team snapshot, so t
 }
 function utSeasonSimWeek(){                             // SIM instead of playing: your team's rating against theirs decides it, same odds as every other game in the league
   const S = utSeasonGet(); if (!S || (FB.ut && FB.ut.busy)) return; const opp = utSeasonOpp(S); if (!opp) return;
-  if (S.phase === 'po') { if (FB.ut) { FB.ut.err = 'PLAYOFF GAMES MUST BE PLAYED - NO SIMMING'; FB.ut.msgT = 0; } return; }      // v162
+  if (S.phase === 'po') { if (FB.ut) { FB.ut.err = 'PLAYOFF GAMES MUST BE PLAYED - NO SIMMING'; FB.ut.msgT = 0; } return; }      // v163
   const [pf, pa] = utLgSim(utLgYouOvr(), utLgTeamOvr(opp, S.div)); utSeasonApply(S, pf > pa, pf, pa, true); utSeasonSave(S).then(() => { try { utSeasonRewards(S); } catch(e){} });
   if (FB.ut) { FB.ut.msg = 'SIMMED: '+(pf > pa ? 'WIN ' : 'LOSS ')+pf+'-'+pa+' VS '+opp; FB.ut.msgT = 0; }
 }
@@ -25241,7 +25714,7 @@ function fbScoutLine(){                                   // one line for the ca
 }
 
 /* ---------------------------------------------------------------- the CPU drive sim */
-function fbCpuDrive(yl, down0, toGo0){          // v162: down0 / toGo0 = pick the drive up in the middle (SIM THE REST while you are on defense)
+function fbCpuDrive(yl, down0, toGo0){          // v163: down0 / toGo0 = pick the drive up in the middle (SIM THE REST while you are on defense)
   const s = FB.s, D = FBD[FB.diff];
   let y = yl, down = down0 || 1, toGo = toGo0 ? Math.min(toGo0, 100-y) : Math.min(10,100-y), pl = 0, t = 0, start = yl, pts = 0, res = '', userYl = 25;
   while (pl < 14) {
@@ -25481,7 +25954,7 @@ function fbStep(){
     if (s.daudPend && s.preT >= s.daudPend.at) { const id = s.daudPend.id; s.daudPend = null; fbAudibleDApply(id); }
     try { fbDefAdjustStep(1/60); } catch(e){ console.error('adj', e); }
     fbMotionStep(); try { fbPreDefMove(1/60); } catch(e){ console.error('predef', e); }
-    fbDef().forEach(d => { if (d.x > 119) { d.x = 119; if (d.vx > 0) d.vx = 0; } });   // v162: a deep safety shading pre-snap stays inside the end line (the live field clamp yanked him back 1-4 yd on the first tick)
+    fbDef().forEach(d => { if (d.x > 119) { d.x = 119; if (d.vx > 0) d.vx = 0; } });   // v163: a deep safety shading pre-snap stays inside the end line (the live field clamp yanked him back 1-4 yd on the first tick)
     if (s.audF > 0) { s.audF--; if (s.audF <= 0) s.audN = ''; }
     fbOff().forEach(p => { p.anim += 0.02; }); fbDef().forEach(p => { p.anim += 0.02; });
     if (s.preT > 0.9 && !s.cpuAud) { try { fbCpuAudible(); } catch(e){} }
@@ -25492,7 +25965,7 @@ function fbStep(){
   else if (sc==='live' && s.intFz > 0) { s.intFz -= 1/60; if (s.intFz <= 0) s.intFz = 0; fbRigs.forEach(p => { p.anim += 0.01; }); }
   else if (sc==='live') {
     // charging a throw
-    if (s.charging) { s.chargeF = FB.rmbMeter ? Math.max(0, (s.chargeF||0) - QB_THROW.cfg.drain) : (s.chargeF||0)+1; s.charge = qbtPower(s.chargeF/60); } else FB.rmbMeter = false;   // v162: right click drains the meter
+    if (s.charging) { s.chargeF = FB.rmbMeter ? Math.max(0, (s.chargeF||0) - QB_THROW.cfg.drain) : (s.chargeF||0)+1; s.charge = qbtPower(s.chargeF/60); } else FB.rmbMeter = false;   // v163: right click drains the meter
     if (FB.tapPending && !FB.tapPending.guest && performance.now() - FB.tapPending.at >= 200) { const tp = FB.tapPending; FB.tapPending = null; if (!s.thrown && !s.charging) fbThrow(tp.p, qbtPower(tp.h||0), false, 'lob'); }   // the short click: the lob goes
     if (s.tutMode) fbTutTick();
     if (!s.defMode && s.ctl && s.ctl.role==='QB' && !s.thrown && s.hover) {
@@ -25758,7 +26231,7 @@ function fbLobbyDraw(g){
   fbBtn(g,'lobbyback',6,5,76,12,'< BACK TO THE FIELD',{size:4.6});
   if (avDev() && !FBN.on && !PARTY.on) fbBtn(g,'av_open',232,5,82,10,'ANIMATION VIEWER',{size:3.8,line:'#ff8ad8',tc:'#ffc6ee'});   // AV: dev only
   fbBtn(g,'party',6,19,76,10,PARTY.on ? 'PARTY  '+PARTY.code.toUpperCase() : 'PLAY WITH A FRIEND',{size:4.4,line:'#7ddc8a',tc:'#c9f7d0'});
-  T('BUILD v162',314,174,'#8fa0cc',4,'right');   // so you can tell which build is live
+  T('BUILD v163',314,174,'#8fa0cc',4,'right');   // so you can tell which build is live
   fbBtn(g,'tut',100,141,58,13,'TUTORIAL',{size:5,line:'#ffd24a',tc:'#ffe9a8'}); fbBtn(g,'howlobby',162,141,58,13,'HOW TO PLAY',{size:4.4,line:'#ffd24a',tc:'#ffe9a8'});
   fbBtn(g,'shop',6,141,90,13,'PLAY SHOP',{size:5.5,line:'#7ddc8a',tc:'#c9f7d0'});
   fbBtn(g,'stats',224,141,90,13,'MY STATS',{size:5.5,line:'#6fd0ff',tc:'#cfeeff'});
@@ -26141,7 +26614,7 @@ document.getElementById('game').addEventListener('pointerdown', e => {
   }
   e.stopImmediatePropagation(); e.preventDefault();
   try { const ae = document.activeElement; if (ae && ae!==document.body && typeof ae.blur==='function' && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)) ae.blur(); } catch(_){}
-  if (e.button===2) { const cs = FB.s; if (cs && cs.charging && cs.ctl && cs.ctl.role==='QB' && !cs.thrown) { FB.rmbMeter = true; FB.rmb = true; return; }   // v162: right click while charging a throw = the meter goes down (no sprint)
+  if (e.button===2) { const cs = FB.s; if (cs && cs.charging && cs.ctl && cs.ctl.role==='QB' && !cs.thrown) { FB.rmbMeter = true; FB.rmb = true; return; }   // v163: right click while charging a throw = the meter goes down (no sprint)
     keys.ShiftRight = true; FB.rmb = true; return; }          // V81: right click = sprint (hold)
   try { unlockAudio(); } catch(_){}
   const { px, py } = px0, s = FB.s, sc = FB.scr;
@@ -26188,7 +26661,7 @@ window.addEventListener('pointerup', e => {
   if (FBN.on && FBN.role==='guest') { fbnGuestUp(); return; }
   if (FB.scr==='live' && s.charging) {
     s.charging = false; const p = s.hover ? fbRay(s.hover.px, s.hover.py, 1.0) : null;
-    const hS = (s.chargeF||0)/60; if (p) { if ((s.chargeF||0) < 12) FB.tapPending = { p, at:performance.now(), h:hS }; else fbThrow(p, qbtPower(hS), false, 'pass'); } s.aimShow = false;   // v162: how long you held = how hard he throws it   // a short click lobs it (after a beat, in case a second click makes it a pump fake)
+    const hS = (s.chargeF||0)/60; if (p) { if ((s.chargeF||0) < 12) FB.tapPending = { p, at:performance.now(), h:hS }; else fbThrow(p, qbtPower(hS), false, 'pass'); } s.aimShow = false;   // v163: how long you held = how hard he throws it   // a short click lobs it (after a beat, in case a second click makes it a pump fake)
   }
 }, true);
 function fbDrawPt(x,y){
@@ -26201,7 +26674,7 @@ function fbDrawPt(x,y){
 }
 
 window.addEventListener('blur', () => { if (FB && FB.rmb) { FB.rmb = false; FB.rmbMeter = false; keys.ShiftRight = false; } });
-// v162: right click while a throw is charging = the meter goes down. With the left button already held the browser sends no pointerdown for the second button, so the button mask is read from every mouse / pointer event
+// v163: right click while a throw is charging = the meter goes down. With the left button already held the browser sends no pointerdown for the second button, so the button mask is read from every mouse / pointer event
 { const rm = e => { try { const cs = FB && FB.s; if (!FB.on || !cs || !cs.charging || !cs.ctl || cs.ctl.role!=='QB' || cs.thrown) return; const dn = e.type==='mouseup' ? (e.buttons & 2) : (e.buttons & 2) || (e.type==='mousedown' && e.button===2); FB.rmbMeter = !!dn; if (dn) keys.ShiftRight = false; } catch(_){} };
   ['pointermove','mousemove','mousedown','mouseup','pointerup'].forEach(t => window.addEventListener(t, rm, true)); }
 
@@ -26575,6 +27048,7 @@ function fbJbDraw(){
   const key = [s.you, s.cpu, s.q, Math.ceil(Math.max(0,s.clock||0)), s.down, s.toGo, FB.scr, big ? (now/250|0) : (now/4000|0)].join('|');
   if (key===J.key && J.t%30) return; J.key = key;
   const g = J.g, w = J.cv.width, h = J.cv.height;
+  if (sdlJbDraw(J, s, g, w, h, big, now)) { J.tex.needsUpdate = true; return; }   // SG: team-coloured video board (LANE:SIDELINE); false = the old board below
   g.textAlign = 'center'; g.textBaseline = 'middle';
   const grd = g.createLinearGradient(0,0,w,h); grd.addColorStop(0,'#0a2a8a'); grd.addColorStop(0.5,'#1457d6'); grd.addColorStop(1,'#082070'); g.fillStyle = grd; g.fillRect(0,0,w,h);
   const ph = (now/4000)%1; for (let k=-3;k<14;k++) { g.save(); g.translate((k+ph)*(w/9),0); g.transform(1,0,-0.6,1,0,0); g.fillStyle = k%2 ? 'rgba(58,200,255,.26)' : 'rgba(120,220,255,.10)'; g.fillRect(0,0,w/24,h); g.restore(); }
@@ -26717,7 +27191,7 @@ const FB_DCALLS = [
 const FB_ROLEN = { DL:'DL', LB:'LB', CB:'CB', S:'S' };
 
 /* ---------------------------------------------------------------- starting / ending a defensive drive */
-/* v162: you are not locked into the whole drive any more: SIM DRIVE finishes it from where it stands (the same drive sim the game uses when you skip the defense) */
+/* v163: you are not locked into the whole drive any more: SIM DRIVE finishes it from where it stands (the same drive sim the game uses when you skip the defense) */
 function fbDefSimOk(){ const s = FB.s; return !!(s && s.defMode && !FBN.on && !s.train && !s.tutMode && !s.pat && !s.conv && (FB.scr==='dcall' || FB.scr==='live')); }
 function fbDefSimRest(){
   const s = FB.s; if (!fbDefSimOk()) return;
@@ -28522,7 +28996,7 @@ function tdcSlots(K){
   }
   return out;
 }
-function tdcMoveTo(p,x,z,dt,max){ const d = Math.hypot(x-p.x, z-p.z); fbMove(p, x, z, Math.min(max, 9, Math.max(5, d*1.6)), dt, 34);   /* v162: dead-ball runs are at a real sprint (was up to 15 yd/s of wall clock = twice top speed) */ p.st = 'ready'; return d; }
+function tdcMoveTo(p,x,z,dt,max){ const d = Math.hypot(x-p.x, z-p.z); fbMove(p, x, z, Math.min(max, 9, Math.max(5, d*1.6)), dt, 34);   /* v163: dead-ball runs are at a real sprint (was up to 15 yd/s of wall clock = twice top speed) */ p.st = 'ready'; return d; }
 function tdcClear(p,dt){      // the other team walks out of the picture
   const s = FB.s, X = s.tdcSg>0 ? 120 : 0;
   if (Math.abs(p.x-X) > 15 || Math.abs(p.z-s.tdcZ) > 10) { fbVel(p,0,0,dt,20); return; }
@@ -29109,7 +29583,7 @@ function fbSkillBlock(p, tg, base){
 // the ball sits in the real hand(s): tucked along the forearm when carrying, between both hands for the QB / on a catch
 const _fbH1 = new THREE.Vector3(), _fbH2 = new THREE.Vector3(), _fbE = new THREE.Vector3(), _fbX = new THREE.Vector3(1,0,0), _fbQ = new THREE.Quaternion();
 function fbBallInHands(h){
-  if (h.tuckOn && h.tuckPos) { fbBall.position.copy(h.tuckPos); fbBall.quaternion.copy(h.tuckQ); return; }   // v162: tucked carry
+  if (h.tuckOn && h.tuckPos) { fbBall.position.copy(h.tuckPos); fbBall.quaternion.copy(h.tuckQ); return; }   // v163: tucked carry
   const rg=h.rig,bones=rg&&rg.fbBones,keys=bones?Object.keys(bones):[],findBone=(side,part)=>bones&&(bones['mixamorig'+side+part]||bones['mixamorig:'+side+part]||bones[side+part]||bones[keys.find(k=>new RegExp(side+'.*'+part,'i').test(k))]);
   if(bones&&rg.fbModel){
     const hand=findBone('Right','Hand'),fore=findBone('Right','ForeArm'),arm=findBone('Right','Arm'),other=findBone('Left','Hand');
@@ -29401,7 +29875,7 @@ function fbShopDraw(g){
   });
   T('LOCKED PLAYS CANNOT BE CALLED OFFLINE.  IN ONLINE GAMES BOTH PLAYERS GET EVERY PLAY.',160,170,'#8fa0cc',3.8,'center');
 }
-/* v162: TIME PLAYED - the real seconds you spend inside a game (not the lobby, menus or training hub), kept with your football stats */
+/* v163: TIME PLAYED - the real seconds you spend inside a game (not the lobby, menus or training hub), kept with your football stats */
 const FB_TP_NO = ['lobby','ut','train','howto','over','defask'];
 function fbPlayClock(){
   const now = performance.now(), last = FB.tpLast || now; FB.tpLast = now;
@@ -29428,7 +29902,7 @@ function fbStatsDraw(g){
   most.forEach((p,i) => { const y = 103 + i*9.4; T((i+1)+'  '+p.n,156,y,'#fff',4.8,'left'); T(p.c+' CALLS  '+p.y+' YDS',308,y,'#9fb0dc',4.4,'right'); });
 }
 
-/* ===================== v162: HANDOFF + PLAY-ACTION LIBRARY (anim/ho): the QB and the back play one synced pair =====================
+/* ===================== v163: HANDOFF + PLAY-ACTION LIBRARY (anim/ho): the QB and the back play one synced pair =====================
    The game still decides WHEN the exchange happens (the same handoff / toss / fake timing as before); the pair's own events are lined up
    to it: mesh_start (or toss_release / pull) = the moment the ball starts to move, transfer (or catch) = the moment the back has it.
    rb_path_m is matched visually: the back (and a little of the QB) is drawn up to 0.75 yd toward the authored path during the mesh only. */
@@ -29574,7 +30048,7 @@ const fbnIsHost = () => FBN.on && FBN.role==='host';
 const fbnIsGuest = () => FBN.on && FBN.role==='guest';
 function fbMain(){ if (FBN.on && FBN.role==='guest') fbnGuestStep(); else { fbStep(); if (FBN.on) fbnHostTick(); } }
 function fbVs(){ return !!(FBN.on && FBN.mode==='vs'); }
-function fbFlip(){ return false; }     // v162: one camera for everyone - behind the offense, on offense AND defense, solo, co-op and online (the same view the online 1v1 uses)
+function fbFlip(){ return false; }     // v163: one camera for everyone - behind the offense, on offense AND defense, solo, co-op and online (the same view the online 1v1 uses)
 function fbDirNow(){ const s = FB.s; return (fbFlip() || (s && s.turn)) ? -1 : 1; }      // after a turnover everyone sees the field from the other end
 function fbVsFix(t){                                                          // drive-screen text is written once (tokens) and read per player
   if (typeof t!=='string' || t.indexOf('{')<0) return t; const g = FBN.role==='guest', on = fbnOtherName();
@@ -29642,7 +30116,7 @@ function fbnFx(n){ FBN.fxq.push([++FBN.fxId, n]); if (FBN.fxq.length > 6) FBN.fx
 function fbnHold(){ const s = FB.s; FB.scr = 'hold'; s.phase = 'hold'; }
 
 /* ---------------------------------------------------------------- HOST: open a room, wait for the friend */
-/* ===================== v162: MEGA DRAFT (1v1 with your party member) =====================
+/* ===================== v163: MEGA DRAFT (1v1 with your party member) =====================
    One shared pool, both of you pick from it in turn (snake order), 15 players each - the same card for both of you is impossible.
    Everyone plays at the same card level, both O-lines and D-lines are the same level, so the draft itself decides the game. No wagers, no rewards: it is for fun.
    The leader's game runs the draft (host); the other player sends picks over the party room. */
@@ -30017,7 +30491,7 @@ function fbnGuestStep(){
   if (b && b.mode==='fly') { b.x += b.vx/60; b.y += b.vy/60; b.z += b.vz/60; b.vy -= FB_G*(b.tipped?FB_TIP_G:1)/60; }
   if (sc==='pre') s.preT += 1/60; else if (sc==='drive' || sc==='half') s.driveT = (s.driveT||0)+1; else if (sc==='over') s.overT = (s.overT||0)+1;
   if (sc==='live') {
-    if (s.charging) { s.chargeF = FB.rmbMeter ? Math.max(0, (s.chargeF||0) - QB_THROW.cfg.drain) : (s.chargeF||0)+1; s.charge = qbtPower(s.chargeF/60); } else FB.rmbMeter = false;   // v162: right click drains the meter
+    if (s.charging) { s.chargeF = FB.rmbMeter ? Math.max(0, (s.chargeF||0) - QB_THROW.cfg.drain) : (s.chargeF||0)+1; s.charge = qbtPower(s.chargeF/60); } else FB.rmbMeter = false;   // v163: right click drains the meter
     if (FB.tapPending && FB.tapPending.guest && performance.now() - FB.tapPending.at >= 200) { const tp = FB.tapPending; FB.tapPending = null; fbnEv({ n:'cu', x:fbnR(tp.p.x), z:fbnR(tp.p.z), k:'touch', h:fbnR(tp.h||0) }); }   // the guest's short click: the touch pass goes
     if (!s.defMode && FBN.mode==='vs' && s.ctl && s.ctl.role==='QB' && !s.thrown && s.hover) {
       const g = fbRay(s.hover.px, s.hover.py, 0.01);
@@ -30113,7 +30587,7 @@ function fbnGuestPtr(px,py,sc){
 function fbnGuestUp(){
   const s = FB.s; if (FB.scr!=='live' || !s.charging) return;
   s.charging = false; const p = s.hover ? fbRay(s.hover.px, s.hover.py, 1.0) : null; s.aimShow = false;
-  const hS = (s.chargeF||0)/60; if (p) { if ((s.chargeF||0) < 12) FB.tapPending = { p, at:performance.now(), guest:true, h:hS }; else fbnEv({ n:'cu', x:fbnR(p.x), z:fbnR(p.z), k:'pass', h:fbnR(hS) }); }   // v162: the hold time goes with it (the host turns it into power)   // a short click waits a beat (a second click makes it a pump fake), a hold is a bullet, hold + Shift a lob
+  const hS = (s.chargeF||0)/60; if (p) { if ((s.chargeF||0) < 12) FB.tapPending = { p, at:performance.now(), guest:true, h:hS }; else fbnEv({ n:'cu', x:fbnR(p.x), z:fbnR(p.z), k:'pass', h:fbnR(hS) }); }   // v163: the hold time goes with it (the host turns it into power)   // a short click waits a beat (a second click makes it a pump fake), a hold is a bullet, hold + Shift a lob
 }
 
 /* ---------------------------------------------------------------- shared */
@@ -32566,7 +33040,7 @@ function fbProtectionStep(dt,run){
   if((s.slide|0)&&!advancing&&available.filter(d=>d.rusher).length>free.length){const far=available.filter(d=>Math.sign(d.z-q.z)===-(s.slide|0)).sort((a,b)=>Math.abs(b.z-q.z)-Math.abs(a.z-q.z))[0];if(far){available.splice(available.indexOf(far),1);available.push(far);}}   // V46 (12): the line slides away from the far edge - that rusher is the back's (or nobody's)
   for(const d of available){if(reserved.has(d))continue;let best=null,score=Infinity;for(const o of free){if(o.passTarget&&reserved.has(o.passTarget))continue;const anchor=fbPocketAnchor(o,q,advancing),sidePenalty=Math.sign(o.protectZ)&&Math.sign(d.z-q.z)!==Math.sign(o.protectZ)?2.3:0,slideP=((s.slide|0)&&!advancing)?(fbKind(o.role)==='OL'&&Math.sign(d.z-q.z)===-(s.slide|0)?1.6:(o.role==='RB'&&Math.sign(d.z-q.z)===(s.slide|0)?1.6:0)):0,v=fbDist(o,d)+Math.abs(d.z-anchor.z)*.65+sidePenalty+slideP;if(v<score){score=v;best=o;}}if(best){if(best.passTarget!==d){best.passTarget=d;best.reactionAt=s.t+(.12+(1-(best.blockEff||1))*.15)*(1-.45*fbLineN(best));}best.targetReadUntil=s.t+.28;reserved.add(d);}}
   free.forEach(o=>{
-    const eff=o.blockEff||.8,olN=fbLineN(o),mvK=Math.min(1.55,eff*(fbKind(o.role)==='OL'?((o.ur&&o.ur.blk)||1)*(1+.5*olN):1)),anchor=fbPocketAnchor(o,q,advancing);let target=o.passTarget;   // v162: a better lineman moves, reaches and reacts like one
+    const eff=o.blockEff||.8,olN=fbLineN(o),mvK=Math.min(1.55,eff*(fbKind(o.role)==='OL'?((o.ur&&o.ur.blk)||1)*(1+.5*olN):1)),anchor=fbPocketAnchor(o,q,advancing);let target=o.passTarget;   // v163: a better lineman moves, reaches and reacts like one
     if(!target||!threats.includes(target)||target.eng||!reserved.has(target)){target=null;o.passTarget=null;}
     if(o.recoveryT>0){o.recoveryT=Math.max(0,o.recoveryT-dt);o.blockPlant=false;fbVel(o,0,0,dt,24);return;}
     let tx=anchor.x,tz=anchor.z;if(target&&s.t>=o.reactionAt&&advancing){const rx=q.x-target.x,rz=q.z-target.z,L=Math.hypot(rx,rz)||1;tx=target.x+(target.vx||0)*.2+rx/L*.9;tz=target.z+(target.vz||0)*.2+rz/L*.9;}   // for the runner: go meet the closest chaser, don't wait for him
@@ -32578,11 +33052,11 @@ function fbProtectionStep(dt,run){
 }
 function fbRunBlock(p,dt){p.runBlockReady=true;p.st='ready';}
 function fbBlockAI(p,dt){p.runBlockReady=true;p.st='ready';}
-// v162: how good a lineman is, 0..1 (line level 1 = 0 = the old lineman, level 10 = 1). A good O-line really holds the pocket and drives the run; a good D-line / elite edge beats it.
+// v163: how good a lineman is, 0..1 (line level 1 = 0 = the old lineman, level 10 = 1). A good O-line really holds the pocket and drives the run; a good D-line / elite edge beats it.
 function fbLineN(p){ const u=p&&p.ur; if(!u) return 0; if(u.lvl) return clamp((u.lvl-1)/9,0,1); return clamp(((u.blk||u.rush||1)-1)/0.45,0,1); }
 function fbLineEngage(e,dt,D,q){
   const d=e.d,o=e.o,s=FB.s;if(e.ended)return;const olN=fbLineN(o),rushN=clamp((((d.ur&&d.ur.rush)||1)-1)/0.45,0,1)*0.7+fbLineN(d)*0.3;
-  const eff=(e.eff||o.blockEff||1)*(o.ur?o.ur.blk:1)*(1+0.6*olN);   // v162: a maxed line is about twice the blocker (it was +20%)
+  const eff=(e.eff||o.blockEff||1)*(o.ur?o.ur.blk:1)*(1+0.6*olN);   // v163: a maxed line is about twice the blocker (it was +20%)
   if(e.flashed===undefined||(e.reFlash&&s.t>=(e.winOpen||0))){e.flashed=true;e.reFlash=false;if(fbUD(d))fbRushFlash(d,'MOVE!',.35);}   // v46 (16): the move window opens at first contact, and again after a stonewall
   if(e.ripAt){if(s.t>=e.ripAt){e.ripAt=0;fbRushWin(e,'rip',q);}else{d.vx*=.5;d.vz*=.5;o.vx*=.5;o.vz*=.5;fbFace(o,d.x,d.z);fbFace(d,o.x,o.z);o.st=d.st='block';o.blockContact=d.blockContact=true;}return;}   // the rip takes .3 s to work the arm through
   if(d.wantSwim||d.wantMove){const side=d.wantSwim||0,kind=d.wantMove||'swim';d.wantSwim=0;d.wantMove=null;if(fbRushMove(e,kind,side,q)||e.ended)return;}
@@ -32607,7 +33081,7 @@ function fbLineEngage(e,dt,D,q){
   const pastShoulder=Math.abs(shoulder)>.96,behind=(d.x-o.x)*nx+(d.z-o.z)*nz>.12;
   if(age>(xfHas(d,'shark')?.35:.7)&&pastShoulder&&(e.progress>(xfHas(d,'shark')?.4:.62)||behind)){fbReleaseBlock(e,true);return;}
   if(!user&&d.bullUntil&&s.t>d.bullUntil){d.bullHeld=false;d.bullUntil=0;}
-  if(e.cpuGo===undefined)e.cpuGo=Math.random()<clamp(1-0.82*olN+0.45*rushN+0.3*(FB.lock||0),0.1,1);   // v162: does this rusher get a move this play? a maxed line says no most of the time; an elite edge against a weak line almost always does
+  if(e.cpuGo===undefined)e.cpuGo=Math.random()<clamp(1-0.82*olN+0.45*rushN+0.3*(FB.lock||0),0.1,1);   // v163: does this rusher get a move this play? a maxed line says no most of the time; an elite edge against a weak line almost always does
   if(!user&&!e.cpuMove&&age>=.1&&age<=.33&&!(d.stonewallUntil>s.t)){e.cpuMove=true;if(e.cpuGo&&Math.random()<.08+.08*FB.diff){const heavy=fbBodyMass(d)>=fbBodyMass(o)-.001;if(heavy&&Math.random()<.4){d.bullHeld=true;d.bullUntil=s.t+1.3;}else fbRushMove(e,Math.random()<.75?'auto':'wrong',side,q);}}   // v46 (16): the CPU reads the same tells and uses the same three moves inside the same window (one try per engagement)
   if(!user&&e.cpuGo&&age>1.6+(slideK>0?1.7:slideK<0?-.5:0)+1.2*olN&&Math.abs(shoulder)>.36&&d.swimCd<=0&&s.t>=e.nextMove){const ofx=Math.cos(o.face),ofz=-Math.sin(o.face),swimSide=Math.sign((d.x-o.x)*(-ofz)+(d.z-o.z)*ofx)||-side,attempt=FBS.swim(e,swimSide,s.t);if(attempt.success){fbLineSwim(e,swimSide);return;}e.nextMove=s.t+.19;}
 }
@@ -32638,13 +33112,13 @@ function fbPathBlocked(a,b,ignore){
 }
 function fbSeparate(){
   const a=fbRigs;a.forEach(p=>{p.contactVx=p.vx;p.contactVz=p.vz;});for(let iteration=0;iteration<3;iteration++)for(let i=0;i<a.length;i++)for(let j=i+1;j<a.length;j++){
-    const p=a[i],q=a[j],fp=fbSepFixed(p),fq=fbSepFixed(q);if(fp&&fq)continue;if((p.uo&&p.uo.anchor===q)||(q.uo&&q.uo.anchor===p))continue;   /* v162: a clip pair (tackle / break / catch) owns its own spacing: shoving them apart made the glue yank the runner ~1 yd a tick */   /* v162: a man lying down or getting up is never shoved by bodies (was mass x10 only) */ if(p.side===q.side&&((p.hoGhost||0)>FB.s.t||(q.hoGhost||0)>FB.s.t)&&(p.role==='QB'||q.role==='QB'))continue;let dx=q.x-p.x,dz=q.z-p.z,d=Math.hypot(dx,dz);const rp=['OL','DL'].includes(fbKind(p.role))?.56:.46,rq=['OL','DL'].includes(fbKind(q.role))?.56:.46,R=rp+rq;
+    const p=a[i],q=a[j],fp=fbSepFixed(p),fq=fbSepFixed(q);if(fp&&fq)continue;if((p.uo&&p.uo.anchor===q)||(q.uo&&q.uo.anchor===p))continue;   /* v163: a clip pair (tackle / break / catch) owns its own spacing: shoving them apart made the glue yank the runner ~1 yd a tick */   /* v163: a man lying down or getting up is never shoved by bodies (was mass x10 only) */ if(p.side===q.side&&((p.hoGhost||0)>FB.s.t||(q.hoGhost||0)>FB.s.t)&&(p.role==='QB'||q.role==='QB'))continue;let dx=q.x-p.x,dz=q.z-p.z,d=Math.hypot(dx,dz);const rp=['OL','DL'].includes(fbKind(p.role))?.56:.46,rq=['OL','DL'].includes(fbKind(q.role))?.56:.46,R=rp+rq;
     if(d>=R)continue;if(d<.001){dx=(q.prevX||q.x)-(p.prevX||p.x);dz=(q.prevZ||q.z)-(p.prevZ||p.z);d=Math.hypot(dx,dz);if(d<.001){dx=i%2?1:-1;dz=0;d=1;}}
     const nx=dx/d,nz=dz/d,mp=fp?0:1/((p.rig.build||1)*(p.ur?p.ur.mk:1)*(p.side==='O'&&p.blockPlant?3.2:1)),mq=fq?0:1/((q.rig.build||1)*(q.ur?q.ur.mk:1)*(q.side==='O'&&q.blockPlant?3.2:1)),sum=mp+mq,depth=R-Math.hypot(q.x-p.x,q.z-p.z);p.x-=nx*depth*mp/sum;p.z-=nz*depth*mp/sum;q.x+=nx*depth*mq/sum;q.z+=nz*depth*mq/sum;
     const closing=(p.vx-q.vx)*nx+(p.vz-q.vz)*nz;if(closing>0){p.vx-=nx*closing*mp/sum;p.vz-=nz*closing*mp/sum;q.vx+=nx*closing*mq/sum;q.vz+=nz*closing*mq/sum;}
   }
 }
-function fbSepFixed(p){ return !!(p.down || p.tackling || p.getUp || (p.offG && p.stun > 0) || (p.uo && p.uo.ntkRise && !p.uo.done)); }   // v162: on the ground or getting up: only his own fall / slide / clip moves him
+function fbSepFixed(p){ return !!(p.down || p.tackling || p.getUp || (p.offG && p.stun > 0) || (p.uo && p.uo.ntkRise && !p.uo.done)); }   // v163: on the ground or getting up: only his own fall / slide / clip moves him
 function fbStartJuke(p,side){if(!p||!p.carry||p.down||p.jukeCd>0||p.wrapBy||p.brkBy||p.possT>0)return false;const cut=FBS.juke(p,side),s0=FB.s,chain=p.jukePlay===s0.skillPlayId&&(s0.t-(p.jukeAt||0))<1.2;p.jukePlay=s0.skillPlayId;p.jukeAt=s0.t;p.juke=.2;p.jukeCd=chain?1.0:.6;p.jukeRecT=chain?1.1:.65;p.jukeK=chain?.3:.45;if(chain)fbMsg('TIRED LEGS - NO JUKE CHAINS','#ff6b6b',45);p.jx=cut.x;p.jz=cut.z;p.st='juke';fbSfx('juke');FB.s.tutJuke=true;try{n2Juke(p,null);}catch(e){}/*NTK2*/return true;}
 function fbSkillInput(side,p){const s=FB.s;p=p||((s.defMode&&!s.turn)?s.dctl:s.ctl);if(!p)return;if(p.carry)fbStartJuke(p,side);else{p.wantSwim=side;p.wantMove=side<0?'swim':'rip';if(!p.eng){p.wantSwim=0;p.wantMove=null;p.swimCd=.45;p.recoveryT=.18;}}}   // v46 (16): Q = swim, E = rip for an engaged rusher (host dctl and guest gdc both arrive here)
 function fbDefLunge(d){
@@ -32839,7 +33313,7 @@ function fbTackleStep(dt){
   if(!s.turn&&car.x>=FB_GOAL){fbEnd({type:'td',x:FB_GOAL});return;}if(s.turn&&car.x<=10){fbEnd({type:'pick6',x:10});return;}if(Math.abs(car.z)>=FB_Z-.05){fbEnd({type:s.turn?'turnoob':'oob',x:car.x});return;}
   if(car.kneel||car.push||car.slid)return;   // giving himself up (slide), kneeling, or inside the push pile: nobody tackles him
   if(car.secureUntil>s.t&&car.side==='O'&&Math.hypot(car.vx||0,car.vz||0)>=0.5*fbTopSpeed(car,true))car.secureUntil=0;   // moving at half speed or better: the ball is secured, a hit is just a tackle
-  if(car.possT>0){fbPossStep(car,dt);return;}const opponents=car.side==='O'?fbDef():fbOff();if(fbPoOn(car)){fbPushOutStep(car,dt);return;}   /* v162: being driven out of bounds */ if(!car.wrapBy&&!car.brkBy&&!car.untackle)fbDiveTkTrigger(car,opponents);if(car.untackle){fbUntackleStep(car,opponents);return;}if(fbPunchStep(car,opponents))return;if(car.wrapBy){fbWrapStep(car,opponents,dt);return;}if(car.brkBy&&fbShedStep(car,opponents,dt))return;
+  if(car.possT>0){fbPossStep(car,dt);return;}const opponents=car.side==='O'?fbDef():fbOff();if(fbPoOn(car)){fbPushOutStep(car,dt);return;}   /* v163: being driven out of bounds */ if(!car.wrapBy&&!car.brkBy&&!car.untackle)fbDiveTkTrigger(car,opponents);if(car.untackle){fbUntackleStep(car,opponents);return;}if(fbPunchStep(car,opponents))return;if(car.wrapBy){fbWrapStep(car,opponents,dt);return;}if(car.brkBy&&fbShedStep(car,opponents,dt))return;
   if(!car.wrapBy&&!car.brkBy&&car.carry&&!car.slid&&!(car.diveT>0)&&!(car.possT>0)&&!s.turn){const cs0=Math.hypot(car.vx||0,car.vz||0);if(cs0>6.5){const ux0=car.vx/cs0,uz0=car.vz/cs0;for(const d of opponents){if(d.grabbed===s.skillPlayId||d.down||d.tackling||d.stun>0||d.tkCd>0||d.dtk||(d.eng&&!d.free)||(fbUD(d)))continue;const dist=fbDist(d,car);if(dist<=1.16||dist>2.1)continue;if((d.x-car.x)*ux0+(d.z-car.z)*uz0>-0.2)continue;if(Math.hypot(d.vx||0,d.vz||0)<cs0*0.7)continue;if(Math.random()<0.04){fbGrab(car,d);break;}}}}
   const contact=opponents.filter(d=>!d.down&&!d.tackling&&d.stun<=0&&!d.eng&&fbDist(d,car)<=(car.secureUntil>s.t?1.45:d.wrapReqT>s.t?1.2:1.16)&&!fbPathBlocked(d,car)).sort((a,b)=>fbDist(a,car)-fbDist(b,car));   // v46 (17): a held wrap reaches 1.2 yd
   for(const d of contact){if(d.tkCd>0)continue;const request=d.tackleRequestT>s.t,controlled=fbUD(d)||(d===s.ctl&&s.turn&&(!s.defMode||fbnGuestOff()));if(controlled&&!request&&fbDist(d,car)>.96)continue;
@@ -32866,7 +33340,7 @@ function fbDR(p, name){            // a defender's rating, 0..1, straight from h
 }
 // how long after an observable cue he reacts (s), by position and cue
 function fbReadDelay(d, cue){
-  const k=fbKind(d.role), COV=fbDR(d,'Coverage'); const LK = 1 - 0.45*Math.min(1,(FB.lock||0));   // v162: the better the defense, the sooner he reads it
+  const k=fbKind(d.role), COV=fbDR(d,'Coverage'); const LK = 1 - 0.45*Math.min(1,(FB.lock||0));   // v163: the better the defense, the sooner he reads it
   return fbReadDelay0(d, cue, k, COV)*LK;
 }
 function fbReadDelay0(d, cue, k, COV){
@@ -32924,7 +33398,7 @@ function fbGrab(car, d){      // a trailing man gets a hand on a faster runner: 
   const k = 0.84 - 0.05*Math.min(3, car.dragN||0); car.vx *= k; car.vz *= k; car.mStunUntil = s.t + 0.4; car.mSteer = 0.72; car.mAcc = 0.55; fbSfx('swat'); fbDust(car.x, car.z, 3, 0.5);
 }
 function fbBreakGo(car,E,all,sev,bt,xf){                        // the runner broke it: speed loss, stun, steering/acceleration penalties, the tackler stumbles
-  const s=FB.s,AI=1.10-.35*E.rear,dn=fbDragN(car,1);fbFpMark(car);let SL=clamp((.24+.50*sev-.10*bt/99)*AI+0.12*(dn-1),.18,.9);if(xf)SL=Math.max(.14,SL*.85);   // v162: a broken tackle always costs real speed (was as little as 4%)   // each man who has already hit him takes more off his speed   // an X-Factor softens it, it never removes it
+  const s=FB.s,AI=1.10-.35*E.rear,dn=fbDragN(car,1);fbFpMark(car);let SL=clamp((.24+.50*sev-.10*bt/99)*AI+0.12*(dn-1),.18,.9);if(xf)SL=Math.max(.14,SL*.85);   // v163: a broken tackle always costs real speed (was as little as 4%)   // each man who has already hit him takes more off his speed   // an X-Factor softens it, it never removes it
   let stun=clamp(.20+.34*sev-.12*bt/99,.14,.65);if(xf)stun=Math.max(.12,stun*.7);
   const steer=clamp(.40+.45*bt/99+(xf?.1:0),.40,xf?.95:.85);
   const fx=Math.cos(car.face),fz=-Math.sin(car.face);
@@ -32950,9 +33424,9 @@ function fbMomentumTackle(car,d,auth){
   const imp=auth&&auth.imp!==undefined?auth.imp:FBS.hitPower(d,car),sackSpot=car.role==='QB'&&car.x<s.los&&!s.turn,maxSp=Math.max(1,fbTopSpeed(car,true)),xf=!!(car.xfOn&&car.xfl&&car.xfl.length);
   const userD=fbUD(d)||(d===s.ctl&&s.turn&&(!s.defMode||fbnGuestOff())),wantWrap=d.wrapReqT>s.t;
   const near=opp.filter(o=>o===d||(!o.down&&!o.tackling&&!(o.eng&&!o.free)&&o.stun<=0&&fbDist(o,car)<=1.3)),crowd=near.length;
-  const conv=fbTkConverge(car,opp,near),evals=near.concat(conv.map(c=>c.o)).map(o=>{const e=fbTkEval(car,o,ux,uz,o===d&&(d.tackleRequestT>s.t||wantWrap)),c=conv.find(c=>c.o===o);e.w=c?c.w:1;e.conv=!!c;e.eff*=e.w;return e;}),E=evals.find(e=>e.d===d),combined=Math.pow(evals.reduce((a,e)=>a+Math.pow(e.eff,1.5),0),1/1.5),crowdW=evals.reduce((a,e)=>a+e.w,0),inC=evals.filter(e=>!e.conv);   // v162: men closing in (<= 2.1 yd, there within ~0.25 s) count in the same attempt, weighted by how close they are
+  const conv=fbTkConverge(car,opp,near),evals=near.concat(conv.map(c=>c.o)).map(o=>{const e=fbTkEval(car,o,ux,uz,o===d&&(d.tackleRequestT>s.t||wantWrap)),c=conv.find(c=>c.o===o);e.w=c?c.w:1;e.conv=!!c;e.eff*=e.w;return e;}),E=evals.find(e=>e.d===d),combined=Math.pow(evals.reduce((a,e)=>a+Math.pow(e.eff,1.5),0),1/1.5),crowdW=evals.reduce((a,e)=>a+e.w,0),inC=evals.filter(e=>!e.conv);   // v163: men closing in (<= 2.1 yd, there within ~0.25 s) count in the same attempt, weighted by how close they are
   let bull=1;if(xfHas(car,'bulldozer')&&car.side==='O'&&!car.bullUsed&&!s.thrown&&fbIsRun(s.play)&&!s.turn){car.bullUsed=true;bull=1.25;fbMsg('BULLDOZER!','#ff9a3a',70);}   // X-FACTOR: +25% runner power on the first eligible tackle
-  const RP=fbRunnerPower(car)*bull*Math.pow(0.82,fbDragN(car,0))*(s.t<(car.mStunUntil||0)+0.5?0.8:1),RR=RP*(.90+.20*clamp(impV/maxSp,0,1.2)),ratio=RR/Math.max(.01,combined),bt=fbRate(car,'brk',.01);   // v162: still off balance from the last broken tackle / grab (stun window + 0.5 s): -20% power on top of the per-play drag
+  const RP=fbRunnerPower(car)*bull*Math.pow(0.82,fbDragN(car,0))*(s.t<(car.mStunUntil||0)+0.5?0.8:1),RR=RP*(.90+.20*clamp(impV/maxSp,0,1.2)),ratio=RR/Math.max(.01,combined),bt=fbRate(car,'brk',.01);   // v163: still off balance from the last broken tackle / grab (stun window + 0.5 s): -20% power on top of the per-play drag
   if(car.truckT>0&&!car.wrapBy&&!sackSpot&&csp0>=3&&crowd<=2){   // TRUCK (F): runner mass/strength/speed against the defender's power; a braced defender gets a 25% edge
     car.truckT=0;const braced=fbBraced(d,car),tr=RR/Math.max(.01,combined*(braced?1.25:0.85));
     if(braced&&tr<.95){car.stiffT=0;s.shake=3;fbSfx('hit');fbMsg('RAN INTO A WALL','#ff6b6b',60);let uw=false;try{uw=uoTruck(car,d,'wall',ux,uz);}catch(e){}fbTackle(d,car,crowd,Math.max(imp,6));if(uw)try{uoAfterTackle(car);}catch(e){}return;}
@@ -32965,13 +33439,13 @@ function fbMomentumTackle(car,d,auth){
   if(!wantWrap&&!car.wrapBy&&fbHitStick(d,car,userD)){fbHitStickGo(d,car,crowd,userD);return;}   // HIT STICK: same activation and the same fumble roll as before
   if(sackSpot){fbTackle(d,car,crowd,imp);return;}
   const cat=E.ang>=2.094?'rear':E.ang>=1.047?'side':'front',fac=cat==='rear'?1:cat==='side'?.75:.55;
-  let broke=false;if(!wantWrap){const bc=fbTkBreakP(ratio,crowdW);broke=Math.random()<bc;}   /* v162: every extra man in contact makes it much harder to shake them */   // ONE roll per attempt (a held wrap is the safe option: it never breaks)
-  if(broke){fbBreakGo(car,E,inC,clamp(combined/Math.max(.01,RR),0,2),bt,xf);return;}if(!wantWrap&&!car.wrapBy&&fbPushOutTry(car,E,RR,combined))return;   // v162: PUSH OUT near the sideline (fbPushOutTry).  v162: only the men in contact get the post-break cooldown; the ones still arriving can hit him right away
+  let broke=false;if(!wantWrap){const bc=fbTkBreakP(ratio,crowdW);broke=Math.random()<bc;}   /* v163: every extra man in contact makes it much harder to shake them */   // ONE roll per attempt (a held wrap is the safe option: it never breaks)
+  if(broke){fbBreakGo(car,E,inC,clamp(combined/Math.max(.01,RR),0,2),bt,xf);return;}if(!wantWrap&&!car.wrapBy&&fbPushOutTry(car,E,RR,combined))return;   // v163: PUSH OUT near the sideline (fbPushOutTry).  v163: only the men in contact get the post-break cooldown; the ones still arriving can hit him right away
   const sf=clamp(impV/maxSp,0,1);let FT=(.18+.30*sf)*(1+.45*E.rear)*clamp(RR/Math.max(.01,combined),.70,1.30);if(wantWrap)FT*=1.3;FT=clamp(FT,.12,.85);
   evals.forEach(e=>{e.d.tkCd=Math.max(e.d.tkCd||0,.45);});
   fbTackleBegin(car,d,{impV,ux,uz,FT,cat,fac,imp,nx:E.nx,nz:E.nz,others:inC.filter(e=>e.d!==d).map(e=>e.d)});
 }
-// v162 PUSH OUT: within ~3 yd of the sideline a man who meets the runner from the inside at a good angle (within ~60 deg of straight out) can drive him out of bounds instead of wrapping him up.
+// v163 PUSH OUT: within ~3 yd of the sideline a man who meets the runner from the inside at a good angle (within ~60 deg of straight out) can drive him out of bounds instead of wrapping him up.
 // Only after the break roll failed (it never makes a broken tackle less likely); the chance grows with the angle, the closeness to the line and his power against the runner's. The play ends 'oob' where he crosses.
 function fbPoOn(c){ const s=FB.s; return !!(c && c.poBy && s && c.poPlay===s.skillPlayId); }
 function fbPushOutTry(car,E,RR,comb){
@@ -32991,14 +33465,14 @@ function fbPushOutStep(car,dt){
   fbVel(car,fwd,lat,dt,60); car.st='carry';
   fbMove(d,car.x-0.15,car.z-sg*0.85,Math.max(4,Math.hypot(car.vx||0,car.vz||0)+2),dt,40); fbFace(d,car.x,car.z); d.st='block'; d.wrapping=true;
 }
-function fbTkConverge(car,opp,near){   // v162 CONVERGING TACKLERS: everyone closing on the runner within 2.1 yd who gets there within ~0.25 s joins this attempt (weight 1 if there now .. 0.5 if 0.25 s away); a short tkCd does not exclude him
+function fbTkConverge(car,opp,near){   // v163 CONVERGING TACKLERS: everyone closing on the runner within 2.1 yd who gets there within ~0.25 s joins this attempt (weight 1 if there now .. 0.5 if 0.25 s away); a short tkCd does not exclude him
   const out=[],cvx=car.vx||0,cvz=car.vz||0;
   opp.forEach(o=>{ if(near.includes(o)||o.down||o.tackling||o.wrapping||(o.eng&&!o.free)||o.stun>0||o.dtk) return; const L=fbDist(o,car); if(L>2.1) return;
     const nx=(car.x-o.x)/(L||1),nz=(car.z-o.z)/(L||1),cl=((o.vx||0)-cvx)*nx+((o.vz||0)-cvz)*nz; if(cl<1||L-1.3>cl*0.25) return;
     out.push({o,w:clamp(1-Math.max(0,L-1.3)/cl/0.3,0.5,1)}); });   // weight from his arrival time: there now = 1 .. 0.25 s away = 0.5
   return out;
 }
-function fbTkBreakP(ratio,crowdW){ return clamp(1/(1+Math.exp(-5*(ratio-1.2))),.02,.75)*Math.pow(.45,Math.max(0,crowdW-1)); }   // v162: the break chance of ONE roll; each extra (weighted) man multiplies it by 0.45 (was 0.65 per man in contact only)
+function fbTkBreakP(ratio,crowdW){ return clamp(1/(1+Math.exp(-5*(ratio-1.2))),.02,.75)*Math.pow(.45,Math.max(0,crowdW-1)); }   // v163: the break chance of ONE roll; each extra (weighted) man multiplies it by 0.45 (was 0.65 per man in contact only)
 // v46 (18) HIT STICK: defender squared up (within 30 deg of the runner), closing faster than 6, runner not braced (moving and not turned to meet him), nothing special going on. Both humans and the CPU get it on positioning alone.
 function fbHitStick(d,car,userD){
   const s=FB.s;if(car.slid||car.kneel||car.push||car.diveT>0||car.possT>0||car.secureUntil>s.t||car.wrapBy||car.brkBy)return false;
@@ -33015,9 +33489,9 @@ function fbHitStickGo(d,car,crowd,userD){
 function fbWrapStep(car,tacklers,dt){      // MASS 2.0: the successful tackle - speed = impact x (1-u)^2 over FallTime, defender attached, a joiner cuts the remaining time by 35%
   const d=car.wrapBy;if(!d||d.down){fbWrapEnd(car);return false;}
   car.tkJoin=car.tkJoin||{};
-  tacklers.forEach(o=>{if(o===d||car.tkJoin[o.role]||o.down||o.tackling||(o.eng&&!o.free)||o.stun>0||fbDist(o,car)>1.3)return;car.tkJoin[o.role]=1;const rem=Math.max(0,car.tkFT-car.tkT);car.tkFT=car.tkT+rem*.45;});   // v162: each joiner cuts the rest of the fall by 55%
+  tacklers.forEach(o=>{if(o===d||car.tkJoin[o.role]||o.down||o.tackling||(o.eng&&!o.free)||o.stun>0||fbDist(o,car)>1.3)return;car.tkJoin[o.role]=1;const rem=Math.max(0,car.tkFT-car.tkT);car.tkFT=car.tkT+rem*.45;});   // v163: each joiner cuts the rest of the fall by 55%
   if(!car.tkK){const cap=car.tkCat==='front'?0.45:car.tkCat==='side'?1.1:2.2,full=car.tkImp*car.tkFac*Math.max(.05,car.tkFT)/3;car.tkK=Math.min(1,cap/Math.max(.01,full));}   // how far he slides after contact follows the picture: a head-on hit stops him (he falls BACK), from behind he falls forward
-  car.tkT+=dt;const u=clamp(car.tkT/Math.max(.05,car.tkFT),0,1),nj=Object.keys(car.tkJoin).length,sp=car.tkImp*car.tkFac*car.tkK*(1-u)*(1-u)*clamp(1-.3*nj,.3,1)*clamp(.55+.45*u*3,0,1);   // v162: bodies pile on = the runner loses speed at once; the first moments after contact are already a hard brake
+  car.tkT+=dt;const u=clamp(car.tkT/Math.max(.05,car.tkFT),0,1),nj=Object.keys(car.tkJoin).length,sp=car.tkImp*car.tkFac*car.tkK*(1-u)*(1-u)*clamp(1-.3*nj,.3,1)*clamp(.55+.45*u*3,0,1);   // v163: bodies pile on = the runner loses speed at once; the first moments after contact are already a hard brake
   let dx=car.tkUx-car.tkNx*.10*u,dz=car.tkUz-car.tkNz*.10*u;const L=Math.hypot(dx,dz)||1;dx/=L;dz/=L;   // momentum direction kept, a small push from the defender
   fbVel(car,dx*sp,dz*sp,dt,60);car.st='carry';
   if(!(d.uo&&d.uo.anchor===car)){fbMove(d,car.x+car.tkNx*.9,car.z+car.tkNz*.9,Math.max(1,sp+2.5),dt,28);fbFace(d,car.x,car.z);}d.st='tackle';   // he stays on the runner, no teleporting (a library clip glues him to his offset instead)
@@ -33025,7 +33499,7 @@ function fbWrapStep(car,tacklers,dt){      // MASS 2.0: the successful tackle - 
   return true;
 }
 
-/* ===== v162 BALL CARRY: the ball is TUCKED - high and tight under the arm against the ribs, long axis pointing forward, fingertips over the nose - instead of floating inside the forearm ===== */
+/* ===== v163 BALL CARRY: the ball is TUCKED - high and tight under the arm against the ribs, long axis pointing forward, fingertips over the nose - instead of floating inside the forearm ===== */
 const CARRY_LOOK = { elbowDown:0.86, elbowIn:0.10, elbowBack:0.12, ballFwd:0.42, ballUp:0.10, ballIn:0.22, handFwd:0.46, handUp:0.20, blend:9, tilt:0.16 };   // all in upper-arm lengths
 const _tk = { a:new THREE.Vector3(), b:new THREE.Vector3(), f:new THREE.Vector3(), r:new THREE.Vector3(), E:new THREE.Vector3(), H:new THREE.Vector3(), T:new THREE.Vector3(), up:new THREE.Vector3(0,1,0), q:new THREE.Quaternion(), q2:new THREE.Quaternion(), pq:new THREE.Quaternion() };
 const _ta = { a:new THREE.Vector3(), c:new THREE.Vector3(), to:new THREE.Vector3(), rot:new THREE.Quaternion(), w:new THREE.Quaternion(), pq:new THREE.Quaternion() };
@@ -33274,7 +33748,7 @@ function devRender(soft){
   if (!ui.menuOpen || !m.role) return;
   ui.role.textContent = m.role.toUpperCase();
   ui.wrap.querySelectorAll('.dx-dev').forEach(e => { e.style.display = m.role==='dev' ? '' : 'none'; });
-  ui.wrap.querySelectorAll('.dx-av').forEach(e => { e.style.display = (m.role==='dev' || m.role==='admin') ? '' : 'none'; });   // v162
+  ui.wrap.querySelectorAll('.dx-av').forEach(e => { e.style.display = (m.role==='dev' || m.role==='admin') ? '' : 'none'; });   // v163
   ui.mpunch.checked = !!DEVX.mods.punch; ui.mac.checked = !!DEVX.mods.autocatch;
   ui.list.textContent = '';
   devPlayers().forEach(n => { const r = devRoleOf(n), b = devBadgeOf(n), t = document.createElement('button'); t.type = 'button'; t.setAttribute('data-a', 'pick'); t.dataset.n = n;
@@ -33369,7 +33843,7 @@ const AV_C = { x:60, z:0 }, AV_PER = 10;
 const AV_OFF_RE = /^(ballcarrier|runner|receiver|qb|center|left_guard|right_guard|left_blocker|right_blocker|QB|RB|WR|TE|player)$/;
 const AV_RIG = { qb:'QB', center:'OL3', left_guard:'OL2', right_guard:'OL4', left_blocker:'RB', right_blocker:'TE', QB:'QB', RB:'RB', WR:'W1', TE:'TE', LB:'LB1', CB:'CB1', S:'S1' };
 const AV_OFFL = ['QB','RB','W1','W2','W3','TE','OL1','OL2'], AV_DEFL = ['CB1','LB1','S1','CB2','LB2','S2','DL1','DL2'];
-function avDev(){ return true; }   // v162: open to everyone (the ANIMATIONS circle in the lobby); the dev-menu button stays for devs / admins
+function avDev(){ return true; }   // v163: open to everyone (the ANIMATIONS circle in the lobby); the dev-menu button stays for devs / admins
 function avOk(){ return !!(FB.on && FB.scr === 'lobby' && FB.s && !FBN.on && !PARTY.on && !FB.hlReel && !FB.hls && !FB.shop && !FB.stats && !FB.lookOpen && !MD.on && !TOUR.open && !DEVX.ask && FB.lobbyAv && FB.lobbyAv.rig && FB.lobbyAv.rig.fbModel && FB_MODEL.clips && !FB_MODEL.loading && !FB_MODEL.animLoading); }
 function avOpen(){
   if (!avDev() || FB.av) return false;
