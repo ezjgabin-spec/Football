@@ -39,11 +39,11 @@ const root = {};
       return rnd()<odds?{action:'intercept',by:cb.role}:{action:'incomplete',reason:'BATTED DOWN'};}
     // BALLSYNC: one receiver on the ball. Contact quality (where it met the hands, momentum with the ball, one or two hands, how steady he is) + his catching rating
     // -> a clean catch, a single bobble (the ball pops loose and he gets ONE recovery), or a drop. A bobbled ball can never bobble again.
-    const hard=!!(b&&b.contested),ck=wr.cat||1,dk=(b&&b.covK)||1,q=quality(wr),skill=(ck-1)*2.2,press=hard?.45*clamp(dk,.5,1.6):0,bob=!!(b&&b.bobbled);
+    const hard=!!(b&&b.contested),open=!hard&&crowd===0,ck=wr.cat||1,dk=(b&&b.covK)||1,q=quality(wr),skill=(ck-1)*2.2,press=hard?.45*clamp(dk,.5,1.6):0,bob=!!(b&&b.bobbled);
     if(bob){let P=1/(1+Math.exp(-(.8+3.5*(q-.5)+skill-(hard?.8:0))));if(wr.hands===1)P*=.6;return rnd()<P?{action:'catch',by:wr.role,hand:wr.hand,bobbleCaught:true,q}:{action:'incomplete',reason:'BOBBLED - INCOMPLETE'};}
-    let P=1/(1+Math.exp(-(.2+4.2*(q-.5)+skill-press-(crowd>=2?2:0))));if(wr.hands===1)P*=.5;const r=rnd();
+    let P=1/(1+Math.exp(-(.2+(open?1.2:0)+4.2*(q-.5)+skill-press-(crowd>=2?2:0))));if(wr.hands===1)P*=.5;const r=rnd();
     if(r<P)return {action:'catch',by:wr.role,hand:wr.hand,q};
-    if(q>=.3&&crowd<2){const share=clamp(.35+.4*(1-q),.3,.75);if((r-P)/Math.max(.001,1-P)<share)return {action:'bobble',by:wr.role,hand:wr.hand,q};}
+    if(q>=.3&&crowd<2){const share=clamp(.35+.4*(1-q),.3,.75)*(open?.3:1);if((r-P)/Math.max(.001,1-P)<share)return {action:'bobble',by:wr.role,hand:wr.hand,q};}
     return {action:'incomplete',reason:crowd>=2?'BROKEN UP IN TRAFFIC':'DROPPED',q};}
   function quality(c){return clamp(.35*(c.al===undefined?(c.center?1:.3):c.al)+.25*(c.control===undefined?.8:c.control)+.20*(c.hands===2?1:.35)+.20*(c.stab===undefined?1:c.stab),0,1);}
   function retention(p,b){const speed=len(p.vx||0,p.vz||0);if(speed<.5)return .65;const ux=p.vx/speed,uz=p.vz/speed,ahead=(b.x-p.x)*ux+(b.z-p.z)*uz,ballSpeed=len(b.vx||0,b.vz||0)||1,alignment=(b.vx*ux+b.vz*uz)/ballSpeed;return clamp(.73+ahead*.26+alignment*.12,.32,1);}
