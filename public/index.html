@@ -17390,7 +17390,7 @@ const FBD = [
   { n:'PRO',     def:0.95, rush:2.9, cov:0.75, int:0.55, tk:0.75, cpu:1.00, delay:0.30, acc:15 },
   { n:'ALL-PRO', def:1.00, rush:2.3, cov:1.00, int:0.85, tk:0.90, cpu:1.18, delay:0.15, acc:19 }
 ];
-/* v163: DEFENSE LOCK. The higher the tier of the CPU defense (season division 5 -> 1, plus the difficulty), the closer it plays to a lock: faster, tighter in coverage, a pass rush that
+/* v164: DEFENSE LOCK. The higher the tier of the CPU defense (season division 5 -> 1, plus the difficulty), the closer it plays to a lock: faster, tighter in coverage, a pass rush that
    beats the line sooner, more picks, more tackles. Never when YOU are the defense, never in an online 1v1. FB.lock: 0 = how it always was, 1 = a Division 1 lockdown. */
 const FBD_BASE = FBD.map(o => Object.assign({}, o));
 function fbLockSync(){
@@ -18536,18 +18536,18 @@ function fbChoosePlayerAnimation(p,P){
   if(p.eng&&!p.free&&fbHasBlockingContact(p))return FB_MODEL.clips&&FB_MODEL.clips.push?'push':'offenseIdle';
   if(FB.scr==='dead'){if(s&&s.tdcLive){if(p.getUp)return 'offenseIdle';if(p.down||p.tackling)return 'fallen';return speed>=5.5?'fastRun':speed>0.8?'run':'offenseIdle';}if((p.fbPointUntil||0)>now)return 'point';if(p.down||p.tackling)return 'fallen';return 'offenseIdle';}
   if(p.down||p.tackling)return 'fallen';
-  if(p.getUp||p.st==='rise')return 'offenseIdle';   // v163: no hurt / limping clip any more
+  if(p.getUp||p.st==='rise')return 'offenseIdle';   // v164: no hurt / limping clip any more
   if((p.fbPointUntil||0)>now)return 'point';
   if(s&&s.thrown&&s.ball&&s.ball.mode==='fly'&&p.side==='O'&&p===s.targetMan&&p.reachT>0&&fbCatchAnimationMoment(p))return 'catch';
   if(p.diveT>0||p.slid)return p.slid?'slide':'dive';
   if(p.diving)return 'dive';
   if(p.jumpT>0)return 'catch';
-  if(p.role==='QB'&&(p.qbPh||0)>0&&!p.carry)return qbtAnimKey(p);       // v163: cock / whip / follow-through of the QB throw library (or the qbPass throw)
-  if(p.hoK){const hk=hoAnimKey(p);if(hk)return hk;}                        // v163: handoff / toss / play-action pair (or the back's solo carry)
-  if(p.st==='throw'&&!p.carry&&((p.throwAnim||0)>0||(p.qbPh||0)>0||p.role!=='QB'))return 'qbPass';   // v163: a QB who tucked it and ran (or whose throw was cancelled) is not stuck in the throw pose
+  if(p.role==='QB'&&(p.qbPh||0)>0&&!p.carry)return qbtAnimKey(p);       // v164: cock / whip / follow-through of the QB throw library (or the qbPass throw)
+  if(p.hoK){const hk=hoAnimKey(p);if(hk)return hk;}                        // v164: handoff / toss / play-action pair (or the back's solo carry)
+  if(p.st==='throw'&&!p.carry&&((p.throwAnim||0)>0||(p.qbPh||0)>0||p.role!=='QB'))return 'qbPass';   // v164: a QB who tucked it and ran (or whose throw was cancelled) is not stuck in the throw pose
   if(p.st==='point')return 'point';
   if(p.st==='block'&&fbHasBlockingContact(p))return FB_MODEL.clips&&FB_MODEL.clips.push?'push':'offenseIdle';
-  { const tk=fbTurnAnim(p,speed,now); if(tk) return tk; }   // v163: sharp turns / turning on the spot
+  { const tk=fbTurnAnim(p,speed,now); if(tk) return tk; }   // v164: sharp turns / turning on the spot
   if(p.carry||p.st==='carry')return speed>=5.5&&FB_MODEL.clips&&FB_MODEL.clips.fastRun?'fastRun':speed>0.8?'run':'offenseIdle';
   if(FB.scr==='live'){ const dk=dmChoose(p,now); if(dk) return dk; }
   if(speed>0.8||P.run){
@@ -18573,7 +18573,7 @@ function fbCatchAnimationMoment(p){
   const closing=d>0.001?-(rx*rvx+rz*rvz)/d:0;
   return d<3.8&&closing>0.5&&d/closing<0.28;
 }
-function fbTurnAnim(p,speed,now){   // v163: any player cutting hard at speed plays the run-turn clip (it was only used once per play by edge rushers); turning on the spot steps instead of rotating in the idle pose
+function fbTurnAnim(p,speed,now){   // v164: any player cutting hard at speed plays the run-turn clip (it was only used once per play by edge rushers); turning on the spot steps instead of rotating in the idle pose
   if(FB.scr!=='live'||p.down||p.tackling||(p.eng&&!p.free)||p.st==='block'||p.diving||p.juke>0) return null;
   if(p.side==='D'&&DM.state==='ready'&&DM_IDS[fbKind(p.role)]) return null;   // the defensive library (DEF_BREAK_*) has its own breaks
   const C=FB_MODEL.clips; if(!C) return null; const yr=p.yawRate||0;
@@ -18583,14 +18583,14 @@ function fbTurnAnim(p,speed,now){   // v163: any player cutting hard at speed pl
   if(now<(p.turnStepUntil||0)&&speed<=0.8&&C.run) return 'run';
   return null;
 }
-function fbRunTs(p,key){ const sp=Math.hypot(p.vx||0,p.vz||0); if(sp<=0.8) return 0.6; return key==='fastRun' ? clamp(sp/8.5,0.75,1.2) : key==='runBack' ? clamp(sp/4,0.6,1.2) : clamp(sp/4.5,0.55,1.15); }   // v163: 1.0 at the speed each loop was made for (stepping on the spot: 0.6)
+function fbRunTs(p,key){ const sp=Math.hypot(p.vx||0,p.vz||0); if(sp<=0.8) return 0.6; return key==='fastRun' ? clamp(sp/8.5,0.75,1.2) : key==='runBack' ? clamp(sp/4,0.6,1.2) : clamp(sp/4.5,0.55,1.15); }   // v164: 1.0 at the speed each loop was made for (stepping on the spot: 0.6)
 function fbTickPlayerAnimation(p,dt){
   const rg=p&&p.rig;if(!rg||!rg.fbMixer)return;
   const silent=['lobby','call','dcall','defask','hold','wait','dwait','drive','dead','over'].includes(FB.scr)&&!(FB.scr==='lobby'&&p===FB.lobbyAv)&&!(FB.av&&p.avOn)&&!(FB.scr==='dead'&&((p.fbPointUntil||0)>performance.now()/1000||(FB.s&&FB.s.hurtBy===p.role&&FB.s.deadClock>=2&&FB.s.deadClock<4)||(FB.s&&FB.s.tdcLive)))||FB_MODEL.loading||FB_MODEL.animLoading;
   const nowS=performance.now()/1000, uoLive=!!(p.uoK&&(nowS<(p.uoUntil||0)||(p.uoHold&&(p.down||p.tackling)))&&uoHas(p.uoK))||n2On(p);   // NTK2
   if(silent&&!(uoLive&&!FB_MODEL.loading&&!FB_MODEL.animLoading)){if(rg.fbCurrent){Object.values(rg.fbActions||{}).forEach(a=>a.stop());if(rg.fbUoActs)Object.values(rg.fbUoActs).forEach(a=>a.stop());rg.fbCurrent=null;}return;}
   if(!FB_MODEL.clips)return;
-  { let yd=fbAd(p.face||0, p.aYaw===undefined ? (p.face||0) : p.aYaw); if (Math.abs(yd) > 1.2) yd = 0; p.aYaw=p.face||0; p.yawRate=dt>0 ? (p.yawRate||0)*0.7 + 0.3*yd/dt : 0; }   // v163: how fast his body is really turning (view only), for the turn clips
+  { let yd=fbAd(p.face||0, p.aYaw===undefined ? (p.face||0) : p.aYaw); if (Math.abs(yd) > 1.2) yd = 0; p.aYaw=p.face||0; p.yawRate=dt>0 ? (p.yawRate||0)*0.7 + 0.3*yd/dt : 0; }   // v164: how fast his body is really turning (view only), for the turn clips
   const key=fbChoosePlayerAnimation(p,fbPoseOf(p));let action=key&&rg.fbActions[key];
   if(!action&&key&&(key.slice(0,3)==='uo:'||key.slice(0,3)==='dm:'||key.slice(0,3)==='n2:'/*NTK2*/)){const uc=uoClipFor(rg,key.slice(3));if(uc){rg.fbUoActs=rg.fbUoActs||{};action=rg.fbUoActs[key]||(rg.fbUoActs[key]=rg.fbMixer.clipAction(uc));}}
   if(!action){if(rg.fbCurrent){Object.values(rg.fbActions).forEach(a=>a.stop());if(rg.fbUoActs)Object.values(rg.fbUoActs).forEach(a=>a.stop());rg.fbCurrent=null;}rg.fbMixer.update(HFX.stop>0?0:dt);return;}
@@ -18604,9 +18604,9 @@ function fbTickPlayerAnimation(p,dt){
     rg.fbCurrent=key;
   }
   if(key.slice(0,3)==='dm:')action.setEffectiveTimeScale(p.dmTs||1);
-  else if(key==='run'||key==='fastRun'||key==='runBack')action.setEffectiveTimeScale(fbRunTs(p,key));   // v163: the run cycle follows his real speed (no skating feet, no frozen sprint while he turns slowly)
+  else if(key==='run'||key==='fastRun'||key==='runBack')action.setEffectiveTimeScale(fbRunTs(p,key));   // v164: the run cycle follows his real speed (no skating feet, no frozen sprint while he turns slowly)
   if(p.role==='QB'&&(p.qbPh||0)>0&&(key===QB_THROW.legacy.key||(p.qbClip&&key==='dm:'+p.qbClip.path))){action.setEffectiveTimeScale(0);action.time=qbtClipTime(p,action.getClip().duration);}   // the clip follows the throw phase frame by frame
-  if(p.hoK&&key.slice(0,3)==='dm:'&&HO.ids[p.hoK]&&key==='dm:'+HO.ids[p.hoK].path){action.setEffectiveTimeScale(0);action.time=clamp(p.hoT||0,0,action.getClip().duration-0.001);}   // v163: the pair's clock is the game's exchange
+  if(p.hoK&&key.slice(0,3)==='dm:'&&HO.ids[p.hoK]&&key==='dm:'+HO.ids[p.hoK].path){action.setEffectiveTimeScale(0);action.time=clamp(p.hoT||0,0,action.getClip().duration-0.001);}   // v164: the pair's clock is the game's exchange
   if(key.slice(0,3)==='n2:'){action.setEffectiveTimeScale(0);action.time=n2ClipTime(p,action.getClip().duration);}   // NTK2: the move's own clock
   if(FB.av&&p.avOn&&key===p.avK){action.setEffectiveTimeScale(0);action.time=clamp(p.avT||0,0,action.getClip().duration-.001);}   // AV: the viewer's clock
   try{dmAdditive(p,rg,nowS);}catch(e){}
@@ -20387,7 +20387,7 @@ const CAM_LOOK = {
   on: true,                                  // false: every style behaves like CLASSIC (kill switch)
   rigs: [                                    // relative to the camera focus (the QB before the snap, the ball carrier / the ball in flight after it)
     { name:'BROADCAST', back:16.5, h:12.5, ahead:8.0, lookY:0.9, fov:44, zPos:0.76, zLook:0.76, ahead0:8.0 },   // pitch about 25 degrees down; zPos = zLook: the camera never yaws, the yard lines stay level
-    { name:'CLASSIC',   back:12.6, h:9.3,  ahead:17,  lookY:0.9, fov:58, zPos:0.92, zLook:0.90, ahead0:13 }     // the v163 camera, untouched numbers
+    { name:'CLASSIC',   back:12.6, h:9.3,  ahead:17,  lookY:0.9, fov:58, zPos:0.92, zLook:0.90, ahead0:13 }     // the v164 camera, untouched numbers
   ],
   kick: { back:12.6, h:6, ahead:17, zPos:0.92, zLook:0.90, dx:-1, dy:1, lookDx:6, lookY:0.5, fov:62 },          // field goal / extra point (both styles)
   ovFov: 50,                                 // lens of the override shots (lobby, coach cut-scene)
@@ -21145,6 +21145,246 @@ function utxAct(id){
   return true;
 }
 /* ----- LANE:UT end ----- */
+/* ----- LANE:LM begin (the clickable lobby main menu: a tile for every lobby circle. The walking lobby is still there behind the WALK AROUND toggle) ----- */
+/* LM: the football lobby opens on a full-screen menu drawn in the Ultimate Team language (UTX_LOOK / utxT / utxBtnDraw / utxBack / utxBanner / utxChip / brandMatch)
+   over the slowly circling stadium. Every tile calls fbLobbyGo(pad) - the same function the walking avatar triggers - so behaviour, checks and messages are unchanged.
+   Switch back: the WALK AROUND button, localStorage 'fb_lobby_menu_v1' = '0', or LM_LOOK.on = false. Ids: lm_<padid>, lm_hl, lm_walk, lm_menu, lm_sign (+ the existing gfxq / camstyle). */
+const LM_LOOK = {
+  on: true,                                   // false = the menu never shows (walking lobby only)
+  key: 'fb_lobby_menu_v1',                    // localStorage: '0' = walking lobby, anything else = this menu
+  x0: 6, cw: 72, cg: 4,                       // left edge of the first column, column width, gap (the right strip x 236..316 belongs to WHO'S ONLINE and the stadium)
+  y0: 30, y1: 156, gap: 3,                    // tile area top / bottom, vertical gap between tiles
+  veil: 'rgba(3,7,18,.24)', scrimL: 'rgba(4,9,22,.80)', scrimR: 'rgba(4,9,22,.16)',   // overall darkening, left (behind the tiles) and right (stadium shows) of the scrim
+  tileTop: 'rgba(19,32,62,.80)', tileBot: 'rgba(7,13,28,.74)',                        // tile fill (a little see-through)
+  red: '#ff6a6a', live: '#3fdc86',            // Wednesday Night Football accent / OPEN chip
+  tag: '11 ON 11  -  YOU ARE THE QUARTERBACK',
+  hint: 'ARROWS + ENTER'
+};
+const LM = { menu: true, live: true, tiles: [], focus: 'lm_solo', kb: false, mx: -1, my: -1, press: null };
+try { LM.menu = localStorage.getItem(LM_LOOK.key) !== '0'; } catch(e){}
+if (!LM_LOOK.on) LM.menu = false;
+function lmSet(on){ LM.menu = !!on && LM_LOOK.on; try { localStorage.setItem(LM_LOOK.key, LM.menu ? '1' : '0'); } catch(e){} FB.lobbyNear = null; FB.lobbyDwell = 0; FB.lobbyLock = null; FB.camSnap = true; try { fbSfx('tick'); } catch(e){} }
+function lmActive(){ return !!(LM.menu && FB.scr === 'lobby' && !FB.av && !MD.on && !TOUR.open && !FB.lobbyPanel && !FB.shop && !FB.stats && !FB.lookOpen && !FB.hls && !FB.hlReel && !DEVX.ask && !FB.esc && !document.getElementById('fbDevBox')); }
+function lmAct(id){
+  LM.press = { id, t: performance.now() }; LM.focus = id;
+  if (id === 'lm_walk') { lmSet(false); return; }
+  if (id === 'lm_menu') { lmSet(true); return; }
+  if (id === 'lm_sign') { try { fbSfx('tick'); utAuthShow(true); } catch(e){} return; }
+  if (id === 'lm_hl') { fbSfx('tick'); fbAct('hlobby'); return; }
+  const d = FB_LPADS.find(q => 'lm_' + q.id === id); if (d) fbLobbyGo(d);
+}
+/* keyboard: arrows / WASD move the focus to the nearest tile in that direction, Enter / Space presses it (Esc keeps its old job: leave to the hub) */
+function lmKey(c){
+  if (!lmActive()) return false;
+  const dir = { ArrowLeft:[-1,0], KeyA:[-1,0], ArrowRight:[1,0], KeyD:[1,0], ArrowUp:[0,-1], KeyW:[0,-1], ArrowDown:[0,1], KeyS:[0,1] }[c];
+  if (dir) {
+    LM.kb = true; const T0 = LM.tiles, cur = T0.find(t => t.id === LM.focus) || T0[0]; if (!cur) return true;
+    if (cur.id !== LM.focus) { LM.focus = cur.id; return true; }
+    const cx = cur.x + cur.w/2, cy = cur.y + cur.h/2; let best = null, bs = 1e9;
+    T0.forEach(t => { if (t === cur) return; const dx = t.x + t.w/2 - cx, dy = t.y + t.h/2 - cy, a = dir[0] ? dx*dir[0] : dy*dir[1], o = dir[0] ? Math.abs(dy) : Math.abs(dx);
+      if (a < 2) return; const sc = a + o*2.6; if (sc < bs) { bs = sc; best = t; } });
+    if (best) { LM.focus = best.id; try { fbSfx('tick'); } catch(e){} }
+    return true;
+  }
+  if (c === 'Enter' || c === 'Space') { LM.kb = true; if (LM.focus) fbAct(LM.focus); return true; }
+  return false;
+}
+/* the avatar stays out of the menu picture (the circles + searchlights + motes are the atmosphere) */
+FBH.frame.push(function lmFrame(){ if (LM.menu && FB.scr === 'lobby' && !FB.av && FB.lobbyAv && FB.lobbyAv.rig) FB.lobbyAv.rig.root.visible = false; });
+/* ---- small vector icons, drawn in a -6..6 box ---- */
+function lmIcon(g, k, cx, cy, r, col, lw){
+  const s = r/6; g.save(); g.translate(cx, cy); g.scale(s, s); g.strokeStyle = col; g.fillStyle = col; g.lineWidth = lw/s; g.lineCap = 'round'; g.lineJoin = 'round';
+  const ln = (a,b,c2,d) => { g.beginPath(); g.moveTo(a,b); g.lineTo(c2,d); g.stroke(); }, bust = (x,sc,a) => { g.globalAlpha = a; g.beginPath(); g.arc(x,-2.6*sc,1.9*sc,0,6.3); g.stroke(); g.beginPath(); g.arc(x,5.6*sc,4.2*sc,Math.PI*1.18,Math.PI*1.82); g.stroke(); g.globalAlpha = 1; };
+  if (k === 'solo') { g.rotate(-0.62); g.beginPath(); g.ellipse(0,0,6.2,3.8,0,0,6.3); g.stroke(); ln(-2.4,0,2.4,0); [-1.5,0,1.5].forEach(x => ln(x,-1.3,x,1.3)); ln(-4.6,-2.2,-4.6,2.2); ln(4.6,-2.2,4.6,2.2); }
+  else if (k === 'coop') { bust(-2.9,0.9,0.7); bust(2.9,0.9,1); }
+  else if (k === 'v1') { g.beginPath(); g.arc(0,0,5.6,0,6.3); g.stroke(); g.font = '800 5.4px ' + UTX_LOOK.font; g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineWidth = 0.3; g.fillText('VS',0,0.5); }
+  else if (k === 'friend') { bust(-1.6,1,1); ln(3.6,-4.8,3.6,-0.6); ln(1.5,-2.7,5.7,-2.7); }
+  else if (k === 'ut') { g.save(); g.rotate(-0.2); g.globalAlpha = 0.55; g.beginPath(); g.moveTo(-5.4,-4.4); g.lineTo(-5.4,4.8); g.stroke(); g.restore(); g.save(); g.rotate(0.08); rrect(g,-3.6,-5.6,8.2,11.2,1.2); g.stroke(); g.beginPath(); g.moveTo(0.5,-2.6); g.lineTo(1.5,-0.4); g.lineTo(3.7,0.4); g.lineTo(1.5,1.2); g.lineTo(0.5,3.4); g.lineTo(-0.5,1.2); g.lineTo(-2.7,0.4); g.lineTo(-0.5,-0.4); g.closePath(); g.fill(); g.restore(); }
+  else if (k === 'tour') { g.beginPath(); g.moveTo(-3.4,-5.2); g.lineTo(3.4,-5.2); g.quadraticCurveTo(3.4,1.4,0,2.2); g.quadraticCurveTo(-3.4,1.4,-3.4,-5.2); g.stroke(); g.beginPath(); g.arc(-3.4,-2.6,2,Math.PI*0.5,Math.PI*1.5); g.stroke(); g.beginPath(); g.arc(3.4,-2.6,2,-Math.PI*0.5,Math.PI*0.5); g.stroke(); ln(0,2.2,0,4.2); g.fillRect(-2.8,4.2,5.6,1.5); }
+  else if (k === 'tut') { g.beginPath(); g.arc(-3.8,3.6,1.7,0,6.3); g.stroke(); ln(2.2,-5.2,5.2,-2.2); ln(5.2,-5.2,2.2,-2.2); g.setLineDash([1.2,1.2]); g.beginPath(); g.moveTo(-3.8,1.7); g.quadraticCurveTo(-4.4,-3.6,0.4,-3.7); g.stroke(); g.setLineDash([]); ln(0.4,-3.7,-0.9,-4.9); ln(0.4,-3.7,-0.9,-2.5); }
+  else if (k === 'shop') { rrect(g,-4.6,-2,9.2,7.4,1.2); g.stroke(); g.beginPath(); g.arc(0,-2,2.4,Math.PI,0); g.stroke(); ln(-1.8,1.4,-1.8,2.2); ln(1.8,1.4,1.8,2.2); }
+  else if (k === 'look') { g.beginPath(); g.arc(-0.4,0.8,5,Math.PI,0); g.lineTo(4.6,4); g.lineTo(-3.8,4); g.closePath(); g.stroke(); ln(4.6,0.4,1.4,0.4); ln(1.4,0.4,1.4,4); ln(1.4,2.2,4.6,2.2); }
+  else if (k === 'stats') { g.fillRect(-4.8,0.6,2.6,4.8); g.fillRect(-1.3,-2.6,2.6,8); g.fillRect(2.2,-5.4,2.6,10.8); }
+  else if (k === 'hl') { rrect(g,-5.6,-4,11.2,8,1.6); g.stroke(); g.beginPath(); g.moveTo(-1.6,-2); g.lineTo(2.6,0); g.lineTo(-1.6,2); g.closePath(); g.fill(); }
+  else if (k === 'anim') { g.beginPath(); g.arc(1.6,-4.4,1.3,0,6.3); g.fill(); ln(1,-2.8,-0.6,1.2); ln(0.8,-2,3.8,-0.4); ln(0.8,-2,-2.6,-1.2); ln(-0.6,1.2,2.6,3.2); ln(2.6,3.2,1.8,5.6); ln(-0.6,1.2,-3.4,3.4); ln(-3.4,3.4,-5,2.4); }
+  else if (k === 'how') { g.beginPath(); g.arc(0,0,5.6,0,6.3); g.stroke(); g.font = '800 7.4px ' + UTX_LOOK.font; g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineWidth = 0.3; g.fillText('?',0,0.7); }
+  else if (k === 'dev') { g.restore(); fbCheckDraw(g, cx, cy, r*0.92); return; }
+  g.restore();
+}
+/* the small section titles: PLAY / MODES / MORE */
+function lmLabel(g, txt, x, y, w, col){
+  utxT(g, txt, x, y, col, 2.7, 'left', { wt:800, sp:0.18, noTag:1 }); const tw = g.measureText(txt).width + txt.length*2.7*1.14*0.18;
+  g.fillStyle = 'rgba(130,160,210,.22)'; g.fillRect(x + tw + 3, y + 1.7, Math.max(0, w - tw - 3), 0.4);
+}
+function lmLines(g, s, px, maxW, maxN){
+  g.font = '700 ' + px + 'px ' + UTX_LOOK.font; try { g.letterSpacing = (px*0.08).toFixed(2) + 'px'; } catch(e){}
+  const out = []; let cur = ''; String(s).replace(/\s+/g, ' ').trim().split(' ').forEach(w => { const t = cur ? cur + ' ' + w : w; if (cur && g.measureText(t).width > maxW) { out.push(cur); cur = w; } else cur = t; });
+  if (cur) out.push(cur); try { g.letterSpacing = '0px'; } catch(e){} return out.slice(0, maxN);
+}
+function lmBtn(g, id, x, y, w, h, label, o){
+  const foc = LM.kb && LM.focus === id; if (LM.live) { FB.btns.push({ id, x, y, w, h }); LM.tiles.push({ id, x, y, w, h }); }
+  utxBtnDraw(g, x, y, w, h, label, o, (LM.live && utxHov(x,y,w,h)) || foc);
+  if (foc) { g.strokeStyle = UTX_LOOK.gold; g.lineWidth = 0.7; rrect(g,x-0.8,y-0.8,w+1.6,h+1.6,2.6); g.stroke(); }
+}
+/* one menu tile. o = { title (text or array of lines), sub, sub2, acc, icon, hero, ok, chip: [text, colour], count } */
+function lmTile(g, id, x, y, w, h, o){
+  const L = UTX_LOOK, live = LM.live, hov = live && utxHov(x,y,w,h), foc = live && LM.kb && LM.focus === id, e = utHovE('lm' + id, hov || foc), ok = o.ok !== false, acc = ok ? o.acc : L.mute, tall = h >= 34, row = h >= 21 && !tall;
+  if (live && !o.inert) { FB.btns.push({ id:o.bid || id, x, y, w, h }); LM.tiles.push({ id, x, y, w, h }); }
+  const pr = LM.press && LM.press.id === id ? Math.max(0, 1 - (performance.now() - LM.press.t)/200) : 0;
+  g.save(); if (!ok) g.globalAlpha = 0.78;
+  const gr = g.createLinearGradient(0,y,0,y+h); gr.addColorStop(0, LM_LOOK.tileTop); gr.addColorStop(1, LM_LOOK.tileBot); g.fillStyle = gr; rrect(g,x,y,w,h,2); g.fill();
+  if (o.hero && ok) { const hg = g.createLinearGradient(x,0,x+w,0); hg.addColorStop(0,'rgba(245,196,81,.13)'); hg.addColorStop(1,'rgba(245,196,81,0)'); g.fillStyle = hg; rrect(g,x,y,w,h,2); g.fill(); }
+  if (e > 0.02) { g.fillStyle = 'rgba(150,190,255,' + (0.10*e).toFixed(3) + ')'; rrect(g,x,y,w,h,2); g.fill(); }
+  if (pr > 0) { g.fillStyle = 'rgba(255,255,255,' + (0.14*pr).toFixed(3) + ')'; rrect(g,x,y,w,h,2); g.fill(); }
+  g.strokeStyle = (hov || foc) ? (foc ? L.gold : L.lineHi) : (o.hero && ok ? 'rgba(245,196,81,.6)' : L.line); g.lineWidth = foc ? 0.8 : 0.5; rrect(g,x+0.25,y+0.25,w-0.5,h-0.5,2); g.stroke();
+  g.fillStyle = acc; g.fillRect(x+0.6, y+(tall ? 5 : 3.2), 1.1, h-(tall ? 10 : 6.4));
+  const ink = ok ? (e > 0.5 ? '#ffffff' : acc) : L.mute, nx = 1.2*e, tc = ok ? L.white : '#9aa9c6';
+  if (tall) {
+    const r = h > 42 ? 7.2 : 6.2, icx = x+15+nx, icy = y+5+r*1.25;
+    g.fillStyle = brandRgba(acc, 0.13); g.beginPath(); g.arc(icx, icy, r*1.25, 0, 6.3); g.fill(); g.strokeStyle = brandRgba(acc, 0.4); g.lineWidth = 0.4; g.beginPath(); g.arc(icx, icy, r*1.25, 0, 6.3); g.stroke();
+    lmIcon(g, o.icon, icx, icy, r, ink, 1.05);
+    const tl = Array.isArray(o.title) ? o.title : [o.title], tsz = tl.length > 1 ? 4.5 : 5.4, tH = tsz*1.14, sl = o.sub ? lmLines(g, o.sub, 2.4*1.14, w-13, 1) : [], sl2 = o.sub2 ? lmLines(g, o.sub2, 2.4*1.14, w-13, 1) : [], sn = sl.length + sl2.length, subTop = y + h - 4.6 - sn*3.5, titleTop = subTop - 1.2 - tl.length*(tH + 0.8) + 0.8;
+    tl.forEach((t,i) => utxT(g, t, x+6.5+nx, titleTop + i*(tH+0.8), tc, tsz, 'left', { wt:800, sp:0.04, noTag:1, max:w-13 }));
+    sl.concat(sl2).forEach((t,i) => utxT(g, t, x+6.8+nx, subTop + i*3.5, i === 0 ? L.dim : acc, 2.4, 'left', { sp:0.08, noTag:1, max:w-12 }));
+    if (o.chip) utxChip(g, x+w-9, y+3.4, o.chip[0], o.chip[1]);
+    g.strokeStyle = (hov || foc) ? '#ffffff' : acc; g.lineWidth = 0.9; g.lineCap = 'round'; g.lineJoin = 'round'; g.beginPath(); g.moveTo(x+w-7.6+nx, y+h-9.2); g.lineTo(x+w-5.2+nx, y+h-6.8); g.lineTo(x+w-7.6+nx, y+h-4.4); g.stroke(); g.lineCap = 'butt'; g.lineJoin = 'miter';
+  } else if (row) {
+    const cy = y + h/2, icx = x+11+nx;
+    g.fillStyle = brandRgba(acc, 0.13); g.beginPath(); g.arc(icx, cy, 6.6, 0, 6.3); g.fill(); lmIcon(g, o.icon, icx, cy, 4.8, ink, 0.95);
+    const sl = o.sub ? lmLines(g, o.sub, 2.4*1.14, w-31, 1) : [], sl2 = o.sub2 ? lmLines(g, o.sub2, 2.4*1.14, w-31, 1) : [], sn = sl.length + sl2.length, th = 5.2, top = cy - (th + 1.2 + sn*3.4)/2;
+    utxT(g, Array.isArray(o.title) ? o.title.join(' ') : o.title, x+20.5+nx, top, tc, 4.6, 'left', { wt:800, sp:0.04, noTag:1, max:w-29 });
+    sl.concat(sl2).forEach((t,i) => utxT(g, t, x+20.8+nx, top + th + 1.2 + i*3.4, i === 0 ? L.dim : acc, 2.4, 'left', { sp:0.08, noTag:1, max:w-27 }));
+    g.strokeStyle = (hov || foc) ? '#ffffff' : acc; g.lineWidth = 0.9; g.lineCap = 'round'; g.lineJoin = 'round'; g.beginPath(); g.moveTo(x+w-6+nx, cy-2.2); g.lineTo(x+w-3.8+nx, cy); g.lineTo(x+w-6+nx, cy+2.2); g.stroke(); g.lineCap = 'butt'; g.lineJoin = 'miter';
+  } else {
+    const cy = y + h/2, icx = x+9.6+nx;
+    lmIcon(g, o.icon, icx, cy, 3.7, ink, 0.8);
+    utxT(g, o.title, x+16.5+nx, y+2.1, tc, 4.2, 'left', { wt:800, sp:0.04, noTag:1, max:w-(o.count != null ? 31 : 21) });
+    if (o.sub) utxT(g, o.sub, x+16.7+nx, y+8.7, o.subCol || L.dim, 2.3, 'left', { sp:0.08, noTag:1, max:w-(o.count != null ? 31 : 21) });
+    if (o.count != null) { const cw = 11; g.fillStyle = 'rgba(245,196,81,.14)'; rrect(g,x+w-cw-3,cy-3.3,cw,6.6,1.6); g.fill(); g.strokeStyle = 'rgba(245,196,81,.55)'; g.lineWidth = 0.4; rrect(g,x+w-cw-2.8,cy-3.1,cw-0.4,6.2,1.5); g.stroke(); utxT(g, String(o.count), x+w-cw/2-3, cy+0.2, L.gold, 3.6, 'center', { wt:800, mid:1, noTag:1, sp:0 }); }
+  }
+  g.restore();
+}
+function lmBg(g){
+  const L = UTX_LOOK, K = LM_LOOK, t = performance.now()/1000;
+  g.fillStyle = K.veil; g.fillRect(0,0,W,H);
+  let gr = g.createLinearGradient(0,0,W,0); gr.addColorStop(0,K.scrimL); gr.addColorStop(0.72,K.scrimL.replace('.80','.58')); gr.addColorStop(1,K.scrimR); g.fillStyle = gr; g.fillRect(0,0,W,H);
+  let rg = g.createRadialGradient(150,-10,0,150,-10,190); rg.addColorStop(0,L.glow); rg.addColorStop(1,'rgba(0,0,0,0)'); g.fillStyle = rg; g.fillRect(0,0,W,H);
+  gr = g.createLinearGradient(0,0,0,30); gr.addColorStop(0,'rgba(2,5,14,.62)'); gr.addColorStop(1,'rgba(2,5,14,0)'); g.fillStyle = gr; g.fillRect(0,0,W,30);
+  const c = L.streak;
+  for (let i = 0; i < 7; i++) {
+    const h1 = (i*0.618034) % 1, h2 = (i*0.381966 + 0.27) % 1, y = -10 + h1*(H+20), len = 120 + h2*190, th = 0.5 + ((i*7) % 5)*0.5, x0 = -80 + ((h2*520 + t*(1.2 + (i % 3)*0.7)) % (W + 240)) - 60, a = c[3]*(0.45 + 0.55*((i*37 % 10)/10));
+    const lg = g.createLinearGradient(x0,0,x0+len,0); lg.addColorStop(0,'rgba('+c[0]+','+c[1]+','+c[2]+',0)'); lg.addColorStop(0.5,'rgba('+c[0]+','+c[1]+','+c[2]+','+a.toFixed(3)+')'); lg.addColorStop(1,'rgba('+c[0]+','+c[1]+','+c[2]+',0)'); g.fillStyle = lg; g.fillRect(x0, y, len, th);
+  }
+  gr = g.createLinearGradient(0,H-34,0,H); gr.addColorStop(0,'rgba(2,4,10,0)'); gr.addColorStop(1,'rgba(2,4,10,.66)'); g.fillStyle = gr; g.fillRect(0,H-34,W,34);
+}
+function lmSpark(g, x, y, r, a){ g.save(); g.globalAlpha = a; g.fillStyle = '#ffe9a8'; g.beginPath(); g.moveTo(x,y-r); g.quadraticCurveTo(x+r*0.12,y-r*0.12,x+r,y); g.quadraticCurveTo(x+r*0.12,y+r*0.12,x,y+r); g.quadraticCurveTo(x-r*0.12,y+r*0.12,x-r,y); g.quadraticCurveTo(x-r*0.12,y-r*0.12,x,y-r); g.fill(); g.restore(); }
+function lmSub(id){ const d = FB_LPADS.find(q => q.id === id); return d ? fbLobbyPadSub(d) : ''; }
+function lmDraw(g){
+  const L = UTX_LOOK, K = LM_LOOK, t = performance.now()/1000, signed = typeof utSrv !== 'undefined' && !!utSrv.token, me = brandMatch().home;
+  LM.live = !(DEVX.ask || document.getElementById('fbDevBox')); LM.tiles.length = 0;
+  if (signed && !FBN.on) FB.diff = 2;                                  // the same rule the solo panel applies, so the SOLO subtitle already says ALL-PRO
+  lmBg(g);
+  lmHeader(g, 'ULTIMATE FOOTBALL', K.tag, '');
+  // ---- the three columns
+  const X = i => K.x0 + i*(K.cw + K.cg), fill = (ws) => { const tot = K.y1 - K.y0 - K.gap*(ws.length-1), sw = ws.reduce((a,b) => a+b, 0); return ws.map(v => tot*v/sw); };
+  const party = PARTY.on, okc = fbLobbyPadOk({ id:'coop' }), hlN = HL.ready ? HL.list.length : 0, TD = TOUR.d;
+  lmLabel(g, 'PLAY', X(0), 22.6, K.cw, L.teal); lmLabel(g, 'MODES', X(1), 22.6, K.cw, L.gold); lmLabel(g, 'MORE', X(2), 22.6, K.cw, '#6fc3ff');
+  const c1 = fill([1.55,1,1,1]), c2 = fill([1.8,1.8,1]), c3 = fill([1,1,1,1,1,1,1]);
+  const put = (col, hs, i, id, o) => { const yy = hs.slice(0,i).reduce((a,b) => a + b + K.gap, K.y0); lmTile(g, 'lm_' + id, X(col), yy, K.cw, hs[i], o); };
+  put(0,c1,0,'solo',  { title:'SOLO GAME', sub:lmSub('solo'), icon:'solo', acc:L.gold, hero:true });
+  put(0,c1,1,'coop',  { title:'CO-OP VS CPU', sub:lmSub('coop'), icon:'coop', acc:L.teal, ok:okc });
+  put(0,c1,2,'v1',    { title:'1V1 VS A FRIEND', sub:lmSub('v1'), icon:'v1', acc:L.teal, ok:okc });
+  put(0,c1,3,'friend',{ title:'PLAY WITH A FRIEND', sub:lmSub('friend'), sub2:party ? (PARTY.other ? 'WITH ' + fbnOtherName() : 'WAITING FOR A FRIEND') : '', icon:'friend', acc:party ? L.win : L.teal });
+  put(1,c2,0,'ut',    { title:'ULTIMATE TEAM', sub:lmSub('ut'), icon:'ut', acc:L.gold, hero:true });
+  put(1,c2,1,'tour',  { title:['WEDNESDAY NIGHT','FOOTBALL'], sub:lmSub('tour'), icon:'tour', acc:K.red, chip:TD && TD.state === 'signup' ? ['OPEN', K.live] : (TD && TD.state === 'running' ? ['LIVE', K.red] : null) });
+  put(1,c2,2,'tut',   { title:'TUTORIAL', sub:lmSub('tut'), icon:'tut', acc:L.teal });
+  const noHl = FBN.on || party; if (!noHl) { try { hlDbOpen(); } catch(e){} }
+  put(2,c3,0,'shop',  { title:'PLAY SHOP', sub:lmSub('shop'), icon:'shop', acc:'#6fc3ff' });
+  put(2,c3,1,'look',  { title:'PLAYER LOOK', sub:lmSub('look'), icon:'look', acc:'#6fc3ff' });
+  put(2,c3,2,'stats', { title:'MY STATS', sub:lmSub('stats'), icon:'stats', acc:'#6fc3ff' });
+  put(2,c3,3,'hl',    { title:'HIGHLIGHTS', sub:noHl ? 'LEAVE THE PARTY FIRST' : 'YOUR SAVED PLAYS', icon:'hl', acc:'#6fc3ff', count:noHl ? null : hlN, ok:!noHl, inert:noHl });
+  put(2,c3,4,'anim',  { title:'ANIMATIONS', sub:lmSub('anim'), icon:'anim', acc:'#6fc3ff' });
+  put(2,c3,5,'how',   { title:'HOW TO PLAY', sub:lmSub('how'), icon:'how', acc:'#6fc3ff' });
+  put(2,c3,6,'dev',   { title:'DEV STATUS', sub:fbDevOn() ? 'VERIFIED DEV' : 'ENTER YOUR CODE', icon:'dev', acc:'#6fc3ff' });
+  // ---- bottom row: the two graphics buttons (same ids), WALK AROUND, hints
+  lmBtn(g,'gfxq',6,159,76,10,'GRAPHICS: '+fbqLabel(),{ size:2.7, col:'#c792ff' });
+  lmBtn(g,'camstyle',86,159,70,10,'CAMERA: '+fbCamStyleName(),{ size:2.7, col:'#6fc3ff' });
+  lmBtn(g,'lm_walk',160,159,70,10,'WALK AROUND',{ size:2.7 });
+  lmFooter(g, K.hint);
+  try { onlPanelDraw(g); } catch(e){ console.error('onl', e); }
+  // hover moves the focus (keyboard focus ring only shows after a key press)
+  const m = FB.mouse; if (m && (m.x !== LM.mx || m.y !== LM.my)) { LM.mx = m.x; LM.my = m.y; LM.kb = false; }
+  if (!LM.kb && m && LM.live) { const h = LM.tiles.find(q => m.x >= q.x && m.x <= q.x+q.w && m.y >= q.y && m.y <= q.y+q.h); if (h) LM.focus = h.id; }
+  if (!LM.tiles.some(q => q.id === LM.focus)) LM.focus = 'lm_solo';
+  if (DEVX.ask) devAskDraw(g);
+}
+/* ---- the SOLO GAME panel in the same language (only while the menu is on; same ids and behaviour as the old panel: diff0-2, qlen0-5, play, lookOpen, hlobby, party, shop, tut, howlobby, stats, gfxq, camstyle, av_open, lobbyback, fbco, fb11, fbmd) ---- */
+function lmHeader(g, title, tag, backId){
+  const L = UTX_LOOK, K = LM_LOOK, t = performance.now()/1000, signed = typeof utSrv !== 'undefined' && !!utSrv.token, me = brandMatch().home;
+  const x0 = backId ? 22 : 7; if (backId) { utxBack(g, backId, 4, 4); if (LM.live) LM.tiles.push({ id:backId, x:4, y:4, w:14, h:12 }); else FB.btns = FB.btns.filter(b => b.id !== backId); }
+  utxTitle(g, title, x0, 4.6); const tw = g.measureText(title).width*1.04;
+  utxT(g, tag, x0 + 0.6, 14.4, L.gold, 2.5, 'left', { wt:700, sp:0.12, noTag:1 });
+  [[x0+tw+5,5.4,2.6,0],[x0+tw+11,10.6,1.5,1.7],[x0+tw,12.4,1.2,3.1]].forEach(p => lmSpark(g, p[0], p[1], p[2], 0.45 + 0.5*Math.max(0, Math.sin(t*2.1 + p[3]))));
+  utxBanner(g, 178, 3, 104, 15, me, String(signed ? utSrv.user : 'GUEST').toUpperCase(), signed ? utTeamOvr() : '--', 'OVR');
+  if (signed) { utxT(g, utSrv.coins+' COINS', 316, 5, L.gold, 3.3, 'right', { wt:800, noTag:1 }); if (utSrv.pass) utxT(g, 'PASS LV '+utSrv.pass.level, 316, 11.4, L.teal, 2.4, 'right', { wt:700, noTag:1, sp:0.1 }); }
+  else lmBtn(g,'lm_sign',286,5,30,10,'SIGN IN',{ size:2.5, on:true, col:L.gold, tab:1 });
+}
+function lmFooter(g, hint){
+  utxT(g, hint, 316, 161.6, UTX_LOOK.mute, 2.3, 'right', { wt:700, sp:0.1, noTag:1 });
+  if (PV2.state==='ready') T('MODELS: PLAYER BLAKEALLEN25 - HELMET EXODUSKS - CLEATS LISENHAO - TROPHY G_BORY32 (SKETCHFAB, CC BY 4.0)', 160, 176.6, '#5d6a8f', 2.1, 'center');
+  T('BUILD v164',314,171.6,'#8fa0cc',3,'right'); { const us = uoStatus(); if (us) T(us, 6, 173, UO.state==='off' ? '#ff8b7b' : '#6f7ea8', 2.6, 'left'); }
+}
+function lmPanel(g){
+  const L = UTX_LOOK, K = LM_LOOK, signed = typeof utSrv !== 'undefined' && !!utSrv.token, party = PARTY.on, fbn = FBN.on, lead = party && PARTY.leader, mem = party && !PARTY.leader, noHl = fbn || party;
+  LM.live = !document.getElementById('fbDevBox'); LM.tiles.length = 0;
+  if (signed && !fbn) FB.diff = 2;
+  lmBg(g); g.fillStyle = 'rgba(3,7,18,.22)'; g.fillRect(0,0,W,H);
+  lmHeader(g, party ? 'PARTY GAME' : 'SOLO GAME', K.tag, 'lobbyback');
+  // ---- left: the game set-up
+  utxPanel(g, 6, 24, 200, 124); const D = FBD[FB.diff];
+  lmLabel(g, 'DIFFICULTY', 14, 29.5, 184, L.teal);
+  FBD.forEach((d,i) => lmBtn(g,'diff'+i,14+i*63,36,60,22,d.n,{ size:5, on:FB.diff === i, tab:1 }));
+  utxT(g, ['SLOWER DEFENSE, LOTS OF TIME TO THROW','BALANCED - A FAIR FIGHT','FAST DEFENSE, TIGHT COVERAGE, BLITZES'][FB.diff], 106, 61.2, L.gold, 2.7, 'center', { wt:700, sp:0.08, noTag:1, max:190 });
+  lmLabel(g, 'QUARTER LENGTH', 14, 72, 184, L.teal);
+  FB_QLS.forEach((v,i) => lmBtn(g,'qlen'+i,14+i*31,79,29,13,(v/60)+' MIN',{ size:3.6, on:fbQL() === v, tab:1 }));
+  if (fbn || party) {
+    if (lead && PARTY.other) {
+      lmTile(g,'lm_p_fbco',14,98,91,26,{ bid:'fbco', title:'CO-OP VS CPU', sub:'YOU + '+fbnOtherName()+' VS CPU', sub2:'THEY RUN AS A RECEIVER', icon:'coop', acc:L.teal });
+      lmTile(g,'lm_p_fb11',107,98,91,26,{ bid:'fb11', title:'1V1 VS '+fbnOtherName(), sub:'YOU AND '+fbnOtherName(), sub2:'TRADE POSSESSIONS', icon:'v1', acc:L.gold });
+      lmBtn(g,'fbmd',14,128,124,12,'MEGA DRAFT 1V1 VS '+fbnOtherName(),{ size:3.2, col:'#c792ff', on:true }); lmBtn(g,'play',142,128,56,12,'SOLO GAME',{ size:3.2 });
+    } else if (lead) {
+      utxT(g, 'WAITING FOR A FRIEND TO JOIN YOUR PARTY...', 106, 100, L.gold, 3.2, 'center', { wt:700, sp:0.08, noTag:1, max:186 }); lmBtn(g,'play',46,114,120,20,'PLAY SOLO',{ size:6, primary:true });
+    } else if (mem) {
+      utxT(g, 'WAITING FOR '+fbnOtherName()+' TO PICK A GAME MODE', 106, 102, L.gold, 3.4, 'center', { wt:800, sp:0.08, noTag:1, max:186 }); utxT(g, 'THEY ARE THE PARTY LEADER', 106, 111, L.dim, 2.7, 'center', { sp:0.1, noTag:1 });
+    }
+    if (FBN.msg && lead) utxT(g, FBN.msg, 106, 142, L.win, 2.7, 'center', { wt:700, sp:0.06, noTag:1, max:190 });
+  } else {
+    lmBtn(g,'play',14,106,184,34,'PLAY',{ size:11, primary:true });
+    utxT(g, 'ENTER = PLAY', 106, 142, L.mute, 2.2, 'center', { wt:700, sp:0.12, noTag:1 });
+  }
+  if (PARTY.npc && !party) utxT(g, PARTY.npc.name+' SUITS UP AS YOUR W1', 106, 142, L.win, 2.7, 'center', { wt:700, noTag:1, max:190 });
+  // ---- right: the other lobby buttons, same ids
+  if (!noHl) { try { hlDbOpen(); } catch(e){} }
+  const hlN = HL.ready ? HL.list.length : 0, rows = [
+    ['lookOpen','PLAYER LOOK','HEIGHT / BUILD / COLORS','look'],
+    ['hlobby','HIGHLIGHTS',noHl ? 'LEAVE THE PARTY FIRST' : 'YOUR SAVED PLAYS','hl'],
+    ['party',party ? 'PARTY  '+PARTY.code.toUpperCase() : 'PLAY WITH A FRIEND',party ? (PARTY.other ? 'WITH '+fbnOtherName() : 'WAITING FOR A FRIEND') : 'MAKE OR JOIN A PARTY','friend'],
+    ['shop','PLAY SHOP','UNLOCK PLAYS','shop'], ['tut','TUTORIAL','LEARN THE GAME','tut'], ['howlobby','HOW TO PLAY','CONTROLS AND RULES','how'], ['stats','MY STATS','YOUR RECORD','stats']];
+  const hh = (124 - 6*3)/7; rows.forEach((r,i) => { const hl = r[0] === 'hlobby'; lmTile(g,'lm_p_'+r[0],212,24+i*(hh+3),102,hh,{ bid:r[0], title:r[1], sub:r[2], icon:r[3], acc:r[0] === 'party' && party ? L.win : '#6fc3ff', count:hl && !noHl ? hlN : null, ok:!(hl && noHl), inert:hl && noHl }); });
+  // ---- bottom row
+  lmBtn(g,'gfxq',6,159,76,10,'GRAPHICS: '+fbqLabel(),{ size:2.7, col:'#c792ff' }); lmBtn(g,'camstyle',86,159,70,10,'CAMERA: '+fbCamStyleName(),{ size:2.7, col:'#6fc3ff' });
+  if (avDev() && !fbn && !party) lmBtn(g,'av_open',160,159,70,10,'ANIMATION VIEWER',{ size:2.7, col:'#ff8ad8' });
+  lmFooter(g, 'LEFT / RIGHT = DIFFICULTY    ESC = BACK');
+  return true;
+}
+/* the camera while the menu is up: a slow sway behind the 20 yard line looking down the field to the trophy, the picture shifted so the field sits in the strip right of the tiles */
+function lmCam(t){
+  const cx = 8 + 4*Math.sin(t*0.045 + 1), cz = 11*Math.sin(t*0.06), tx = 50; let fx = tx - cx, fz = -cz; const fl = Math.hypot(fx, fz) || 1; fx /= fl; fz /= fl;
+  return { x:cx, y:9.8 + 0.9*Math.sin(t*0.09), z:cz, lx:tx + fz*13, ly:2.2, lz:-fx*13 };
+}
+/* the walking lobby's way back to the menu: a small button in its top corner */
+function lmWalkBtn(g){ if (LM_LOOK.on) fbBtn(g,'lm_menu',250,4,64,11,'MAIN MENU',{ size:4.2, line:'#f5c451', tc:'#ffe6a6' }); }
+/* ----- LANE:LM end ----- */
 /*
  *
  */
@@ -21765,7 +22005,7 @@ function fbSetup(play){
   if (!s.keepD) s.disg = (!s.defMode && !FBN.on && !s.tutMode && !play.kneel && !play.spike && (FB.forceDisg || (!FB.noDisg && Math.random() < 0.35))) ? 1 : 0;
   if (s.disg) { if (s.shell2) { DP.S1 = [8,-7]; DP.S2 = [15,0]; } else { DP.S1 = [14,-8]; DP.S2 = [14,8]; } }
   if (s.adjShift|0) ['CB1','CB2','S1','S2'].forEach(r => { DP[r] = [DP[r][0], clamp(DP[r][1] + (s.adjShift|0)*3, -FB_Z+2, FB_Z-2)]; });   // V46 (11): the secondary shift (7/8) survives audibles
-  fbDef().forEach(p => { fbPlace(p, Math.min(los+DP[p.role][0], 118.5), DP[p.role][1], Math.PI,   /* v163: inside the field (a deep safety near the goal line was placed at x 122 and the bounds clamp yanked him 3-4 yd on the first live tick) */ (fbKind(p.role)==='DL' && DP[p.role][0] < 2.5) ? 'stance' : 'ready'); });
+  fbDef().forEach(p => { fbPlace(p, Math.min(los+DP[p.role][0], 118.5), DP[p.role][1], Math.PI,   /* v164: inside the field (a deep safety near the goal line was placed at x 122 and the bounds clamp yanked him 3-4 yd on the first live tick) */ (fbKind(p.role)==='DL' && DP[p.role][0] < 2.5) ? 'stance' : 'ready'); });
   fbDef().forEach(p => { p.base = DP[p.role]; p.adjTo = null; p.disgT = 0; }); { const a = fbBy('S1'), b = fbBy('S2'); if (a) a.realBase = realS.S1; if (b) b.realBase = realS.S2; }   // V46: where the safeties REALLY belong (the disguise toggle walks them back)
   fbMotionSetup(play);
   s.ball = { mode:'ground', x:los, z:0, ry:0 };
@@ -21899,14 +22139,14 @@ function fbPathHit(p){                                              // ANYTIME: 
 }
 
 /* ------------------------------------------------------------------ movement */
-function fbOffCeil(){          // the fastest an offensive skill player can run right now: no defender may out-run it (v163: defenders win with reads and angles, never with speed)
+function fbOffCeil(){          // the fastest an offensive skill player can run right now: no defender may out-run it (v164: defenders win with reads and angles, never with speed)
   const s = FB.s; if (!s) return 99; if (fbOffCeil.t === s.t && fbOffCeil.v) return fbOffCeil.v;
   let m = 0; fbRigs.forEach(q => { if (q.side === 'O' && /^(W|TE|RB)/.test(q.role)) { const v = FB_SP[fbKind(q.role)] * (q.ur ? q.ur.spd : 1) * fbRm(q); if (v > m) m = v; } });
   fbOffCeil.t = s.t; return fbOffCeil.v = (m || 9.8);
 }
 function fbMove(p, tx, tz, maxSp, dt, acc){
   if (p.ur) maxSp *= p.ur.spd;                                                  // Ultimate Team: the equipped card's speed
-  if (p.side === 'D' && !p.carry && !(FB.s && FB.s.turn)) maxSp = Math.min(maxSp, fbOffCeil());   // v163 speed limit: never faster than the offense
+  if (p.side === 'D' && !p.carry && !(FB.s && FB.s.turn)) maxSp = Math.min(maxSp, fbOffCeil());   // v164 speed limit: never faster than the offense
   const dx = tx-p.x, dz = tz-p.z, d = Math.hypot(dx,dz);
   let want = Math.min(maxSp, d*5.5); if (d < 0.05) want = 0;
   let wx = d>0.001 ? dx/d*want : 0, wz = d>0.001 ? dz/d*want : 0;
@@ -21989,7 +22229,7 @@ function fbLive(dt){
     const top = c.carry ? (c.role==='RB' ? 9.8 : c.role==='QB' ? 8.2 : 9.8) : 8.0;
     const bk = (c.carry && c.role==='RB' && s.play && fbIsRun(s.play) && c.x < s.los+0.4) ? 1.3 : 1;        // V80: the back gets a burst while he is still behind the line
     const sp = ((spr || c.hsT > 0) ? top : base) * fbRm(c) * bk;   // V46: the juke cost (p.jukeK) is applied in fbVel so the CPU carrier and defenders pay the same
-    if (c.diveT > 0 || c.wrapBy || c.brkBy || c.possT > 0 || fbPoOn(c))   /* v163: + driven out of bounds */ { /* diving / sliding, or wrapped up and fighting forward: moved elsewhere */ }
+    if (c.diveT > 0 || c.wrapBy || c.brkBy || c.possT > 0 || fbPoOn(c))   /* v164: + driven out of bounds */ { /* diving / sliding, or wrapped up and fighting forward: moved elsewhere */ }
     else if (c.juke > 0) { c.juke -= dt; c.st = 'juke'; fbVel(c, c.jx, c.jz, dt, 90); }
     else if (c.auto && c.route) { const o = c.spd; if (bk > 1 && o) c.spd = o*bk; fbRouteStep(c, dt); c.spd = o; }
     else {
@@ -22053,22 +22293,22 @@ function fbLive(dt){
   try { uoStep(dt); } catch(e){}
   try { fbFpStep(); } catch(e){}
   fbFalls();
-  try { fbSpeedClamp(dt); } catch(e){ console.error('speed clamp', e); }   // v163 safety net: nobody but the ball carrier can move faster than his legs this tick
+  try { fbSpeedClamp(dt); } catch(e){ console.error('speed clamp', e); }   // v164 safety net: nobody but the ball carrier can move faster than his legs this tick
   fbCamFocus();
 }
-const fbClampStat = { n:0, max:0, who:'' };   // v163: how often (and by how much) the per-tick speed limit had to step in - read by the test harness
-function fbSpeedCap(p){                         // v163: his real top speed (sim yd/s): position speed x card speed x role, a burst, the user's sprint; a CPU defender also never beats the offense's fastest man
+const fbClampStat = { n:0, max:0, who:'' };   // v164: how often (and by how much) the per-tick speed limit had to step in - read by the test harness
+function fbSpeedCap(p){                         // v164: his real top speed (sim yd/s): position speed x card speed x role, a burst, the user's sprint; a CPU defender also never beats the offense's fastest man
   const s = FB.s, k = fbKind(p.role), us = (p.ur && p.ur.spd) || 1; let c = (FB_SP[k.charAt(0)==='W' ? 'W' : k] || 9.3)*us*fbRm(p);
   if (p.side === 'O') c = Math.max(c, fbTopSpeed(p, false)*us);
   if (p.burstT > 0) c *= 1.12;
   if (fbUD(p) || p === s.ctl) c *= 1.15; else if (p.side === 'D' && !s.turn) c = Math.min(c, Math.max(fbOffCeil(), 8.2*us));
   return c;
 }
-function fbSpeedClamp(dt){                      // v163: |position change| per live tick <= top speed x dt x 1.1 for every non-carrier (fbSkillTimers stores prevX/prevZ at the start of the tick)
+function fbSpeedClamp(dt){                      // v164: |position change| per live tick <= top speed x dt x 1.1 for every non-carrier (fbSkillTimers stores prevX/prevZ at the start of the tick)
   const s = FB.s; if (!s || !(dt > 0)) return; const car = s.carrier || (s.ball && s.ball.mode==='held' ? s.ball.h : null);
   fbRigs.forEach(p => {
     if (p.prevX === undefined || p === car || p.carry || p.juke > 0) return;
-    const px0 = clamp(p.prevX, 1, 119), pz0 = clamp(p.prevZ, -FB_Z-3, FB_Z+3), dx = p.x - px0, dz = p.z - pz0, /* v163: measured from his in-bounds start so the field clamp itself is never undone */ d = Math.hypot(dx, dz), cap = fbSpeedCap(p);
+    const px0 = clamp(p.prevX, 1, 119), pz0 = clamp(p.prevZ, -FB_Z-3, FB_Z+3), dx = p.x - px0, dz = p.z - pz0, /* v164: measured from his in-bounds start so the field clamp itself is never undone */ d = Math.hypot(dx, dz), cap = fbSpeedCap(p);
     const an = (p.uo && p.uo.anchor) || (car && (car.brkBy === p || car.wrapBy === p || car.poBy === p) ? car : null);   // glued to a runner (tackle / catch pair, shed, push-out): he may also move with him
     let lim = cap*dt*(p.dtk && !p.dtk.landed ? 2.3 : p.diving ? 1.4 : 1.1) + 0.004; if (an && an.prevX !== undefined) lim += Math.hypot(an.x - an.prevX, an.z - an.prevZ);
     if (d > lim) { const k = lim/d; p.x = px0 + dx*k; p.z = pz0 + dz*k; fbClampStat.n++; if (d - lim > fbClampStat.max) { fbClampStat.max = d - lim; fbClampStat.who = p.side + p.role + ':' + (p.st || '') + (p.down ? ':down' : ''); } }
@@ -22177,7 +22417,7 @@ function fbDefStep(dt){
     if (car && (car.slid || car.kneel) && !(d.eng && !d.free)) { fbVel(d,0,0,dt,22); d.st = 'ready'; return; }   // he gave himself up: pull up
     const k = fbKind(d.role), msp = FB_SP[k] * D.def * (s.tutMode && s.defMode ? 0.45 : 1);   // top speed is Speed (in fbMove) and difficulty only
     let sl = d.slow!==undefined ? d.slow : 1; d.slow = 1; if (d.disgT > 0) { d.disgT -= dt; sl *= 1.35; }   // V46: rotating out of a disguise in the first 0.6 s
-    if (d.stun > 0) { d.st = d.lungeT > 0 ? 'lunge' : 'stumble'; fbVel(d,0,0,dt,d.offG ? (d.fallT > 0.24 ? 45 : 6) : 30);   /* v163: knocked off his feet: once he is on the turf the ground stops him (was 6 yd/s2 the whole time = 2-3 yd glides on his back) */
+    if (d.stun > 0) { d.st = d.lungeT > 0 ? 'lunge' : 'stumble'; fbVel(d,0,0,dt,d.offG ? (d.fallT > 0.24 ? 45 : 6) : 30);   /* v164: knocked off his feet: once he is on the turf the ground stops him (was 6 yd/s2 the whole time = 2-3 yd glides on his back) */
       if (d.offG) { if (d.stun < 0.5) { d.fallTo = 0; d.fall *= 0.88; d.st = 'rise'; } if (d.stun <= dt+0.001) { d.offG = false; d.fall = 0; d.fallTo = 0; d.fallRoll = 0; } } return; }
     if (d.eng && !d.free) return;                                  // locked up with a blocker (handled in the line code)
     if (d.tackling) return;
@@ -22192,7 +22432,7 @@ function fbDefStep(dt){
       if (run && tg.carry && Math.abs(tg.vz||0) > 2) { const dz = Math.sign(tg.vz), rel = (d.z - tg.z)*dz;                                   // leverage: keep the runner inside you so he can't bounce
         if (rel < 1.5) pz += dz*(0.15 + 1.9*IQ)*clamp(fbDist(d,tg)/7, 0.25, 1); }
       if (d.contain && !fbVs() && s.t < 1.3 + 2.4*IQ && !(tg.x > d.x + 1.2)) { const m = 0.5 + 1.3*IQ; pz = d.contain > 0 ? Math.max(pz, tg.z + m) : Math.min(pz, tg.z - m); }   // contain: the edge man stays outside longer and wider at higher tiers
-      if (tg.carry && !s.turn) { const sg = Math.sign(tg.z) || 1, sd = FB_Z - Math.abs(tg.z), dd = fbDist(d,tg); if (sd < 5 && dd < 8 && d.z*sg < tg.z*sg + 0.5) { const ins = clamp((5 - sd)/3.5, 0, 1)*clamp(dd/2.5, 0.3, 1); pz = sg*Math.min(pz*sg, (ic.z - sg*0.9*ins)*sg); } }   // v163: near the sideline take the inside-out angle (the sideline is the 12th man): a hit from the inside can drive him out
+      if (tg.carry && !s.turn) { const sg = Math.sign(tg.z) || 1, sd = FB_Z - Math.abs(tg.z), dd = fbDist(d,tg); if (sd < 5 && dd < 8 && d.z*sg < tg.z*sg + 0.5) { const ins = clamp((5 - sd)/3.5, 0, 1)*clamp(dd/2.5, 0.3, 1); pz = sg*Math.min(pz*sg, (ic.z - sg*0.9*ins)*sg); } }   // v164: near the sideline take the inside-out angle (the sideline is the 12th man): a hit from the inside can drive him out
       fbMove(d, px, pz, v, dt, d.rusher && k==='LB' ? 14 : 36); };
     if (s.turn) { const ch = s.carrier; fbBlockDef(d,dt); return; }
     // someone has the ball and it's a live carry -> pursue
@@ -22258,7 +22498,7 @@ function fbDefStep(dt){
       if (behind) { tx = r.x + r.vx*0.25; tz = r.z + r.vz*0.25; }
       if ((s.rdL||0) > 0 && r!==s.ctl) { const pr = fbObsPred(r, s.t + 0.75); if (pr) { const w = 0.65*s.rdL; tx += (pr.x + 0.4 - tx)*w; tz += (pr.z - tz)*w; } }   // he saw where this guy went from this setup last time: jump it
       fbMove(d, tx, tz, msp*sl, dt, D.acc + (k==='CB'?4:0) + (d.disgT>0?60:0));   // full Speed; skill shows in where he goes and when he sees it
-      if (fbCpuDef(d) && (FB.lock||0) > 0 && s.t > 0.45 && !(d.biteT > 0) && !(d.eng && !d.free)) { const pk = clamp(2.2*FB.lock*dt, 0, 0.4); fbLockNudge(d, tx, tz, pk, msp*sl, dt); }   // v163: was d.x += (tx-d.x)*pk: an unlimited position lerp = 40-90 yd/s teleports onto his man right at t=0.45   // v163: a lockdown corner stays glued to his man   // a corner who is much worse than the receiver gets torn apart (slow to react, big cushion); a lockdown corner stays on him
+      if (fbCpuDef(d) && (FB.lock||0) > 0 && s.t > 0.45 && !(d.biteT > 0) && !(d.eng && !d.free)) { const pk = clamp(2.2*FB.lock*dt, 0, 0.4); fbLockNudge(d, tx, tz, pk, msp*sl, dt); }   // v164: was d.x += (tx-d.x)*pk: an unlimited position lerp = 40-90 yd/s teleports onto his man right at t=0.45   // v164: a lockdown corner stays glued to his man   // a corner who is much worse than the receiver gets torn apart (slow to react, big cushion); a lockdown corner stays on him
       fbFace(d, r.x, r.z);
     } else if (cv && cv.spot && s.fav) {
       // sitting on your favourite spot: shade over early, then drive on it as the QB sets up
@@ -22280,7 +22520,7 @@ function fbDefStep(dt){
       if (thr) { if (deep) { tx = Math.max(zx-3, thr.x + 3 + (1-fbCovEff(D,d,thr))*1.5); tz = thr.z*0.7 + zz*0.3; } else { tx = thr.x + 1.3; tz = thr.z + (thr.z > zz ? -0.3 : 0.3); } }
       else if (s.t > 1.2) tz = zz + (q.z-zz)*0.2;
       fbMove(d, tx, tz, msp*(deep ? 1.04 : 0.97)*sl, dt, D.acc+3+(d.disgT>0?60:0));
-      if (thr && fbCpuDef(d) && (FB.lock||0) > 0 && s.t > 0.6 && !(d.eng && !d.free)) { const pk = clamp(1.6*FB.lock*dt, 0, 0.3); fbLockNudge(d, tx, tz, pk, msp*sl, dt); }   // v163: speed-limited (was a raw position lerp)   // v163: the zone closes on the receiver
+      if (thr && fbCpuDef(d) && (FB.lock||0) > 0 && s.t > 0.6 && !(d.eng && !d.free)) { const pk = clamp(1.6*FB.lock*dt, 0, 0.3); fbLockNudge(d, tx, tz, pk, msp*sl, dt); }   // v164: speed-limited (was a raw position lerp)   // v164: the zone closes on the receiver
       fbFace(d, q.x, q.z);
     } else if (cv && cv.zone && k==='CB') {
       d.aiState = 'ZONE_COVERAGE'; const [zz] = cv.zone; let thr = null, best = -1;
@@ -22307,7 +22547,7 @@ function fbDefStep(dt){
     }
   });
 }
-function fbLockNudge(d, tx, tz, pk, msp, dt){   // v163: the lockdown glue may only spend the speed he has left this tick (top speed and the offense's ceiling still rule)
+function fbLockNudge(d, tx, tz, pk, msp, dt){   // v164: the lockdown glue may only spend the speed he has left this tick (top speed and the offense's ceiling still rule)
   const cap = Math.min(msp*((d.ur && d.ur.spd) || 1), fbOffCeil()), room = Math.max(0, cap - Math.hypot(d.vx||0, d.vz||0))*dt;
   const dx = (tx - d.x)*pk, dz = (tz - d.z)*pk, L = Math.hypot(dx, dz); if (L < 1e-6 || room <= 0) return; const k = Math.min(1, room/L); d.x += dx*k; d.z += dz*k;
 }
@@ -22329,7 +22569,7 @@ function fbAimBehind(aim){                              // aiming within 2 yd of
   return fbOff().some(o => ['W1','W2','W3','TE','RB'].includes(o.role) && !o.down && Math.hypot(o.vx||0,o.vz||0) > 6 && Math.hypot(o.x-aim.x, o.z-aim.z) < 2);
 }
 /* ====================================================================================================
-   QB THROWING (v163). One continuous power curve (how long you hold), the QB's arm (Throw Power) and body (planted, stepping in,
+   QB THROWING (v164). One continuous power curve (how long you hold), the QB's arm (Throw Power) and body (planted, stepping in,
    rolling, sprinting, backpedaling, jumping back, off balance, pressure) shape release SPEED and ACCURACY separately.
    The throw is a real motion: the arm cocks while you hold, whips forward when you let go, and the ball leaves the hand on the
    release frame. The flight itself is the same projectile as before (same arcs, same landing math, same catching).
@@ -22389,24 +22629,24 @@ function qbtBody(q, aim, pw){                                // what his body is
   else cat = P < 0.15 ? (L < 10 ? 'qb_quick_dish' : 'qb_short') : P < 0.4 ? 'qb_short' : P < 0.78 ? 'qb_medium' : 'qb_full_power';
   return { mv, ma, maC, cat, sp, step, back, side, sprint, across, off, press, air, dx:sp > 0.2 ? vx/sp : 0, dz:sp > 0.2 ? vz/sp : 0 };
 }
-function qbtRelTime(q, pw, B, cpu){ const C = QB_THROW.cfg; let t = (C.rel[0] + (C.rel[1] - C.rel[0])*pw)*(1 + C.relArm*(0.5 - qbtArmN(q)))*((q && q.ur && q.ur.rel) || 1);   /* v163: a quick-release QB gets the ball out sooner */ if (B.cat === 'qb_off_balance') t *= 0.85; return cpu ? t*C.cpuRel : t; }
+function qbtRelTime(q, pw, B, cpu){ const C = QB_THROW.cfg; let t = (C.rel[0] + (C.rel[1] - C.rel[0])*pw)*(1 + C.relArm*(0.5 - qbtArmN(q)))*((q && q.ur && q.ur.rel) || 1);   /* v164: a quick-release QB gets the ball out sooner */ if (B.cat === 'qb_off_balance') t *= 0.85; return cpu ? t*C.cpuRel : t; }
 function qbtFlightT(d, pw, thrPow){                          // the old touch arc at no power, the old bullet at full power, a real blend in between
   const tb = fbFlightT(d, 0, 'pass'), tl = Math.min(tb*1.35 + 0.5*clamp(d/25, 0.2, 1), 3.6), k = pw*pw*(3 - 2*pw);
-  return (tl + (tb - tl)*k)*QB_THROW.cfg.air/(thrPow || 1);   // v163: a little more air time everywhere
+  return (tl + (tb - tl)*k)*QB_THROW.cfg.air/(thrPow || 1);   // v164: a little more air time everywhere
 }
 function qbtV(d, t, y0){ const vh = d/t, vy = (0.45 - y0 + 0.5*FB_G*t*t)/t; return Math.hypot(vh, vy); }
 function qbtTMin(d, y0){ let a = 0.12, b = 6; for (let i = 0; i < 36; i++) { const m1 = a + (b - a)*0.382, m2 = a + (b - a)*0.618; if (qbtV(d, m1, y0) < qbtV(d, m2, y0)) b = m2; else a = m1; } return (a + b)/2; }   // the flight time that needs the least arm
 function qbtReach(y0, vCap){ let lo = 1.5, hi = 120; for (let i = 0; i < 26; i++) { const m = (lo + hi)/2; if (qbtV(m, qbtTMin(m, y0), y0) <= vCap) lo = m; else hi = m; } return lo; }     // the farthest he can get it at this speed
 function qbtSolve(sx, sz, y0, tx, tz, tDes, vCap){          // the ball ALWAYS lands on the spot. Keep the wanted flight time when the arm can make it; else more air (a higher arc); past his arm's reach: the highest, easiest arc that still gets there
   const d = Math.hypot(tx - sx, tz - sz), tm = qbtTMin(d, y0);
-  if (qbtV(d, tm, y0) > vCap) return { t:tm, tx, tz, short:false, far:true };      // v163: never short - he heaves it up and it comes down on the spot
+  if (qbtV(d, tm, y0) > vCap) return { t:tm, tx, tz, short:false, far:true };      // v164: never short - he heaves it up and it comes down on the spot
   if (qbtV(d, tDes, y0) <= vCap) return { t:tDes, tx, tz, short:false };
   let bad = tDes, good = tm; for (let i = 0; i < 28; i++) { const m = (bad + good)/2; if (qbtV(d, m, y0) <= vCap) good = m; else bad = m; } return { t:good, tx, tz, short:false };
 }
 function qbtCanReach(q, aim, pw){ if (!q || !aim) return true; const B = qbtBody(q, aim, pw), d = Math.hypot(aim.x - q.x, aim.z - q.z); return qbtReach(2.2, qbtVCap(q, qbtPowEff(pw, B.mv), 1)) >= d - 0.5; }
 function qbtStep(dt){                                        // every live frame: the cock while you hold, the forward whip to the release frame, the follow-through
   const s = FB.s, q = fbBy('QB'); if (!q) return; const C = QB_THROW.cfg, P = s.throwPend, A = q.qbt;
-  if (q.thFace != null) { if ((P || q.throwAnim > 0) && !q.down && !q.tackling) { let da = q.thFace - q.face; while (da > Math.PI) da -= 2*Math.PI; while (da < -Math.PI) da += 2*Math.PI; const rem = P ? Math.max(0.04, P.at - s.t) : 0.04, st = Math.max(10, Math.abs(da)/rem*1.3)*dt; q.face += Math.abs(da) <= st ? da : Math.sign(da)*st; } else q.thFace = null; }   // v163: shoulders square to the target by the release
+  if (q.thFace != null) { if ((P || q.throwAnim > 0) && !q.down && !q.tackling) { let da = q.thFace - q.face; while (da > Math.PI) da -= 2*Math.PI; while (da < -Math.PI) da += 2*Math.PI; const rem = P ? Math.max(0.04, P.at - s.t) : 0.04, st = Math.max(10, Math.abs(da)/rem*1.3)*dt; q.face += Math.abs(da) <= st ? da : Math.sign(da)*st; } else q.thFace = null; }   // v164: shoulders square to the target by the release
   if (s.charging && s.ctl === q && !P && !s.thrown && s.ball.mode === 'held') {
     const want = Math.hypot(q.vx || 0, q.vz || 0) < C.cockMaxSpd ? clamp((s.chargeF || 0)/60/(C.cockS*((q.ur && q.ur.rel) || 1)), 0, 1) : 0;
     q.qbCk = want; q.qbPh = want; q.qbCat = q.qbCat || 'qb_medium';
@@ -22458,15 +22698,15 @@ function qbtClipTime(p, dur){                                // phase 0..1 windu
 function fbThrowCircle(ax, az, pw){      // where the ball CAN land: radius grows with distance and shrinks with QB accuracy; it stretches the way a bad QB is moving
   const s = FB.s, q = s && s.ctl; if (!q || q.role!=='QB') return null;
   if (xfHas(q, 'unshakable')) return { r:0.1, a:0.1, c:0.1, ux:1, uz:0, ox:0, oz:0, ang:0 };      // UNSHAKABLE: no warp, no spread - the circle is a dot on the spot
-  const d = Math.hypot(ax-q.x, az-q.z), ovr = q.ur && q.ur.thrCirc!=null ? q.ur.thrCirc : q.ur && q.ur.ovr!=null ? q.ur.ovr : 80, acc = clamp((ovr-50)/40, 0, 1);   // v163: a card can set its own throwing accuracy for the circle ('Throw Accuracy'); everyone else: overall
+  const d = Math.hypot(ax-q.x, az-q.z), ovr = q.ur && q.ur.thrCirc!=null ? q.ur.thrCirc : q.ur && q.ur.ovr!=null ? q.ur.ovr : 80, acc = clamp((ovr-50)/40, 0, 1);   // v164: a card can set its own throwing accuracy for the circle ('Throw Accuracy'); everyone else: overall
   const press = fbDef().some(p => !p.down && !(p.eng && !p.free) && p.rusher && fbDist(p,q) < 3.3);
-  let r = (2.6 - 2.35*acc + (0.115 - 0.105*acc)*d) * (press ? 1.6 : 1) * ((q.ur && q.ur.circK) || 1);   // v163: a card can run a tighter (or looser) circle ('Circle Size')                 // 60 OVR: huge at any range, wider the deeper he goes. 99 OVR: tiny short and deep.
+  let r = (2.6 - 2.35*acc + (0.115 - 0.105*acc)*d) * (press ? 1.6 : 1) * ((q.ur && q.ur.circK) || 1);   // v164: a card can run a tighter (or looser) circle ('Circle Size')                 // 60 OVR: huge at any range, wider the deeper he goes. 99 OVR: tiny short and deep.
   const sp = Math.hypot(q.vx||0, q.vz||0), w = clamp(sp/7, 0, 1.3) * (1 - 0.7*acc) * 1.8;   // throwing on the run: bad QBs get a stretched, shifted circle
-  { const P0 = pw != null ? pw : (s.charging ? qbtPower((s.chargeF||0)/60) : 0.5), Bq = qbtBody(q, { x:ax, z:az }, P0); r *= Bq.maC*(1 + 0.12*P0*(1 - qbtAccN(q))); }   // v163: his body and how hard he lets it go
+  { const P0 = pw != null ? pw : (s.charging ? qbtPower((s.chargeF||0)/60) : 0.5), Bq = qbtBody(q, { x:ax, z:az }, P0); r *= Bq.maC*(1 + 0.12*P0*(1 - qbtAccN(q))); }   // v164: his body and how hard he lets it go
   const ux = sp > 0.3 ? q.vx/sp : 1, uz = sp > 0.3 ? q.vz/sp : 0;
   return { r, a:r*(1+w), c:r*(1+0.15*w), ux, uz, ox:ux*r*w*0.5, oz:uz*r*w*0.5, ang:Math.atan2(-uz, ux) };
 }
-function fbThrow(aim, power, cpu, kind, opt){              // v163: starts the throwing motion; qbtRelease() lets the ball go on the release frame
+function fbThrow(aim, power, cpu, kind, opt){              // v164: starts the throwing motion; qbtRelease() lets the ball go on the release frame
   if (FB.esc) return;
   const s = FB.s, q = s.ctl;
   if (!q || q.role!=='QB' || q.carry || q.down || s.thrown || s.throwPend || s.ball.mode!=='held') return;
@@ -22479,7 +22719,7 @@ function fbThrow(aim, power, cpu, kind, opt){              // v163: starts the t
     release_t:rel, release_norm:null, blend_s:legacy.blend_in_s, root:{ dx:(q.vx||0)*(rel + QB_THROW.cfg.fol), dz:(q.vz||0)*(rel + QB_THROW.cfg.fol) }, cock:ck, t0:s.t, cpu:!!cpu };
   q.qbt.release_norm = (rel + 1e-6)/(rel + QB_THROW.cfg.fol);
   s.throwPend = { aim:{ x:aim.x, z:aim.z }, pw, cpu:!!cpu, at:s.t + rel, rel };
-  q.st = 'throw'; q.throwAnim = rel + QB_THROW.cfg.fol; q.qbPh = Math.max(1, ck); q.thT = 0; q.thFace = Math.atan2(-(aim.z - q.z), aim.x - q.x);   // v163: he turns to face where he throws
+  q.st = 'throw'; q.throwAnim = rel + QB_THROW.cfg.fol; q.qbPh = Math.max(1, ck); q.thT = 0; q.thFace = Math.atan2(-(aim.z - q.z), aim.x - q.x);   // v164: he turns to face where he throws
   qbtEmit('start', q);
   if (now) qbtRelease();
 }
@@ -22518,7 +22758,7 @@ function fbCatchCheck(b){
   fbRigs.forEach(p => {
     if (p.down || p.eng && !p.free || p.role==='QB' && s.t - b.t0 < 0.6) return;
     const k = fbKind(p.role); if (p.side==='O' && (k==='OL' || p.role==='QB')) return;
-    const R = p.side==='O' ? (p.diving ? 2.8 : 1.8) * ({W2:1.2,TE:1.3,W3:0.95}[p.role]||1) * (p.reachT>0 && p===s.rctl ? 1.3 : 1) : (fbUD(p) && p.tkWin>0 ? 2.7 : k==='DL' ? 1.0 : 1.35*(1+0.35*(s.cbL||0))*(1+0.55*(FB.lock||0)*(k==='CB'||k==='S' ? 1 : 0.5)));   // v163: a locked-down secondary reaches farther for the ball
+    const R = p.side==='O' ? (p.diving ? 2.8 : 1.8) * ({W2:1.2,TE:1.3,W3:0.95}[p.role]||1) * (p.reachT>0 && p===s.rctl ? 1.3 : 1) : (fbUD(p) && p.tkWin>0 ? 2.7 : k==='DL' ? 1.0 : 1.35*(1+0.35*(s.cbL||0))*(1+0.55*(FB.lock||0)*(k==='CB'||k==='S' ? 1 : 0.5)));   // v164: a locked-down secondary reaches farther for the ball
     const dd = Math.hypot(b.x-p.x, b.z-p.z); if (dd < R) cands.push({p,dd});
   });
   if (!cands.length) return false;
@@ -22533,7 +22773,7 @@ function fbCatchCheck(b){
     if (closeQ && defs.length) { fbDrop(w, b, 'BATTED DOWN AT THE LINE', null, true); return true; }
     if (ud) { const rr = Math.random(); if (rr < 0.52) { fbIntercept(ud.p, b); return true; } if (rr < 0.82) { fbDrop(w, b, 'PASS BROKEN UP', null, true); return true; } }
     if (defs.length && Math.random() < 0.28*D.int + (s.defMode ? 0.04 : 0.07) + 0.22*(s.cbL||0) + 0.3*(FB.lock||0)) { fbIntercept(defs[0].p, b); return true; }
-    if (defs.length && (FB.lock||0) > 0 && Math.random() < 0.55*(FB.lock||0)) { fbDrop(w, b, 'PASS BROKEN UP', null, true); return true; }   // v163: the ball is there, so is the defender: he knocks it away
+    if (defs.length && (FB.lock||0) > 0 && Math.random() < 0.55*(FB.lock||0)) { fbDrop(w, b, 'PASS BROKEN UP', null, true); return true; }   // v164: the ball is there, so is the defender: he knocks it away
     if (near.length) {
       const nd = near[0], cs = Math.hypot(nd.vx-w.vx, nd.vz-w.vz), strong = cs > 6.5 || nd.st==='lunge';
       if (Math.random() < Math.min(0.95, fbDropOdds(0, cs)*(1 + 0.3*(s.cbL||0) + 1.1*(FB.lock||0))*fbSizeK(w))) { fbDrop(w, b, 'HIT ON THE CATCH - DROP', nd); return true; }
@@ -22697,7 +22937,7 @@ function fbFalls(){
       if (p.fallT === undefined) p.fallT = 0;
       p.fallT += 1/60;
       if (p.fallT > 0) { const u = Math.min(1,p.fallT/0.24); p.fall = p.fallTo*(1-(1-u)*(1-u)); }
-      if (p.down || p.tackling) { const gk = p.fallT > 0.24 ? 0.8 : 0.93, sx = p.slideX || p.vx || 0, sz = p.slideZ || p.vz || 0; p.x += sx/60; p.z += sz/60; p.slideX = sx*gk || 1e-9; p.slideZ = sz*gk || 1e-9; p.vx = (p.vx||0)*gk; p.vz = (p.vz||0)*gk; p.anim += 0; }   // v163 GROUND FRICTION: once the body is on the turf (fall done) the slide dies in ~0.25 s; the old fallback to his running speed (slideX 0) never decayed = long glides
+      if (p.down || p.tackling) { const gk = p.fallT > 0.24 ? 0.8 : 0.93, sx = p.slideX || p.vx || 0, sz = p.slideZ || p.vz || 0; p.x += sx/60; p.z += sz/60; p.slideX = sx*gk || 1e-9; p.slideZ = sz*gk || 1e-9; p.vx = (p.vx||0)*gk; p.vz = (p.vz||0)*gk; p.anim += 0; }   // v164 GROUND FRICTION: once the body is on the turf (fall done) the slide dies in ~0.25 s; the old fallback to his running speed (slideX 0) never decayed = long glides
     }
   });
 }
@@ -23150,7 +23390,7 @@ const FB_LPADS = [      // a small lobby: three rows of three pads
   { id:'v1',     x:58, z:12,   col:'#6fd0ff', name:'1V1 VS A FRIEND' },
   { id:'ut',     x:22, z:-7,   col:'#ffd24a', name:'ULTIMATE TEAM' },      // one step to the left of where you spawn
   { id:'dev',    x:15.5, z:0,  col:'#1d9bf0', name:'DEV STATUS' },      // all the way back: type the code for the blue check + DEV tag
-  { id:'anim',   x:15.5, z:-8, col:'#c8ff4a', name:'ANIMATIONS' },      // v163: its own circle behind the spawn: every animation in the game
+  { id:'anim',   x:15.5, z:-8, col:'#c8ff4a', name:'ANIMATIONS' },      // v164: its own circle behind the spawn: every animation in the game
   { id:'tour',   x:68, z:0,    col:'#ff3a4a', name:'WEDNESDAY NIGHT FOOTBALL' }       // the far end: the giant trophy
 ];
 const TOUR_PAD = FB_LPADS[FB_LPADS.length-1];
@@ -23528,7 +23768,7 @@ function fbLobbyBuild(){
   const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos,3));
   L.motes = new THREE.Points(geo, new THREE.PointsMaterial({ color:'#ffe9b0', size:0.22, transparent:true, opacity:0.7, blending:THREE.AdditiveBlending, depthWrite:false })); L.motes.frustumCulled = false; L.group.add(L.motes);
 }
-function fbLobbyWalking(){ return FB.scr==='lobby' && !FB.av && !MD.on && !TOUR.open && !FB.lobbyPanel && !FB.shop && !FB.stats && !FB.lookOpen && !DEVX.ask && !document.getElementById('fbDevBox'); }
+function fbLobbyWalking(){ return FB.scr==='lobby' && !LM.menu /*LM*/ && !FB.av && !MD.on && !TOUR.open && !FB.lobbyPanel && !FB.shop && !FB.stats && !FB.lookOpen && !DEVX.ask && !document.getElementById('fbDevBox'); }
 function fbLobbyInit(){
   FB.lobbyPanel = false; FB.lobbyDwell = 0; FB.lobbyLock = null; FB.shop = null; FB.stats = false; FB.lookOpen = false; FB.hls = null;
   const av = FB.lobbyAv = fbBy('QB'); if (av) { av.x = 22; av.z = 0; av.vx = av.vz = 0; av.face = 0; av.st = 'ready'; av.carry = false; av.down = false; av.tackling = false; av.hasNoBall = true; av.fall = 0; av.fallTo = 0; av.stun = 0; av.catchT = 0; }
@@ -23564,7 +23804,7 @@ function fbLobbyGo(d){
   else if (d.id==='tut') fbAct('tut');
   else if (d.id==='ut') fbUtOpen();
   else if (d.id==='dev') fbDevStatusOpen();
-  else if (d.id==='anim') { try { avOpen(); } catch(e){ console.error('anim viewer', e); } }   // v163
+  else if (d.id==='anim') { try { avOpen(); } catch(e){ console.error('anim viewer', e); } }   // v164
   else if (d.id==='tour') tourOpen();
 }
 /* ---- DEV STATUS: stand in the circle at the back of the lobby and type the code. All it does: a blue check by your name + a DEV tag above it. */
@@ -23606,7 +23846,7 @@ function fbDevStatusOpen(){
   const give = toMe => { const to = toMe ? (utSrv.user||'') : String($('fbDevTo').value || '').trim() || (utSrv.user||''), pack = $('fbDevPk').value, qty = Math.max(1, Math.min(10, parseInt($('fbDevQ').value, 10) || 1)); say('SENDING...', true);
     utApi('devgive', { to, pack, qty }).then(d => { if (d && d.ok) { utApply(d); say('GAVE '+d.gave+' x '+pack.toUpperCase()+' TO '+String(d.to).toUpperCase(), true); } else say((d && d.err) || 'failed', false); }); };
   const inf = on2 => { const to = String($('fbDevTo').value || '').trim(); if (!to) { say('TYPE THE TEAM NAME FIRST', false); return; } say('SENDING...', true);
-    utApi('devinf', { to, on:on2 }).then(d => { if (d && d.ok) { utApply(d); say((on2 ? 'INFINITE COINS + PACKS ON FOR ' : 'INFINITE TAKEN AWAY FROM ') + String(d.to).toUpperCase(), true); } else say((d && d.err) || 'failed', false); }); };   // v163
+    utApi('devinf', { to, on:on2 }).then(d => { if (d && d.ok) { utApply(d); say((on2 ? 'INFINITE COINS + PACKS ON FOR ' : 'INFINITE TAKEN AWAY FROM ') + String(d.to).toUpperCase(), true); } else say((d && d.err) || 'failed', false); }); };   // v164
   if ($('fbDevInfOn')) $('fbDevInfOn').onclick = () => inf(true); if ($('fbDevInfOff')) $('fbDevInfOff').onclick = () => inf(false);
   if ($('fbDevGive')) $('fbDevGive').onclick = () => give(false); if ($('fbDevMe')) $('fbDevMe').onclick = () => give(true);
   $('fbDevX').onclick = close;
@@ -23631,7 +23871,7 @@ function fbLobbyStep(dt){
     FB.camOverride = { x:av.x - 14, y:9.6, z:av.z*0.8, lx:av.x + 22, ly:0.4, lz:av.z*0.8 };
   } else {
     fbVel(av, 0, 0, dt, 40); FB.lobbyDwell = 0;
-    const a = t*0.09; FB.camOverride = { x:60 + Math.cos(a)*46, y:11 + Math.sin(a*1.7)*2, z:Math.sin(a)*32, lx:60, ly:2.2, lz:0 };   // while a menu is up the camera slowly circles the stadium
+    const a = t*0.09; FB.camOverride = { x:60 + Math.cos(a)*46, y:11 + Math.sin(a*1.7)*2, z:Math.sin(a)*32, lx:60, ly:2.2, lz:0 }; if (LM.menu) FB.camOverride = lmCam(t);   // while a menu is up the camera slowly circles the stadium   // LM: the main menu has its own gentle sway
   }
   FB.lobbyCamOn = true;
 }
@@ -23647,7 +23887,9 @@ function fbLobbyTick(dt){
   const P = L.motes.geometry.attributes.position; for (let i=0;i<P.count;i++) { let y = P.getY(i) + dt*(0.25 + (i%5)*0.06); if (y > 17) y = 0.4; P.setY(i,y); P.setX(i, P.getX(i) + Math.sin(t*0.4 + i)*dt*0.12); } P.needsUpdate = true;
 }
 function fbLobbyWalkDraw(g){
+  if (LM.menu) { lmDraw(g); return; }   // LM: the clickable main menu
   const av = FB.lobbyAv; if (!av) return; const t = performance.now()/1000;
+  lmWalkBtn(g);   // LM: MAIN MENU button
   if (avDev() && !FBN.on && !PARTY.on) fbBtn(g,'av_open',6,31,64,9,'ANIM VIEWER',{size:3.8,line:'#ff8ad8',tc:'#ffc6ee'});   // AV: dev only
   g.fillStyle = 'rgba(4,8,18,.5)'; g.fillRect(0,0,W,28);
   uiMark(g,'ULTIMATE FOOTBALL',160,10,12,'#ffffff','center',-0.04);
@@ -23661,7 +23903,7 @@ function fbLobbyWalkDraw(g){
 
   if (PV2.state==='ready') T('MODELS: PLAYER BLAKEALLEN25 - HELMET EXODUSKS - CLEATS LISENHAO - TROPHY G_BORY32 (SKETCHFAB, CC BY 4.0)', 160, 176.6, '#5d6a8f', 2.1, 'center');
   try { onlPanelDraw(g); } catch(e){ console.error('onl', e); }
-  T('BUILD v163',314,174,'#8fa0cc',4,'right'); { const us = uoStatus(); if (us) T(us, 6, 174, UO.state==='off' ? '#ff8b7b' : '#6f7ea8', 3, 'left'); }
+  T('BUILD v164',314,174,'#8fa0cc',4,'right'); { const us = uoStatus(); if (us) T(us, 6, 174, UO.state==='off' ? '#ff8b7b' : '#6f7ea8', 3, 'left'); }
 }
 /* ===================== WHO'S ONLINE: a live list in the lobby (signed-in players + what they are doing), chat and party invites.
    Anything sent to you pops up as a small red note in the top corner, wherever you are in the game. ===================== */
@@ -23830,7 +24072,7 @@ const UT_DEMO_CFG = { maxBuyAtOnce:5, rarityWeights:UT_DEMO_RAR, packs:(() => { 
   Object.keys(pos).forEach(k => add(k, pos[k][0]+' PACK', 5, UT_DEMO_STD, null, { pos:pos[k][1] }));
   add('legend','SEASON LEGEND PACK',1,{ S:60, A:40 },{ Legendary:1 }); return P; })() };
 function utDemoWeighted(w){ const ks = Object.keys(w), tot = ks.reduce((a,k) => a+w[k], 0); let r = Math.random()*tot; for (const k of ks) { r -= w[k]; if (r < 0) return k; } return ks[ks.length-1]; }
-const utTierName = t => t === 'LG' ? 'LEGEND' : t;      // v163: LEGEND tier (code 'LG'): plays, rolls and sells like S tier, rated a touch higher
+const utTierName = t => t === 'LG' ? 'LEGEND' : t;      // v164: LEGEND tier (code 'LG'): plays, rolls and sells like S tier, rated a touch higher
 function utDemoPool(tier, pos){ const f = t => utDB().filter(p => p.tier === t && p.pos !== 'K' && (!pos || p.pos === pos)); if (tier === 'S' && Math.random() < 0.4) { const lg = f('LG'); if (lg.length) return lg; } return f(tier); }   // 4 in 10 S-tier pulls are LEGENDS
 function utDemoRoll(pack){
   const ORDER = ['S','A','B','C','D'], one = (tw, pos, rar) => { let t = utDemoWeighted(tw), pool = utDemoPool(t, pos); for (let i = ORDER.indexOf(t); !pool.length && i < 4;) pool = utDemoPool(ORDER[++i], pos); const p = pool[Math.floor(Math.random()*pool.length)]; return { pid:p.id, rarity:rar }; };
@@ -23935,7 +24177,7 @@ function utGameStart(){
   FB.utTeams = null; FB.utMid = ''; FB.cpuEdge = 0; FB.cpuEdgeP = 0; FB.cpuEdgeR = 0; FB.cpuStyle = fbStyleFor(''); try { fbFieldTheme(null); } catch(e){}
   FB.training = !!FB.trainNext; FB.trainNext = false;
   if (FB.training) { FB.utTeams = { me:(FB.trainTeams||{}).me || null, cpu:(FB.trainTeams||{}).cpu || null }; s.clock = 1e9; try { utApplyTeams(); } catch(e){} return; }
-  if (FB.mdGame && FBN.on && FBN.mode === 'vs') { try { FB.utTeams = { host:utBuildTeam(FB.mdGame.host), guest:utBuildTeam(FB.mdGame.guest) }; utApplyTeams(); } catch(e){ console.error('mega draft teams', e); } return; }   // v163: MEGA DRAFT - both drafted teams, no server match
+  if (FB.mdGame && FBN.on && FBN.mode === 'vs') { try { FB.utTeams = { host:utBuildTeam(FB.mdGame.host), guest:utBuildTeam(FB.mdGame.guest) }; utApplyTeams(); } catch(e){ console.error('mega draft teams', e); } return; }   // v164: MEGA DRAFT - both drafted teams, no server match
   if (utSrv.token) {
     const t = utBuildTeam(utLocalSnap());
     FB.utTeams = !FBN.on ? { me:t } : FBN.role === 'host' ? { host:t } : { guest:t };
@@ -24645,7 +24887,7 @@ function utCard(g,x,y,w,h,p,rar,dup){
   if (p && w >= 34 && p.skills && p.skills.length) utCardSkills(g, x, y, w, k, p, rar);
   const nm = p ? p.name.toUpperCase() : '?';
   T(nm.length > 12*(k<1?1:k) ? nm.slice(0, 11)+'.' : nm, x+w/2, y+22*k, R.ink, 2.7*k, 'center');
-  T(p ? (p.nickname ? '"'+String(p.nickname).toUpperCase().slice(0,18)+'"  '+(p.team || 'FA') : (p.team || 'FA')) : '', x+w/2, y+25.8*k, R.ink, 2.1*k, 'center');   // v163: legends show their nickname
+  T(p ? (p.nickname ? '"'+String(p.nickname).toUpperCase().slice(0,18)+'"  '+(p.team || 'FA') : (p.team || 'FA')) : '', x+w/2, y+25.8*k, R.ink, 2.1*k, 'center');   // v164: legends show their nickname
   if (p) { const sk = A.skin_hex || '#c68642', cx = x+w/2, by = y+h-9.5*k, hd = (()=>{ const n = parseInt(String(sk).slice(1),16); return '#'+[(n>>16)&255,(n>>8)&255,n&255].map(v=>Math.max(0,v-45).toString(16).padStart(2,'0')).join(''); })();
     g.save(); g.beginPath(); g.rect(x+2*k, y+31*k, w-4*k, by-(y+31*k)); g.clip();
     const wt = p.game_weight_lb || p.weight_lb || 200, fat = Math.max(0, Math.min(1, (wt-230)/260)), sw = 15*(1+0.4*fat), hx = 4.4*(1+0.95*fat), hy = 5.2*(1+0.22*fat);   // heavier players are drawn wider; the 490 lb kicker fills the card
@@ -24864,7 +25106,7 @@ function utSeasonGameOver(){
 }
 function utSeasonForfeit(){ const G = FB.seasonGame, s = FB.s; if (!G || !s || s.seasonRec) return; s.seasonRec = true; const S = utSeasonGet(); if (!S || S.div !== G.div || S.no !== G.no) { FB.seasonGame = null; return; }
   utSeasonApply(S, false, Math.min(s.you|0, 0), Math.max(21, s.cpu|0)); utSeasonSave(S); FB.seasonGame = null; }
-function utSeasonPlayedAll(S){ return !!S && S.champ === 'YOU' && !S.poSim && S.log.filter(l => l.wk === 'PO' && !l.sim).length >= 3; }   // v163: rewards need the Super Bowl AND every playoff game played by you (QF, SF, SB), none simulated
+function utSeasonPlayedAll(S){ return !!S && S.champ === 'YOU' && !S.poSim && S.log.filter(l => l.wk === 'PO' && !l.sim).length >= 3; }   // v164: rewards need the Super Bowl AND every playoff game played by you (QF, SF, SB), none simulated
 function utSeasonRewards(S){          // paid once the season is over: only the best thing you did counts (playoffs < Super Bowl < champion)
   if (!S || S.phase !== 'done') return; const U = FB.ut, claimed = utSrv.seasonClaimed || [];
   const kind = utSeasonPlayedAll(S) ? 'champ' : null; if (!kind || claimed.indexOf(kind) >= 0) return;      // only the Super Bowl pays, and only when you played every playoff game
@@ -24901,7 +25143,7 @@ function utLgSnap(id, div){      // a league team as a saved-team snapshot, so t
 }
 function utSeasonSimWeek(){                             // SIM instead of playing: your team's rating against theirs decides it, same odds as every other game in the league
   const S = utSeasonGet(); if (!S || (FB.ut && FB.ut.busy)) return; const opp = utSeasonOpp(S); if (!opp) return;
-  if (S.phase === 'po') { if (FB.ut) { FB.ut.err = 'PLAYOFF GAMES MUST BE PLAYED - NO SIMMING'; FB.ut.msgT = 0; } return; }      // v163
+  if (S.phase === 'po') { if (FB.ut) { FB.ut.err = 'PLAYOFF GAMES MUST BE PLAYED - NO SIMMING'; FB.ut.msgT = 0; } return; }      // v164
   const [pf, pa] = utLgSim(utLgYouOvr(), utLgTeamOvr(opp, S.div)); utSeasonApply(S, pf > pa, pf, pa, true); utSeasonSave(S).then(() => { try { utSeasonRewards(S); } catch(e){} });
   if (FB.ut) { FB.ut.msg = 'SIMMED: '+(pf > pa ? 'WIN ' : 'LOSS ')+pf+'-'+pa+' VS '+opp; FB.ut.msgT = 0; }
 }
@@ -25714,7 +25956,7 @@ function fbScoutLine(){                                   // one line for the ca
 }
 
 /* ---------------------------------------------------------------- the CPU drive sim */
-function fbCpuDrive(yl, down0, toGo0){          // v163: down0 / toGo0 = pick the drive up in the middle (SIM THE REST while you are on defense)
+function fbCpuDrive(yl, down0, toGo0){          // v164: down0 / toGo0 = pick the drive up in the middle (SIM THE REST while you are on defense)
   const s = FB.s, D = FBD[FB.diff];
   let y = yl, down = down0 || 1, toGo = toGo0 ? Math.min(toGo0, 100-y) : Math.min(10,100-y), pl = 0, t = 0, start = yl, pts = 0, res = '', userYl = 25;
   while (pl < 14) {
@@ -25954,7 +26196,7 @@ function fbStep(){
     if (s.daudPend && s.preT >= s.daudPend.at) { const id = s.daudPend.id; s.daudPend = null; fbAudibleDApply(id); }
     try { fbDefAdjustStep(1/60); } catch(e){ console.error('adj', e); }
     fbMotionStep(); try { fbPreDefMove(1/60); } catch(e){ console.error('predef', e); }
-    fbDef().forEach(d => { if (d.x > 119) { d.x = 119; if (d.vx > 0) d.vx = 0; } });   // v163: a deep safety shading pre-snap stays inside the end line (the live field clamp yanked him back 1-4 yd on the first tick)
+    fbDef().forEach(d => { if (d.x > 119) { d.x = 119; if (d.vx > 0) d.vx = 0; } });   // v164: a deep safety shading pre-snap stays inside the end line (the live field clamp yanked him back 1-4 yd on the first tick)
     if (s.audF > 0) { s.audF--; if (s.audF <= 0) s.audN = ''; }
     fbOff().forEach(p => { p.anim += 0.02; }); fbDef().forEach(p => { p.anim += 0.02; });
     if (s.preT > 0.9 && !s.cpuAud) { try { fbCpuAudible(); } catch(e){} }
@@ -25965,7 +26207,7 @@ function fbStep(){
   else if (sc==='live' && s.intFz > 0) { s.intFz -= 1/60; if (s.intFz <= 0) s.intFz = 0; fbRigs.forEach(p => { p.anim += 0.01; }); }
   else if (sc==='live') {
     // charging a throw
-    if (s.charging) { s.chargeF = FB.rmbMeter ? Math.max(0, (s.chargeF||0) - QB_THROW.cfg.drain) : (s.chargeF||0)+1; s.charge = qbtPower(s.chargeF/60); } else FB.rmbMeter = false;   // v163: right click drains the meter
+    if (s.charging) { s.chargeF = FB.rmbMeter ? Math.max(0, (s.chargeF||0) - QB_THROW.cfg.drain) : (s.chargeF||0)+1; s.charge = qbtPower(s.chargeF/60); } else FB.rmbMeter = false;   // v164: right click drains the meter
     if (FB.tapPending && !FB.tapPending.guest && performance.now() - FB.tapPending.at >= 200) { const tp = FB.tapPending; FB.tapPending = null; if (!s.thrown && !s.charging) fbThrow(tp.p, qbtPower(tp.h||0), false, 'lob'); }   // the short click: the lob goes
     if (s.tutMode) fbTutTick();
     if (!s.defMode && s.ctl && s.ctl.role==='QB' && !s.thrown && s.hover) {
@@ -26089,6 +26331,7 @@ function fbMsgDraw(g){
   const m = FB.msg; if (!m) return;
   if (FB.scr==='lobby' && /^DEV MENU:/.test(m.txt)) return;      // the DEV MENU notice belongs to the game, not the lobby
   const a = Math.min(1, m.t/18), big = /TOUCHDOWN|PICK|GOOD|INTERCEPT|FIRST/.test(m.txt);
+  if (HUDX.flat && LM.menu && lmActive()) { g.save(); g.translate(0,-34); hudToast(g, m.txt, m.col, a, big); g.restore(); return; }   // LM: in the main menu the notice sits under the header, not over the tiles
   if (HUDX.flat) { hudToast(g, m.txt, m.col, a, big); return; }
   g.globalAlpha = a; const sz = big ? 9 : 7;
   g.fillStyle = 'rgba(0,0,0,.45)'; const wd = Math.min(310, m.txt.length*sz+14); rrect(g,160-wd/2,52,wd,sz+10,4); g.fill();
@@ -26212,6 +26455,7 @@ function fbOverlay(){
 }
 function fbLobbyDraw(g){
   if (DEVX.ask) { devAskDraw(g); return; }
+  if (LM.menu && lmPanel(g)) return;   // LM: the same panel in the main menu's style
   try { if (fbDevOn() && FB.lobbyAv && FB.scr==='lobby') { const q = fbProj(FB.lobbyAv.x, 2.7, FB.lobbyAv.z); if (q[2] < 1) fbDevTag(g, q[0], q[1], fbDevName()); } } catch(e){}
   const D = FBD[FB.diff];
   g.fillStyle = 'rgba(6,9,18,.55)'; g.fillRect(0,0,W,H);
@@ -26231,7 +26475,7 @@ function fbLobbyDraw(g){
   fbBtn(g,'lobbyback',6,5,76,12,'< BACK TO THE FIELD',{size:4.6});
   if (avDev() && !FBN.on && !PARTY.on) fbBtn(g,'av_open',232,5,82,10,'ANIMATION VIEWER',{size:3.8,line:'#ff8ad8',tc:'#ffc6ee'});   // AV: dev only
   fbBtn(g,'party',6,19,76,10,PARTY.on ? 'PARTY  '+PARTY.code.toUpperCase() : 'PLAY WITH A FRIEND',{size:4.4,line:'#7ddc8a',tc:'#c9f7d0'});
-  T('BUILD v163',314,174,'#8fa0cc',4,'right');   // so you can tell which build is live
+  T('BUILD v164',314,174,'#8fa0cc',4,'right');   // so you can tell which build is live
   fbBtn(g,'tut',100,141,58,13,'TUTORIAL',{size:5,line:'#ffd24a',tc:'#ffe9a8'}); fbBtn(g,'howlobby',162,141,58,13,'HOW TO PLAY',{size:4.4,line:'#ffd24a',tc:'#ffe9a8'});
   fbBtn(g,'shop',6,141,90,13,'PLAY SHOP',{size:5.5,line:'#7ddc8a',tc:'#c9f7d0'});
   fbBtn(g,'stats',224,141,90,13,'MY STATS',{size:5.5,line:'#6fd0ff',tc:'#cfeeff'});
@@ -26461,6 +26705,7 @@ function fbOverDraw(g){
 function fbPtr(e){ const r = canvas.getBoundingClientRect(); return { px:(e.clientX-r.left)/r.width, py:(e.clientY-r.top)/r.height }; }
 function fbBtnAt(px,py){ const x = px*W, y = py*H; return (FB.btns||[]).find(b => x>=b.x && x<=b.x+b.w && y>=b.y && y<=b.y+b.h); }
 function fbAct(id){
+  if (/^lm_/.test(id)) { lmAct(id); return; }      // LM: lobby main menu
   if (/^av_/.test(id)) { avAct(id); return; }      // AV: animation viewer (dev only; avAct checks)
   if (id==='gfxq') { fbqCycle(); return; }
   if (id==='camstyle') { fbCamStyleNext(); try { fbSfx('tick'); fbMsg('CAMERA: '+fbCamStyleName(), '#ffd24a', 90); } catch(e){} return; }
@@ -26583,6 +26828,7 @@ window.addEventListener('keydown', e => {
   if (c==='KeyG' && (sc==='call' || sc==='pre')) { fbAct('fgany'); return; }
   if (FBN.on && FBN.role==='guest') { fbnGuestKey(c); return; }
   if ((sc==='dead' || sc==='impact') && (c==='Space' || c==='Enter') && fbCanSkipDead(false)) { fbSkipDead(); return; }
+  if (sc==='lobby' && lmKey(c)) return;   // LM: arrows + Enter in the main menu
   if (sc==='lobby') { if (FB.hls) { } else if (FB.lobbyPanel && !FB.shop && !FB.stats && !FB.lookOpen) { if (c==='ArrowLeft') FB.diff = Math.max(0,FB.diff-1); if (c==='ArrowRight') FB.diff = Math.min(2,FB.diff+1); if (c==='Enter' || c==='Space') fbAct('play'); } else if (fbLobbyWalking() && c==='Enter') { FB.lobbyPanel = true; fbSfx('tick'); } }
   else if (sc==='call') {
     if (s.pat) { if (c==='Digit1') fbAct('patxp'); if (c==='Digit2') fbAct('pat2'); return; }
@@ -26614,7 +26860,7 @@ document.getElementById('game').addEventListener('pointerdown', e => {
   }
   e.stopImmediatePropagation(); e.preventDefault();
   try { const ae = document.activeElement; if (ae && ae!==document.body && typeof ae.blur==='function' && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)) ae.blur(); } catch(_){}
-  if (e.button===2) { const cs = FB.s; if (cs && cs.charging && cs.ctl && cs.ctl.role==='QB' && !cs.thrown) { FB.rmbMeter = true; FB.rmb = true; return; }   // v163: right click while charging a throw = the meter goes down (no sprint)
+  if (e.button===2) { const cs = FB.s; if (cs && cs.charging && cs.ctl && cs.ctl.role==='QB' && !cs.thrown) { FB.rmbMeter = true; FB.rmb = true; return; }   // v164: right click while charging a throw = the meter goes down (no sprint)
     keys.ShiftRight = true; FB.rmb = true; return; }          // V81: right click = sprint (hold)
   try { unlockAudio(); } catch(_){}
   const { px, py } = px0, s = FB.s, sc = FB.scr;
@@ -26661,7 +26907,7 @@ window.addEventListener('pointerup', e => {
   if (FBN.on && FBN.role==='guest') { fbnGuestUp(); return; }
   if (FB.scr==='live' && s.charging) {
     s.charging = false; const p = s.hover ? fbRay(s.hover.px, s.hover.py, 1.0) : null;
-    const hS = (s.chargeF||0)/60; if (p) { if ((s.chargeF||0) < 12) FB.tapPending = { p, at:performance.now(), h:hS }; else fbThrow(p, qbtPower(hS), false, 'pass'); } s.aimShow = false;   // v163: how long you held = how hard he throws it   // a short click lobs it (after a beat, in case a second click makes it a pump fake)
+    const hS = (s.chargeF||0)/60; if (p) { if ((s.chargeF||0) < 12) FB.tapPending = { p, at:performance.now(), h:hS }; else fbThrow(p, qbtPower(hS), false, 'pass'); } s.aimShow = false;   // v164: how long you held = how hard he throws it   // a short click lobs it (after a beat, in case a second click makes it a pump fake)
   }
 }, true);
 function fbDrawPt(x,y){
@@ -26674,7 +26920,7 @@ function fbDrawPt(x,y){
 }
 
 window.addEventListener('blur', () => { if (FB && FB.rmb) { FB.rmb = false; FB.rmbMeter = false; keys.ShiftRight = false; } });
-// v163: right click while a throw is charging = the meter goes down. With the left button already held the browser sends no pointerdown for the second button, so the button mask is read from every mouse / pointer event
+// v164: right click while a throw is charging = the meter goes down. With the left button already held the browser sends no pointerdown for the second button, so the button mask is read from every mouse / pointer event
 { const rm = e => { try { const cs = FB && FB.s; if (!FB.on || !cs || !cs.charging || !cs.ctl || cs.ctl.role!=='QB' || cs.thrown) return; const dn = e.type==='mouseup' ? (e.buttons & 2) : (e.buttons & 2) || (e.type==='mousedown' && e.button===2); FB.rmbMeter = !!dn; if (dn) keys.ShiftRight = false; } catch(_){} };
   ['pointermove','mousemove','mousedown','mouseup','pointerup'].forEach(t => window.addEventListener(t, rm, true)); }
 
@@ -27191,7 +27437,7 @@ const FB_DCALLS = [
 const FB_ROLEN = { DL:'DL', LB:'LB', CB:'CB', S:'S' };
 
 /* ---------------------------------------------------------------- starting / ending a defensive drive */
-/* v163: you are not locked into the whole drive any more: SIM DRIVE finishes it from where it stands (the same drive sim the game uses when you skip the defense) */
+/* v164: you are not locked into the whole drive any more: SIM DRIVE finishes it from where it stands (the same drive sim the game uses when you skip the defense) */
 function fbDefSimOk(){ const s = FB.s; return !!(s && s.defMode && !FBN.on && !s.train && !s.tutMode && !s.pat && !s.conv && (FB.scr==='dcall' || FB.scr==='live')); }
 function fbDefSimRest(){
   const s = FB.s; if (!fbDefSimOk()) return;
@@ -28996,7 +29242,7 @@ function tdcSlots(K){
   }
   return out;
 }
-function tdcMoveTo(p,x,z,dt,max){ const d = Math.hypot(x-p.x, z-p.z); fbMove(p, x, z, Math.min(max, 9, Math.max(5, d*1.6)), dt, 34);   /* v163: dead-ball runs are at a real sprint (was up to 15 yd/s of wall clock = twice top speed) */ p.st = 'ready'; return d; }
+function tdcMoveTo(p,x,z,dt,max){ const d = Math.hypot(x-p.x, z-p.z); fbMove(p, x, z, Math.min(max, 9, Math.max(5, d*1.6)), dt, 34);   /* v164: dead-ball runs are at a real sprint (was up to 15 yd/s of wall clock = twice top speed) */ p.st = 'ready'; return d; }
 function tdcClear(p,dt){      // the other team walks out of the picture
   const s = FB.s, X = s.tdcSg>0 ? 120 : 0;
   if (Math.abs(p.x-X) > 15 || Math.abs(p.z-s.tdcZ) > 10) { fbVel(p,0,0,dt,20); return; }
@@ -29583,7 +29829,7 @@ function fbSkillBlock(p, tg, base){
 // the ball sits in the real hand(s): tucked along the forearm when carrying, between both hands for the QB / on a catch
 const _fbH1 = new THREE.Vector3(), _fbH2 = new THREE.Vector3(), _fbE = new THREE.Vector3(), _fbX = new THREE.Vector3(1,0,0), _fbQ = new THREE.Quaternion();
 function fbBallInHands(h){
-  if (h.tuckOn && h.tuckPos) { fbBall.position.copy(h.tuckPos); fbBall.quaternion.copy(h.tuckQ); return; }   // v163: tucked carry
+  if (h.tuckOn && h.tuckPos) { fbBall.position.copy(h.tuckPos); fbBall.quaternion.copy(h.tuckQ); return; }   // v164: tucked carry
   const rg=h.rig,bones=rg&&rg.fbBones,keys=bones?Object.keys(bones):[],findBone=(side,part)=>bones&&(bones['mixamorig'+side+part]||bones['mixamorig:'+side+part]||bones[side+part]||bones[keys.find(k=>new RegExp(side+'.*'+part,'i').test(k))]);
   if(bones&&rg.fbModel){
     const hand=findBone('Right','Hand'),fore=findBone('Right','ForeArm'),arm=findBone('Right','Arm'),other=findBone('Left','Hand');
@@ -29875,7 +30121,7 @@ function fbShopDraw(g){
   });
   T('LOCKED PLAYS CANNOT BE CALLED OFFLINE.  IN ONLINE GAMES BOTH PLAYERS GET EVERY PLAY.',160,170,'#8fa0cc',3.8,'center');
 }
-/* v163: TIME PLAYED - the real seconds you spend inside a game (not the lobby, menus or training hub), kept with your football stats */
+/* v164: TIME PLAYED - the real seconds you spend inside a game (not the lobby, menus or training hub), kept with your football stats */
 const FB_TP_NO = ['lobby','ut','train','howto','over','defask'];
 function fbPlayClock(){
   const now = performance.now(), last = FB.tpLast || now; FB.tpLast = now;
@@ -29902,7 +30148,7 @@ function fbStatsDraw(g){
   most.forEach((p,i) => { const y = 103 + i*9.4; T((i+1)+'  '+p.n,156,y,'#fff',4.8,'left'); T(p.c+' CALLS  '+p.y+' YDS',308,y,'#9fb0dc',4.4,'right'); });
 }
 
-/* ===================== v163: HANDOFF + PLAY-ACTION LIBRARY (anim/ho): the QB and the back play one synced pair =====================
+/* ===================== v164: HANDOFF + PLAY-ACTION LIBRARY (anim/ho): the QB and the back play one synced pair =====================
    The game still decides WHEN the exchange happens (the same handoff / toss / fake timing as before); the pair's own events are lined up
    to it: mesh_start (or toss_release / pull) = the moment the ball starts to move, transfer (or catch) = the moment the back has it.
    rb_path_m is matched visually: the back (and a little of the QB) is drawn up to 0.75 yd toward the authored path during the mesh only. */
@@ -30048,7 +30294,7 @@ const fbnIsHost = () => FBN.on && FBN.role==='host';
 const fbnIsGuest = () => FBN.on && FBN.role==='guest';
 function fbMain(){ if (FBN.on && FBN.role==='guest') fbnGuestStep(); else { fbStep(); if (FBN.on) fbnHostTick(); } }
 function fbVs(){ return !!(FBN.on && FBN.mode==='vs'); }
-function fbFlip(){ return false; }     // v163: one camera for everyone - behind the offense, on offense AND defense, solo, co-op and online (the same view the online 1v1 uses)
+function fbFlip(){ return false; }     // v164: one camera for everyone - behind the offense, on offense AND defense, solo, co-op and online (the same view the online 1v1 uses)
 function fbDirNow(){ const s = FB.s; return (fbFlip() || (s && s.turn)) ? -1 : 1; }      // after a turnover everyone sees the field from the other end
 function fbVsFix(t){                                                          // drive-screen text is written once (tokens) and read per player
   if (typeof t!=='string' || t.indexOf('{')<0) return t; const g = FBN.role==='guest', on = fbnOtherName();
@@ -30116,7 +30362,7 @@ function fbnFx(n){ FBN.fxq.push([++FBN.fxId, n]); if (FBN.fxq.length > 6) FBN.fx
 function fbnHold(){ const s = FB.s; FB.scr = 'hold'; s.phase = 'hold'; }
 
 /* ---------------------------------------------------------------- HOST: open a room, wait for the friend */
-/* ===================== v163: MEGA DRAFT (1v1 with your party member) =====================
+/* ===================== v164: MEGA DRAFT (1v1 with your party member) =====================
    One shared pool, both of you pick from it in turn (snake order), 15 players each - the same card for both of you is impossible.
    Everyone plays at the same card level, both O-lines and D-lines are the same level, so the draft itself decides the game. No wagers, no rewards: it is for fun.
    The leader's game runs the draft (host); the other player sends picks over the party room. */
@@ -30491,7 +30737,7 @@ function fbnGuestStep(){
   if (b && b.mode==='fly') { b.x += b.vx/60; b.y += b.vy/60; b.z += b.vz/60; b.vy -= FB_G*(b.tipped?FB_TIP_G:1)/60; }
   if (sc==='pre') s.preT += 1/60; else if (sc==='drive' || sc==='half') s.driveT = (s.driveT||0)+1; else if (sc==='over') s.overT = (s.overT||0)+1;
   if (sc==='live') {
-    if (s.charging) { s.chargeF = FB.rmbMeter ? Math.max(0, (s.chargeF||0) - QB_THROW.cfg.drain) : (s.chargeF||0)+1; s.charge = qbtPower(s.chargeF/60); } else FB.rmbMeter = false;   // v163: right click drains the meter
+    if (s.charging) { s.chargeF = FB.rmbMeter ? Math.max(0, (s.chargeF||0) - QB_THROW.cfg.drain) : (s.chargeF||0)+1; s.charge = qbtPower(s.chargeF/60); } else FB.rmbMeter = false;   // v164: right click drains the meter
     if (FB.tapPending && FB.tapPending.guest && performance.now() - FB.tapPending.at >= 200) { const tp = FB.tapPending; FB.tapPending = null; fbnEv({ n:'cu', x:fbnR(tp.p.x), z:fbnR(tp.p.z), k:'touch', h:fbnR(tp.h||0) }); }   // the guest's short click: the touch pass goes
     if (!s.defMode && FBN.mode==='vs' && s.ctl && s.ctl.role==='QB' && !s.thrown && s.hover) {
       const g = fbRay(s.hover.px, s.hover.py, 0.01);
@@ -30587,7 +30833,7 @@ function fbnGuestPtr(px,py,sc){
 function fbnGuestUp(){
   const s = FB.s; if (FB.scr!=='live' || !s.charging) return;
   s.charging = false; const p = s.hover ? fbRay(s.hover.px, s.hover.py, 1.0) : null; s.aimShow = false;
-  const hS = (s.chargeF||0)/60; if (p) { if ((s.chargeF||0) < 12) FB.tapPending = { p, at:performance.now(), guest:true, h:hS }; else fbnEv({ n:'cu', x:fbnR(p.x), z:fbnR(p.z), k:'pass', h:fbnR(hS) }); }   // v163: the hold time goes with it (the host turns it into power)   // a short click waits a beat (a second click makes it a pump fake), a hold is a bullet, hold + Shift a lob
+  const hS = (s.chargeF||0)/60; if (p) { if ((s.chargeF||0) < 12) FB.tapPending = { p, at:performance.now(), guest:true, h:hS }; else fbnEv({ n:'cu', x:fbnR(p.x), z:fbnR(p.z), k:'pass', h:fbnR(hS) }); }   // v164: the hold time goes with it (the host turns it into power)   // a short click waits a beat (a second click makes it a pump fake), a hold is a bullet, hold + Shift a lob
 }
 
 /* ---------------------------------------------------------------- shared */
@@ -33040,7 +33286,7 @@ function fbProtectionStep(dt,run){
   if((s.slide|0)&&!advancing&&available.filter(d=>d.rusher).length>free.length){const far=available.filter(d=>Math.sign(d.z-q.z)===-(s.slide|0)).sort((a,b)=>Math.abs(b.z-q.z)-Math.abs(a.z-q.z))[0];if(far){available.splice(available.indexOf(far),1);available.push(far);}}   // V46 (12): the line slides away from the far edge - that rusher is the back's (or nobody's)
   for(const d of available){if(reserved.has(d))continue;let best=null,score=Infinity;for(const o of free){if(o.passTarget&&reserved.has(o.passTarget))continue;const anchor=fbPocketAnchor(o,q,advancing),sidePenalty=Math.sign(o.protectZ)&&Math.sign(d.z-q.z)!==Math.sign(o.protectZ)?2.3:0,slideP=((s.slide|0)&&!advancing)?(fbKind(o.role)==='OL'&&Math.sign(d.z-q.z)===-(s.slide|0)?1.6:(o.role==='RB'&&Math.sign(d.z-q.z)===(s.slide|0)?1.6:0)):0,v=fbDist(o,d)+Math.abs(d.z-anchor.z)*.65+sidePenalty+slideP;if(v<score){score=v;best=o;}}if(best){if(best.passTarget!==d){best.passTarget=d;best.reactionAt=s.t+(.12+(1-(best.blockEff||1))*.15)*(1-.45*fbLineN(best));}best.targetReadUntil=s.t+.28;reserved.add(d);}}
   free.forEach(o=>{
-    const eff=o.blockEff||.8,olN=fbLineN(o),mvK=Math.min(1.55,eff*(fbKind(o.role)==='OL'?((o.ur&&o.ur.blk)||1)*(1+.5*olN):1)),anchor=fbPocketAnchor(o,q,advancing);let target=o.passTarget;   // v163: a better lineman moves, reaches and reacts like one
+    const eff=o.blockEff||.8,olN=fbLineN(o),mvK=Math.min(1.55,eff*(fbKind(o.role)==='OL'?((o.ur&&o.ur.blk)||1)*(1+.5*olN):1)),anchor=fbPocketAnchor(o,q,advancing);let target=o.passTarget;   // v164: a better lineman moves, reaches and reacts like one
     if(!target||!threats.includes(target)||target.eng||!reserved.has(target)){target=null;o.passTarget=null;}
     if(o.recoveryT>0){o.recoveryT=Math.max(0,o.recoveryT-dt);o.blockPlant=false;fbVel(o,0,0,dt,24);return;}
     let tx=anchor.x,tz=anchor.z;if(target&&s.t>=o.reactionAt&&advancing){const rx=q.x-target.x,rz=q.z-target.z,L=Math.hypot(rx,rz)||1;tx=target.x+(target.vx||0)*.2+rx/L*.9;tz=target.z+(target.vz||0)*.2+rz/L*.9;}   // for the runner: go meet the closest chaser, don't wait for him
@@ -33052,11 +33298,11 @@ function fbProtectionStep(dt,run){
 }
 function fbRunBlock(p,dt){p.runBlockReady=true;p.st='ready';}
 function fbBlockAI(p,dt){p.runBlockReady=true;p.st='ready';}
-// v163: how good a lineman is, 0..1 (line level 1 = 0 = the old lineman, level 10 = 1). A good O-line really holds the pocket and drives the run; a good D-line / elite edge beats it.
+// v164: how good a lineman is, 0..1 (line level 1 = 0 = the old lineman, level 10 = 1). A good O-line really holds the pocket and drives the run; a good D-line / elite edge beats it.
 function fbLineN(p){ const u=p&&p.ur; if(!u) return 0; if(u.lvl) return clamp((u.lvl-1)/9,0,1); return clamp(((u.blk||u.rush||1)-1)/0.45,0,1); }
 function fbLineEngage(e,dt,D,q){
   const d=e.d,o=e.o,s=FB.s;if(e.ended)return;const olN=fbLineN(o),rushN=clamp((((d.ur&&d.ur.rush)||1)-1)/0.45,0,1)*0.7+fbLineN(d)*0.3;
-  const eff=(e.eff||o.blockEff||1)*(o.ur?o.ur.blk:1)*(1+0.6*olN);   // v163: a maxed line is about twice the blocker (it was +20%)
+  const eff=(e.eff||o.blockEff||1)*(o.ur?o.ur.blk:1)*(1+0.6*olN);   // v164: a maxed line is about twice the blocker (it was +20%)
   if(e.flashed===undefined||(e.reFlash&&s.t>=(e.winOpen||0))){e.flashed=true;e.reFlash=false;if(fbUD(d))fbRushFlash(d,'MOVE!',.35);}   // v46 (16): the move window opens at first contact, and again after a stonewall
   if(e.ripAt){if(s.t>=e.ripAt){e.ripAt=0;fbRushWin(e,'rip',q);}else{d.vx*=.5;d.vz*=.5;o.vx*=.5;o.vz*=.5;fbFace(o,d.x,d.z);fbFace(d,o.x,o.z);o.st=d.st='block';o.blockContact=d.blockContact=true;}return;}   // the rip takes .3 s to work the arm through
   if(d.wantSwim||d.wantMove){const side=d.wantSwim||0,kind=d.wantMove||'swim';d.wantSwim=0;d.wantMove=null;if(fbRushMove(e,kind,side,q)||e.ended)return;}
@@ -33081,7 +33327,7 @@ function fbLineEngage(e,dt,D,q){
   const pastShoulder=Math.abs(shoulder)>.96,behind=(d.x-o.x)*nx+(d.z-o.z)*nz>.12;
   if(age>(xfHas(d,'shark')?.35:.7)&&pastShoulder&&(e.progress>(xfHas(d,'shark')?.4:.62)||behind)){fbReleaseBlock(e,true);return;}
   if(!user&&d.bullUntil&&s.t>d.bullUntil){d.bullHeld=false;d.bullUntil=0;}
-  if(e.cpuGo===undefined)e.cpuGo=Math.random()<clamp(1-0.82*olN+0.45*rushN+0.3*(FB.lock||0),0.1,1);   // v163: does this rusher get a move this play? a maxed line says no most of the time; an elite edge against a weak line almost always does
+  if(e.cpuGo===undefined)e.cpuGo=Math.random()<clamp(1-0.82*olN+0.45*rushN+0.3*(FB.lock||0),0.1,1);   // v164: does this rusher get a move this play? a maxed line says no most of the time; an elite edge against a weak line almost always does
   if(!user&&!e.cpuMove&&age>=.1&&age<=.33&&!(d.stonewallUntil>s.t)){e.cpuMove=true;if(e.cpuGo&&Math.random()<.08+.08*FB.diff){const heavy=fbBodyMass(d)>=fbBodyMass(o)-.001;if(heavy&&Math.random()<.4){d.bullHeld=true;d.bullUntil=s.t+1.3;}else fbRushMove(e,Math.random()<.75?'auto':'wrong',side,q);}}   // v46 (16): the CPU reads the same tells and uses the same three moves inside the same window (one try per engagement)
   if(!user&&e.cpuGo&&age>1.6+(slideK>0?1.7:slideK<0?-.5:0)+1.2*olN&&Math.abs(shoulder)>.36&&d.swimCd<=0&&s.t>=e.nextMove){const ofx=Math.cos(o.face),ofz=-Math.sin(o.face),swimSide=Math.sign((d.x-o.x)*(-ofz)+(d.z-o.z)*ofx)||-side,attempt=FBS.swim(e,swimSide,s.t);if(attempt.success){fbLineSwim(e,swimSide);return;}e.nextMove=s.t+.19;}
 }
@@ -33112,13 +33358,13 @@ function fbPathBlocked(a,b,ignore){
 }
 function fbSeparate(){
   const a=fbRigs;a.forEach(p=>{p.contactVx=p.vx;p.contactVz=p.vz;});for(let iteration=0;iteration<3;iteration++)for(let i=0;i<a.length;i++)for(let j=i+1;j<a.length;j++){
-    const p=a[i],q=a[j],fp=fbSepFixed(p),fq=fbSepFixed(q);if(fp&&fq)continue;if((p.uo&&p.uo.anchor===q)||(q.uo&&q.uo.anchor===p))continue;   /* v163: a clip pair (tackle / break / catch) owns its own spacing: shoving them apart made the glue yank the runner ~1 yd a tick */   /* v163: a man lying down or getting up is never shoved by bodies (was mass x10 only) */ if(p.side===q.side&&((p.hoGhost||0)>FB.s.t||(q.hoGhost||0)>FB.s.t)&&(p.role==='QB'||q.role==='QB'))continue;let dx=q.x-p.x,dz=q.z-p.z,d=Math.hypot(dx,dz);const rp=['OL','DL'].includes(fbKind(p.role))?.56:.46,rq=['OL','DL'].includes(fbKind(q.role))?.56:.46,R=rp+rq;
+    const p=a[i],q=a[j],fp=fbSepFixed(p),fq=fbSepFixed(q);if(fp&&fq)continue;if((p.uo&&p.uo.anchor===q)||(q.uo&&q.uo.anchor===p))continue;   /* v164: a clip pair (tackle / break / catch) owns its own spacing: shoving them apart made the glue yank the runner ~1 yd a tick */   /* v164: a man lying down or getting up is never shoved by bodies (was mass x10 only) */ if(p.side===q.side&&((p.hoGhost||0)>FB.s.t||(q.hoGhost||0)>FB.s.t)&&(p.role==='QB'||q.role==='QB'))continue;let dx=q.x-p.x,dz=q.z-p.z,d=Math.hypot(dx,dz);const rp=['OL','DL'].includes(fbKind(p.role))?.56:.46,rq=['OL','DL'].includes(fbKind(q.role))?.56:.46,R=rp+rq;
     if(d>=R)continue;if(d<.001){dx=(q.prevX||q.x)-(p.prevX||p.x);dz=(q.prevZ||q.z)-(p.prevZ||p.z);d=Math.hypot(dx,dz);if(d<.001){dx=i%2?1:-1;dz=0;d=1;}}
     const nx=dx/d,nz=dz/d,mp=fp?0:1/((p.rig.build||1)*(p.ur?p.ur.mk:1)*(p.side==='O'&&p.blockPlant?3.2:1)),mq=fq?0:1/((q.rig.build||1)*(q.ur?q.ur.mk:1)*(q.side==='O'&&q.blockPlant?3.2:1)),sum=mp+mq,depth=R-Math.hypot(q.x-p.x,q.z-p.z);p.x-=nx*depth*mp/sum;p.z-=nz*depth*mp/sum;q.x+=nx*depth*mq/sum;q.z+=nz*depth*mq/sum;
     const closing=(p.vx-q.vx)*nx+(p.vz-q.vz)*nz;if(closing>0){p.vx-=nx*closing*mp/sum;p.vz-=nz*closing*mp/sum;q.vx+=nx*closing*mq/sum;q.vz+=nz*closing*mq/sum;}
   }
 }
-function fbSepFixed(p){ return !!(p.down || p.tackling || p.getUp || (p.offG && p.stun > 0) || (p.uo && p.uo.ntkRise && !p.uo.done)); }   // v163: on the ground or getting up: only his own fall / slide / clip moves him
+function fbSepFixed(p){ return !!(p.down || p.tackling || p.getUp || (p.offG && p.stun > 0) || (p.uo && p.uo.ntkRise && !p.uo.done)); }   // v164: on the ground or getting up: only his own fall / slide / clip moves him
 function fbStartJuke(p,side){if(!p||!p.carry||p.down||p.jukeCd>0||p.wrapBy||p.brkBy||p.possT>0)return false;const cut=FBS.juke(p,side),s0=FB.s,chain=p.jukePlay===s0.skillPlayId&&(s0.t-(p.jukeAt||0))<1.2;p.jukePlay=s0.skillPlayId;p.jukeAt=s0.t;p.juke=.2;p.jukeCd=chain?1.0:.6;p.jukeRecT=chain?1.1:.65;p.jukeK=chain?.3:.45;if(chain)fbMsg('TIRED LEGS - NO JUKE CHAINS','#ff6b6b',45);p.jx=cut.x;p.jz=cut.z;p.st='juke';fbSfx('juke');FB.s.tutJuke=true;try{n2Juke(p,null);}catch(e){}/*NTK2*/return true;}
 function fbSkillInput(side,p){const s=FB.s;p=p||((s.defMode&&!s.turn)?s.dctl:s.ctl);if(!p)return;if(p.carry)fbStartJuke(p,side);else{p.wantSwim=side;p.wantMove=side<0?'swim':'rip';if(!p.eng){p.wantSwim=0;p.wantMove=null;p.swimCd=.45;p.recoveryT=.18;}}}   // v46 (16): Q = swim, E = rip for an engaged rusher (host dctl and guest gdc both arrive here)
 function fbDefLunge(d){
@@ -33313,7 +33559,7 @@ function fbTackleStep(dt){
   if(!s.turn&&car.x>=FB_GOAL){fbEnd({type:'td',x:FB_GOAL});return;}if(s.turn&&car.x<=10){fbEnd({type:'pick6',x:10});return;}if(Math.abs(car.z)>=FB_Z-.05){fbEnd({type:s.turn?'turnoob':'oob',x:car.x});return;}
   if(car.kneel||car.push||car.slid)return;   // giving himself up (slide), kneeling, or inside the push pile: nobody tackles him
   if(car.secureUntil>s.t&&car.side==='O'&&Math.hypot(car.vx||0,car.vz||0)>=0.5*fbTopSpeed(car,true))car.secureUntil=0;   // moving at half speed or better: the ball is secured, a hit is just a tackle
-  if(car.possT>0){fbPossStep(car,dt);return;}const opponents=car.side==='O'?fbDef():fbOff();if(fbPoOn(car)){fbPushOutStep(car,dt);return;}   /* v163: being driven out of bounds */ if(!car.wrapBy&&!car.brkBy&&!car.untackle)fbDiveTkTrigger(car,opponents);if(car.untackle){fbUntackleStep(car,opponents);return;}if(fbPunchStep(car,opponents))return;if(car.wrapBy){fbWrapStep(car,opponents,dt);return;}if(car.brkBy&&fbShedStep(car,opponents,dt))return;
+  if(car.possT>0){fbPossStep(car,dt);return;}const opponents=car.side==='O'?fbDef():fbOff();if(fbPoOn(car)){fbPushOutStep(car,dt);return;}   /* v164: being driven out of bounds */ if(!car.wrapBy&&!car.brkBy&&!car.untackle)fbDiveTkTrigger(car,opponents);if(car.untackle){fbUntackleStep(car,opponents);return;}if(fbPunchStep(car,opponents))return;if(car.wrapBy){fbWrapStep(car,opponents,dt);return;}if(car.brkBy&&fbShedStep(car,opponents,dt))return;
   if(!car.wrapBy&&!car.brkBy&&car.carry&&!car.slid&&!(car.diveT>0)&&!(car.possT>0)&&!s.turn){const cs0=Math.hypot(car.vx||0,car.vz||0);if(cs0>6.5){const ux0=car.vx/cs0,uz0=car.vz/cs0;for(const d of opponents){if(d.grabbed===s.skillPlayId||d.down||d.tackling||d.stun>0||d.tkCd>0||d.dtk||(d.eng&&!d.free)||(fbUD(d)))continue;const dist=fbDist(d,car);if(dist<=1.16||dist>2.1)continue;if((d.x-car.x)*ux0+(d.z-car.z)*uz0>-0.2)continue;if(Math.hypot(d.vx||0,d.vz||0)<cs0*0.7)continue;if(Math.random()<0.04){fbGrab(car,d);break;}}}}
   const contact=opponents.filter(d=>!d.down&&!d.tackling&&d.stun<=0&&!d.eng&&fbDist(d,car)<=(car.secureUntil>s.t?1.45:d.wrapReqT>s.t?1.2:1.16)&&!fbPathBlocked(d,car)).sort((a,b)=>fbDist(a,car)-fbDist(b,car));   // v46 (17): a held wrap reaches 1.2 yd
   for(const d of contact){if(d.tkCd>0)continue;const request=d.tackleRequestT>s.t,controlled=fbUD(d)||(d===s.ctl&&s.turn&&(!s.defMode||fbnGuestOff()));if(controlled&&!request&&fbDist(d,car)>.96)continue;
@@ -33340,7 +33586,7 @@ function fbDR(p, name){            // a defender's rating, 0..1, straight from h
 }
 // how long after an observable cue he reacts (s), by position and cue
 function fbReadDelay(d, cue){
-  const k=fbKind(d.role), COV=fbDR(d,'Coverage'); const LK = 1 - 0.45*Math.min(1,(FB.lock||0));   // v163: the better the defense, the sooner he reads it
+  const k=fbKind(d.role), COV=fbDR(d,'Coverage'); const LK = 1 - 0.45*Math.min(1,(FB.lock||0));   // v164: the better the defense, the sooner he reads it
   return fbReadDelay0(d, cue, k, COV)*LK;
 }
 function fbReadDelay0(d, cue, k, COV){
@@ -33398,7 +33644,7 @@ function fbGrab(car, d){      // a trailing man gets a hand on a faster runner: 
   const k = 0.84 - 0.05*Math.min(3, car.dragN||0); car.vx *= k; car.vz *= k; car.mStunUntil = s.t + 0.4; car.mSteer = 0.72; car.mAcc = 0.55; fbSfx('swat'); fbDust(car.x, car.z, 3, 0.5);
 }
 function fbBreakGo(car,E,all,sev,bt,xf){                        // the runner broke it: speed loss, stun, steering/acceleration penalties, the tackler stumbles
-  const s=FB.s,AI=1.10-.35*E.rear,dn=fbDragN(car,1);fbFpMark(car);let SL=clamp((.24+.50*sev-.10*bt/99)*AI+0.12*(dn-1),.18,.9);if(xf)SL=Math.max(.14,SL*.85);   // v163: a broken tackle always costs real speed (was as little as 4%)   // each man who has already hit him takes more off his speed   // an X-Factor softens it, it never removes it
+  const s=FB.s,AI=1.10-.35*E.rear,dn=fbDragN(car,1);fbFpMark(car);let SL=clamp((.24+.50*sev-.10*bt/99)*AI+0.12*(dn-1),.18,.9);if(xf)SL=Math.max(.14,SL*.85);   // v164: a broken tackle always costs real speed (was as little as 4%)   // each man who has already hit him takes more off his speed   // an X-Factor softens it, it never removes it
   let stun=clamp(.20+.34*sev-.12*bt/99,.14,.65);if(xf)stun=Math.max(.12,stun*.7);
   const steer=clamp(.40+.45*bt/99+(xf?.1:0),.40,xf?.95:.85);
   const fx=Math.cos(car.face),fz=-Math.sin(car.face);
@@ -33424,9 +33670,9 @@ function fbMomentumTackle(car,d,auth){
   const imp=auth&&auth.imp!==undefined?auth.imp:FBS.hitPower(d,car),sackSpot=car.role==='QB'&&car.x<s.los&&!s.turn,maxSp=Math.max(1,fbTopSpeed(car,true)),xf=!!(car.xfOn&&car.xfl&&car.xfl.length);
   const userD=fbUD(d)||(d===s.ctl&&s.turn&&(!s.defMode||fbnGuestOff())),wantWrap=d.wrapReqT>s.t;
   const near=opp.filter(o=>o===d||(!o.down&&!o.tackling&&!(o.eng&&!o.free)&&o.stun<=0&&fbDist(o,car)<=1.3)),crowd=near.length;
-  const conv=fbTkConverge(car,opp,near),evals=near.concat(conv.map(c=>c.o)).map(o=>{const e=fbTkEval(car,o,ux,uz,o===d&&(d.tackleRequestT>s.t||wantWrap)),c=conv.find(c=>c.o===o);e.w=c?c.w:1;e.conv=!!c;e.eff*=e.w;return e;}),E=evals.find(e=>e.d===d),combined=Math.pow(evals.reduce((a,e)=>a+Math.pow(e.eff,1.5),0),1/1.5),crowdW=evals.reduce((a,e)=>a+e.w,0),inC=evals.filter(e=>!e.conv);   // v163: men closing in (<= 2.1 yd, there within ~0.25 s) count in the same attempt, weighted by how close they are
+  const conv=fbTkConverge(car,opp,near),evals=near.concat(conv.map(c=>c.o)).map(o=>{const e=fbTkEval(car,o,ux,uz,o===d&&(d.tackleRequestT>s.t||wantWrap)),c=conv.find(c=>c.o===o);e.w=c?c.w:1;e.conv=!!c;e.eff*=e.w;return e;}),E=evals.find(e=>e.d===d),combined=Math.pow(evals.reduce((a,e)=>a+Math.pow(e.eff,1.5),0),1/1.5),crowdW=evals.reduce((a,e)=>a+e.w,0),inC=evals.filter(e=>!e.conv);   // v164: men closing in (<= 2.1 yd, there within ~0.25 s) count in the same attempt, weighted by how close they are
   let bull=1;if(xfHas(car,'bulldozer')&&car.side==='O'&&!car.bullUsed&&!s.thrown&&fbIsRun(s.play)&&!s.turn){car.bullUsed=true;bull=1.25;fbMsg('BULLDOZER!','#ff9a3a',70);}   // X-FACTOR: +25% runner power on the first eligible tackle
-  const RP=fbRunnerPower(car)*bull*Math.pow(0.82,fbDragN(car,0))*(s.t<(car.mStunUntil||0)+0.5?0.8:1),RR=RP*(.90+.20*clamp(impV/maxSp,0,1.2)),ratio=RR/Math.max(.01,combined),bt=fbRate(car,'brk',.01);   // v163: still off balance from the last broken tackle / grab (stun window + 0.5 s): -20% power on top of the per-play drag
+  const RP=fbRunnerPower(car)*bull*Math.pow(0.82,fbDragN(car,0))*(s.t<(car.mStunUntil||0)+0.5?0.8:1),RR=RP*(.90+.20*clamp(impV/maxSp,0,1.2)),ratio=RR/Math.max(.01,combined),bt=fbRate(car,'brk',.01);   // v164: still off balance from the last broken tackle / grab (stun window + 0.5 s): -20% power on top of the per-play drag
   if(car.truckT>0&&!car.wrapBy&&!sackSpot&&csp0>=3&&crowd<=2){   // TRUCK (F): runner mass/strength/speed against the defender's power; a braced defender gets a 25% edge
     car.truckT=0;const braced=fbBraced(d,car),tr=RR/Math.max(.01,combined*(braced?1.25:0.85));
     if(braced&&tr<.95){car.stiffT=0;s.shake=3;fbSfx('hit');fbMsg('RAN INTO A WALL','#ff6b6b',60);let uw=false;try{uw=uoTruck(car,d,'wall',ux,uz);}catch(e){}fbTackle(d,car,crowd,Math.max(imp,6));if(uw)try{uoAfterTackle(car);}catch(e){}return;}
@@ -33439,13 +33685,13 @@ function fbMomentumTackle(car,d,auth){
   if(!wantWrap&&!car.wrapBy&&fbHitStick(d,car,userD)){fbHitStickGo(d,car,crowd,userD);return;}   // HIT STICK: same activation and the same fumble roll as before
   if(sackSpot){fbTackle(d,car,crowd,imp);return;}
   const cat=E.ang>=2.094?'rear':E.ang>=1.047?'side':'front',fac=cat==='rear'?1:cat==='side'?.75:.55;
-  let broke=false;if(!wantWrap){const bc=fbTkBreakP(ratio,crowdW);broke=Math.random()<bc;}   /* v163: every extra man in contact makes it much harder to shake them */   // ONE roll per attempt (a held wrap is the safe option: it never breaks)
-  if(broke){fbBreakGo(car,E,inC,clamp(combined/Math.max(.01,RR),0,2),bt,xf);return;}if(!wantWrap&&!car.wrapBy&&fbPushOutTry(car,E,RR,combined))return;   // v163: PUSH OUT near the sideline (fbPushOutTry).  v163: only the men in contact get the post-break cooldown; the ones still arriving can hit him right away
+  let broke=false;if(!wantWrap){const bc=fbTkBreakP(ratio,crowdW);broke=Math.random()<bc;}   /* v164: every extra man in contact makes it much harder to shake them */   // ONE roll per attempt (a held wrap is the safe option: it never breaks)
+  if(broke){fbBreakGo(car,E,inC,clamp(combined/Math.max(.01,RR),0,2),bt,xf);return;}if(!wantWrap&&!car.wrapBy&&fbPushOutTry(car,E,RR,combined))return;   // v164: PUSH OUT near the sideline (fbPushOutTry).  v164: only the men in contact get the post-break cooldown; the ones still arriving can hit him right away
   const sf=clamp(impV/maxSp,0,1);let FT=(.18+.30*sf)*(1+.45*E.rear)*clamp(RR/Math.max(.01,combined),.70,1.30);if(wantWrap)FT*=1.3;FT=clamp(FT,.12,.85);
   evals.forEach(e=>{e.d.tkCd=Math.max(e.d.tkCd||0,.45);});
   fbTackleBegin(car,d,{impV,ux,uz,FT,cat,fac,imp,nx:E.nx,nz:E.nz,others:inC.filter(e=>e.d!==d).map(e=>e.d)});
 }
-// v163 PUSH OUT: within ~3 yd of the sideline a man who meets the runner from the inside at a good angle (within ~60 deg of straight out) can drive him out of bounds instead of wrapping him up.
+// v164 PUSH OUT: within ~3 yd of the sideline a man who meets the runner from the inside at a good angle (within ~60 deg of straight out) can drive him out of bounds instead of wrapping him up.
 // Only after the break roll failed (it never makes a broken tackle less likely); the chance grows with the angle, the closeness to the line and his power against the runner's. The play ends 'oob' where he crosses.
 function fbPoOn(c){ const s=FB.s; return !!(c && c.poBy && s && c.poPlay===s.skillPlayId); }
 function fbPushOutTry(car,E,RR,comb){
@@ -33465,14 +33711,14 @@ function fbPushOutStep(car,dt){
   fbVel(car,fwd,lat,dt,60); car.st='carry';
   fbMove(d,car.x-0.15,car.z-sg*0.85,Math.max(4,Math.hypot(car.vx||0,car.vz||0)+2),dt,40); fbFace(d,car.x,car.z); d.st='block'; d.wrapping=true;
 }
-function fbTkConverge(car,opp,near){   // v163 CONVERGING TACKLERS: everyone closing on the runner within 2.1 yd who gets there within ~0.25 s joins this attempt (weight 1 if there now .. 0.5 if 0.25 s away); a short tkCd does not exclude him
+function fbTkConverge(car,opp,near){   // v164 CONVERGING TACKLERS: everyone closing on the runner within 2.1 yd who gets there within ~0.25 s joins this attempt (weight 1 if there now .. 0.5 if 0.25 s away); a short tkCd does not exclude him
   const out=[],cvx=car.vx||0,cvz=car.vz||0;
   opp.forEach(o=>{ if(near.includes(o)||o.down||o.tackling||o.wrapping||(o.eng&&!o.free)||o.stun>0||o.dtk) return; const L=fbDist(o,car); if(L>2.1) return;
     const nx=(car.x-o.x)/(L||1),nz=(car.z-o.z)/(L||1),cl=((o.vx||0)-cvx)*nx+((o.vz||0)-cvz)*nz; if(cl<1||L-1.3>cl*0.25) return;
     out.push({o,w:clamp(1-Math.max(0,L-1.3)/cl/0.3,0.5,1)}); });   // weight from his arrival time: there now = 1 .. 0.25 s away = 0.5
   return out;
 }
-function fbTkBreakP(ratio,crowdW){ return clamp(1/(1+Math.exp(-5*(ratio-1.2))),.02,.75)*Math.pow(.45,Math.max(0,crowdW-1)); }   // v163: the break chance of ONE roll; each extra (weighted) man multiplies it by 0.45 (was 0.65 per man in contact only)
+function fbTkBreakP(ratio,crowdW){ return clamp(1/(1+Math.exp(-5*(ratio-1.2))),.02,.75)*Math.pow(.45,Math.max(0,crowdW-1)); }   // v164: the break chance of ONE roll; each extra (weighted) man multiplies it by 0.45 (was 0.65 per man in contact only)
 // v46 (18) HIT STICK: defender squared up (within 30 deg of the runner), closing faster than 6, runner not braced (moving and not turned to meet him), nothing special going on. Both humans and the CPU get it on positioning alone.
 function fbHitStick(d,car,userD){
   const s=FB.s;if(car.slid||car.kneel||car.push||car.diveT>0||car.possT>0||car.secureUntil>s.t||car.wrapBy||car.brkBy)return false;
@@ -33489,9 +33735,9 @@ function fbHitStickGo(d,car,crowd,userD){
 function fbWrapStep(car,tacklers,dt){      // MASS 2.0: the successful tackle - speed = impact x (1-u)^2 over FallTime, defender attached, a joiner cuts the remaining time by 35%
   const d=car.wrapBy;if(!d||d.down){fbWrapEnd(car);return false;}
   car.tkJoin=car.tkJoin||{};
-  tacklers.forEach(o=>{if(o===d||car.tkJoin[o.role]||o.down||o.tackling||(o.eng&&!o.free)||o.stun>0||fbDist(o,car)>1.3)return;car.tkJoin[o.role]=1;const rem=Math.max(0,car.tkFT-car.tkT);car.tkFT=car.tkT+rem*.45;});   // v163: each joiner cuts the rest of the fall by 55%
+  tacklers.forEach(o=>{if(o===d||car.tkJoin[o.role]||o.down||o.tackling||(o.eng&&!o.free)||o.stun>0||fbDist(o,car)>1.3)return;car.tkJoin[o.role]=1;const rem=Math.max(0,car.tkFT-car.tkT);car.tkFT=car.tkT+rem*.45;});   // v164: each joiner cuts the rest of the fall by 55%
   if(!car.tkK){const cap=car.tkCat==='front'?0.45:car.tkCat==='side'?1.1:2.2,full=car.tkImp*car.tkFac*Math.max(.05,car.tkFT)/3;car.tkK=Math.min(1,cap/Math.max(.01,full));}   // how far he slides after contact follows the picture: a head-on hit stops him (he falls BACK), from behind he falls forward
-  car.tkT+=dt;const u=clamp(car.tkT/Math.max(.05,car.tkFT),0,1),nj=Object.keys(car.tkJoin).length,sp=car.tkImp*car.tkFac*car.tkK*(1-u)*(1-u)*clamp(1-.3*nj,.3,1)*clamp(.55+.45*u*3,0,1);   // v163: bodies pile on = the runner loses speed at once; the first moments after contact are already a hard brake
+  car.tkT+=dt;const u=clamp(car.tkT/Math.max(.05,car.tkFT),0,1),nj=Object.keys(car.tkJoin).length,sp=car.tkImp*car.tkFac*car.tkK*(1-u)*(1-u)*clamp(1-.3*nj,.3,1)*clamp(.55+.45*u*3,0,1);   // v164: bodies pile on = the runner loses speed at once; the first moments after contact are already a hard brake
   let dx=car.tkUx-car.tkNx*.10*u,dz=car.tkUz-car.tkNz*.10*u;const L=Math.hypot(dx,dz)||1;dx/=L;dz/=L;   // momentum direction kept, a small push from the defender
   fbVel(car,dx*sp,dz*sp,dt,60);car.st='carry';
   if(!(d.uo&&d.uo.anchor===car)){fbMove(d,car.x+car.tkNx*.9,car.z+car.tkNz*.9,Math.max(1,sp+2.5),dt,28);fbFace(d,car.x,car.z);}d.st='tackle';   // he stays on the runner, no teleporting (a library clip glues him to his offset instead)
@@ -33499,7 +33745,7 @@ function fbWrapStep(car,tacklers,dt){      // MASS 2.0: the successful tackle - 
   return true;
 }
 
-/* ===== v163 BALL CARRY: the ball is TUCKED - high and tight under the arm against the ribs, long axis pointing forward, fingertips over the nose - instead of floating inside the forearm ===== */
+/* ===== v164 BALL CARRY: the ball is TUCKED - high and tight under the arm against the ribs, long axis pointing forward, fingertips over the nose - instead of floating inside the forearm ===== */
 const CARRY_LOOK = { elbowDown:0.86, elbowIn:0.10, elbowBack:0.12, ballFwd:0.42, ballUp:0.10, ballIn:0.22, handFwd:0.46, handUp:0.20, blend:9, tilt:0.16 };   // all in upper-arm lengths
 const _tk = { a:new THREE.Vector3(), b:new THREE.Vector3(), f:new THREE.Vector3(), r:new THREE.Vector3(), E:new THREE.Vector3(), H:new THREE.Vector3(), T:new THREE.Vector3(), up:new THREE.Vector3(0,1,0), q:new THREE.Quaternion(), q2:new THREE.Quaternion(), pq:new THREE.Quaternion() };
 const _ta = { a:new THREE.Vector3(), c:new THREE.Vector3(), to:new THREE.Vector3(), rot:new THREE.Quaternion(), w:new THREE.Quaternion(), pq:new THREE.Quaternion() };
@@ -33748,7 +33994,7 @@ function devRender(soft){
   if (!ui.menuOpen || !m.role) return;
   ui.role.textContent = m.role.toUpperCase();
   ui.wrap.querySelectorAll('.dx-dev').forEach(e => { e.style.display = m.role==='dev' ? '' : 'none'; });
-  ui.wrap.querySelectorAll('.dx-av').forEach(e => { e.style.display = (m.role==='dev' || m.role==='admin') ? '' : 'none'; });   // v163
+  ui.wrap.querySelectorAll('.dx-av').forEach(e => { e.style.display = (m.role==='dev' || m.role==='admin') ? '' : 'none'; });   // v164
   ui.mpunch.checked = !!DEVX.mods.punch; ui.mac.checked = !!DEVX.mods.autocatch;
   ui.list.textContent = '';
   devPlayers().forEach(n => { const r = devRoleOf(n), b = devBadgeOf(n), t = document.createElement('button'); t.type = 'button'; t.setAttribute('data-a', 'pick'); t.dataset.n = n;
@@ -33843,7 +34089,7 @@ const AV_C = { x:60, z:0 }, AV_PER = 10;
 const AV_OFF_RE = /^(ballcarrier|runner|receiver|qb|center|left_guard|right_guard|left_blocker|right_blocker|QB|RB|WR|TE|player)$/;
 const AV_RIG = { qb:'QB', center:'OL3', left_guard:'OL2', right_guard:'OL4', left_blocker:'RB', right_blocker:'TE', QB:'QB', RB:'RB', WR:'W1', TE:'TE', LB:'LB1', CB:'CB1', S:'S1' };
 const AV_OFFL = ['QB','RB','W1','W2','W3','TE','OL1','OL2'], AV_DEFL = ['CB1','LB1','S1','CB2','LB2','S2','DL1','DL2'];
-function avDev(){ return true; }   // v163: open to everyone (the ANIMATIONS circle in the lobby); the dev-menu button stays for devs / admins
+function avDev(){ return true; }   // v164: open to everyone (the ANIMATIONS circle in the lobby); the dev-menu button stays for devs / admins
 function avOk(){ return !!(FB.on && FB.scr === 'lobby' && FB.s && !FBN.on && !PARTY.on && !FB.hlReel && !FB.hls && !FB.shop && !FB.stats && !FB.lookOpen && !MD.on && !TOUR.open && !DEVX.ask && FB.lobbyAv && FB.lobbyAv.rig && FB.lobbyAv.rig.fbModel && FB_MODEL.clips && !FB_MODEL.loading && !FB_MODEL.animLoading); }
 function avOpen(){
   if (!avDev() || FB.av) return false;
